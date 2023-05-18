@@ -635,6 +635,8 @@ dependencies = [
 [[package]]
 name = "monoio-http"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f057eb40261b4d0105b0994c13b349e878d4e2e4f123600c9b263ddd3544b479"
 dependencies = [
  "bytes",
  "http",
@@ -647,6 +649,8 @@ dependencies = [
 [[package]]
 name = "monoio-http-client"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdcb9212bbfd247f9a02b62ef47265b8230dfff572ac4d9098214e79d66c1232"
 dependencies = [
  "bytes",
  "http",

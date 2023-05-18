@@ -10,11 +10,8 @@ monolake-core = { path = "../monolake-core" }
 monolake-services = { path = "../monolake-services" }
 
 monoio = "0.1.3"
-monoio-http = { version = "0.1.0", path = "../../monoio-http/monoio-http" }
-monoio-http-client = { version = "0.1.0", path = "../../monoio-http/monoio-http-client", features = [
-    "logging",
-    "tls",
-] }
+monoio-http = "0.1.0"
+monoio-http-client = { version = "0.1.0", features = ["logging", "tls"] }
 
 monoio-rustls = { version = "0.1.2" }
 

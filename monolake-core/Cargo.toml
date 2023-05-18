@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 monoio = { version = "0.1.3", features = ['splice'] }
-monoio-http = { version = "0.1.0", path = "../../monoio-http/monoio-http" }
+monoio-http = "0.1.0"
 
 tower-layer = "0"
 thiserror = "1"

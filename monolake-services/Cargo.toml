@@ -10,11 +10,8 @@ edition = "2021"
 
 monoio = { version = "0.1.3", features = ['splice'] }
 monolake-core = { path = "../monolake-core" }
-monoio-http = { version = "0.1.0", path = "../../monoio-http/monoio-http" }
-monoio-http-client = { version = "0.1.0", path = "../../monoio-http/monoio-http-client", features = [
-    "logging",
-    "tls",
-] }
+monoio-http = "0.1.0"
+monoio-http-client = { version = "0.1.0", features = ["logging", "tls"] }
 
 
 anyhow = "1"
