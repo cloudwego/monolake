@@ -73,13 +73,19 @@ pub struct RuntimeConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RuntimeType {
+    #[cfg(all(target_os = "linux"))]
     IoUring,
     Legacy,
 }
 
 impl Default for RuntimeType {
+    #[cfg(all(target_os = "linux"))]
     fn default() -> Self {
         Self::IoUring
+    }
+    #[cfg(not(target_os = "linux"))]
+    fn default() -> Self {
+        Self::Legacy
     }
 }
 

@@ -36,8 +36,11 @@ impl Runtimes {
         let mut handlers = vec![];
 
         info!(
-            "Start monolake with maximum {} worker(s) and with maximum {} entries, sqpoll enabled: {:?}.",
-            self.config.workers, self.config.entries, self.config.sqpoll_idle
+            "Start monolake with {:?} runtime, {} worker(s), {} entries and sqpoll {:?}.",
+            self.config.runtime_type,
+            self.config.workers,
+            self.config.entries,
+            self.config.sqpoll_idle
         );
 
         (0..self.config.workers).for_each(|worker| {
