@@ -16,7 +16,7 @@ pub trait Service<Request>: Clone {
         Self: 'cx;
 
     /// Process the request and return the response asynchronously.
-    fn call(&mut self, req: Request) -> Self::Future<'_>;
+    fn call(&self, req: Request) -> Self::Future<'_>;
 }
 
 pub trait ServiceLayer<S> {

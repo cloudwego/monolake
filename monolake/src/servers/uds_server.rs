@@ -17,7 +17,6 @@ use monolake_services::{
 };
 
 use std::{
-    cell::UnsafeCell,
     future::Future,
     os::{
         fd::{FromRawFd, IntoRawFd, RawFd},
@@ -94,10 +93,7 @@ impl UdsServer {
     }
 
     #[allow(unreachable_code, unused_assignments, unused_variables, unused_unsafe)]
-    async fn listener_loop<Handler>(
-        &self,
-        handler: Rc<UnsafeCell<Handler>>,
-    ) -> Result<(), anyhow::Error>
+    async fn listener_loop<Handler>(&self, handler: Rc<Handler>) -> Result<(), anyhow::Error>
     where
         Handler: Service<Accept<UnixStream, SocketAddr>> + 'static,
     {
@@ -111,7 +107,7 @@ impl UdsServer {
         };
 
         // let listener = Rc::new(listener);
-        let mut svc = UdsListenerService::default();
+        let svc = UdsListenerService;
         loop {
             info!("Accepting new connection from {:?}", self.addr.clone());
             let handler = handler.clone();
@@ -119,7 +115,7 @@ impl UdsServer {
             match svc.call(listener.clone()).await {
                 Ok(accept) => {
                     monoio::spawn(async move {
-                        match unsafe { &mut *handler.get() }.call(accept).await {
+                        match handler.call(accept).await {
                             Ok(_) => {
                                 info!("Connection complete");
                             }
@@ -162,14 +158,14 @@ impl Server for UdsServer {
                 Some(tls) => match tls.stack {
                     TlsStack::Rustls => {
                         let service = RustlsService::layer(self.name.clone()).layer(service);
-                        self.listener_loop(Rc::new(UnsafeCell::new(service))).await
+                        self.listener_loop(Rc::new(service)).await
                     }
                     TlsStack::NativeTls => {
                         let service = NativeTlsService::layer(self.name.clone()).layer(service);
-                        self.listener_loop(Rc::new(UnsafeCell::new(service))).await
+                        self.listener_loop(Rc::new(service)).await
                     }
                 },
-                None => self.listener_loop(Rc::new(UnsafeCell::new(service))).await,
+                None => self.listener_loop(Rc::new(service)).await,
             }
         }
     }

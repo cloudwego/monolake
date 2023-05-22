@@ -130,7 +130,7 @@ where
     where
         Self: 'a;
 
-    fn call(&mut self, incoming_stream: Accept<Stream, SocketAddr>) -> Self::Future<'_> {
+    fn call(&self, incoming_stream: Accept<Stream, SocketAddr>) -> Self::Future<'_> {
         let (stream, addr) = incoming_stream;
         let (reader, writer) = stream.into_split();
         let service = Rc::new(self.to_owned());

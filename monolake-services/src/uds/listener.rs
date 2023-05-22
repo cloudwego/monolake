@@ -23,7 +23,7 @@ impl Service<Rc<UnixListener>> for UdsListenerService {
     where
         Self: 'cx;
 
-    fn call(&mut self, listener: Rc<UnixListener>) -> Self::Future<'_> {
+    fn call(&self, listener: Rc<UnixListener>) -> Self::Future<'_> {
         async move {
             match listener.accept().await {
                 Ok(accept) => {

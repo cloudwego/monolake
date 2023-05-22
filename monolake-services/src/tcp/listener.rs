@@ -23,7 +23,7 @@ impl Service<Rc<TcpListener>> for TcpListenerService {
     where
         Self: 'cx;
 
-    fn call(&mut self, listener: Rc<TcpListener>) -> Self::Future<'_> {
+    fn call(&self, listener: Rc<TcpListener>) -> Self::Future<'_> {
         async move {
             match listener.accept().await {
                 Ok(accept) => {

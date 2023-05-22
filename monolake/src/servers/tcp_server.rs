@@ -1,4 +1,4 @@
-use std::{cell::UnsafeCell, future::Future, net::SocketAddr, rc::Rc};
+use std::{future::Future, net::SocketAddr, rc::Rc};
 
 use anyhow::{bail, Result};
 use log::{error, info, warn};
@@ -82,20 +82,17 @@ impl TcpServer {
         Ok(())
     }
 
-    async fn listener_loop<Handler>(
-        &self,
-        handler: Rc<UnsafeCell<Handler>>,
-    ) -> Result<(), anyhow::Error>
+    async fn listener_loop<Handler>(&self, handler: Rc<Handler>) -> Result<(), anyhow::Error>
     where
         Handler: Service<Accept<TcpStream, SocketAddr>> + 'static,
     {
-        let addr = self.addr.clone();
+        let addr = self.addr;
         let listener = TcpListener::bind_with_config(addr, &ListenerConfig::default());
         if let Err(e) = listener {
             bail!("Error when binding address({})", e);
         }
         let listener = Rc::new(listener.unwrap());
-        let mut svc = TcpListenerService::default();
+        let svc = TcpListenerService;
         loop {
             info!("Accepting new connection from {:?}", addr);
             let handler = handler.clone();
@@ -103,7 +100,7 @@ impl TcpServer {
             match svc.call(listener.clone()).await {
                 Ok(accept) => {
                     monoio::spawn(async move {
-                        match unsafe { &mut *handler.get() }.call(accept).await {
+                        match handler.call(accept).await {
                             Ok(_) => {
                                 info!("Connection complete");
                             }
@@ -138,21 +135,21 @@ impl Server for TcpServer {
                     ConnReuseHandler::layer(self.keepalive_config.clone()),
                 )
                     .layer(ProxyHandler::new(client.clone())),
-                self.keepalive_config.clone()
+                self.keepalive_config.clone(),
             );
 
             match &self.tls {
                 Some(tls) => match tls.stack {
                     TlsStack::Rustls => {
                         let service = RustlsService::layer(self.name.clone()).layer(service);
-                        self.listener_loop(Rc::new(UnsafeCell::new(service))).await
+                        self.listener_loop(Rc::new(service)).await
                     }
                     TlsStack::NativeTls => {
                         let service = NativeTlsService::layer(self.name.clone()).layer(service);
-                        self.listener_loop(Rc::new(UnsafeCell::new(service))).await
+                        self.listener_loop(Rc::new(service)).await
                     }
                 },
-                None => self.listener_loop(Rc::new(UnsafeCell::new(service))).await,
+                None => self.listener_loop(Rc::new(service)).await,
             }
         }
     }

@@ -12,37 +12,34 @@ impl Rewrite {
             Endpoint::Uri(uri) => &uri.uri,
             _ => unimplemented!("not implement"),
         };
-        match remote.authority() {
-            Some(authority) => {
-                let header_value = HeaderValue::from_str(authority.as_str())
-                    .unwrap_or(HeaderValue::from_static(""));
-                log::debug!(
-                    "Request: {:?} -> {:?}",
-                    request.headers().get(http::header::HOST),
-                    header_value
-                );
-                request
-                    .headers_mut()
-                    .insert(http::header::HOST, header_value);
+        if let Some(authority) = remote.authority() {
+            let header_value = HeaderValue::from_str(authority.as_str())
+                .unwrap_or(HeaderValue::from_static(""));
+            log::debug!(
+                "Request: {:?} -> {:?}",
+                request.headers().get(http::header::HOST),
+                header_value
+            );
+            request
+                .headers_mut()
+                .insert(http::header::HOST, header_value);
 
-                let scheme = match remote.scheme() {
-                    Some(scheme) => scheme.to_owned(),
-                    None => Scheme::HTTP,
-                };
+            let scheme = match remote.scheme() {
+                Some(scheme) => scheme.to_owned(),
+                None => Scheme::HTTP,
+            };
 
-                let uri = request.uri_mut();
-                let path_and_query = match uri.path_and_query() {
-                    Some(path_and_query) => path_and_query.as_str(),
-                    None => "/",
-                };
-                *uri = Uri::builder()
-                    .authority(authority.to_owned())
-                    .scheme(scheme)
-                    .path_and_query(path_and_query)
-                    .build()
-                    .unwrap();
-            }
-            None => return,
+            let uri = request.uri_mut();
+            let path_and_query = match uri.path_and_query() {
+                Some(path_and_query) => path_and_query.as_str(),
+                None => "/",
+            };
+            *uri = Uri::builder()
+                .authority(authority.to_owned())
+                .scheme(scheme)
+                .path_and_query(path_and_query)
+                .build()
+                .unwrap();
         }
     }
 }

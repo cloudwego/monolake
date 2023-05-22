@@ -27,7 +27,7 @@ where
     where
         Self: 'cx;
 
-    fn call(&mut self, req: R) -> Self::Future<'_> {
+    fn call(&self, req: R) -> Self::Future<'_> {
         async {
             match timeout(self.timeout, self.inner.call(req)).await {
                 Ok(Ok(resp)) => Ok(Some(resp)),

@@ -22,9 +22,9 @@ where
     where
         Self: 'cx;
 
-    fn call(&mut self, req: R) -> Self::Future<'_> {
+    fn call(&self, req: R) -> Self::Future<'_> {
         async {
-            monoio::time::sleep(self.duration.clone()).await;
+            monoio::time::sleep(self.duration).await;
             self.inner.call(req).await
         }
     }
@@ -36,7 +36,7 @@ impl<S> ServiceLayer<S> for DelayService<S> {
     fn layer(param: Self::Param) -> Self::Layer {
         layer_fn(move |inner| DelayService {
             inner,
-            duration: param.clone(),
+            duration: param,
         })
     }
 }

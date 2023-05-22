@@ -35,7 +35,7 @@ where
     where
         Self: 'cx;
 
-    fn call(&mut self, accept: Accept<Stream, SocketAddr>) -> Self::Future<'_> {
+    fn call(&self, accept: Accept<Stream, SocketAddr>) -> Self::Future<'_> {
         async move {
             let acceptor = self.get_acceptor()?;
             match acceptor.accept(accept.0).await {

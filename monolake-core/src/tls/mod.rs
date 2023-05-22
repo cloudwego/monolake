@@ -35,17 +35,14 @@ impl ResolvesServerCert for CertificateResolver {
         let server_name = self.server_name.as_str();
         let item = map.get(server_name);
         log::info!("certificate lookup succeed: {}", item.is_some());
-        match item {
-            Some(item) => Some(item.to_owned()),
-            None => None,
-        }
+        item.map(|item| item.to_owned())
     }
 }
 
 pub fn read_pem_chain_file(
-    path: impl AsRef<Path> + Debug + Clone,
+    path: impl AsRef<Path> + Debug,
 ) -> Result<Vec<Vec<u8>>, ServiceError> {
-    let f = File::open(path.clone())?;
+    let f = File::open(path)?;
     let mut reader = BufReader::new(f);
     let pems = rustls_pemfile::certs(&mut reader)?;
     Ok(pems)
@@ -62,8 +59,8 @@ where
 }
 
 /// read only one pem
-pub fn read_pem_file(path: impl AsRef<Path> + Debug + Clone) -> Result<Vec<u8>, ServiceError> {
-    let f = File::open(path.clone())?;
+pub fn read_pem_file(path: impl AsRef<Path> + Debug) -> Result<Vec<u8>, ServiceError> {
+    let f = File::open(path)?;
     read_pem_certificate(f)
 }
 
@@ -80,9 +77,9 @@ where
 }
 
 pub fn read_private_key_file(
-    path: impl AsRef<Path> + Debug + Clone,
+    path: impl AsRef<Path> + Debug,
 ) -> Result<Vec<u8>, ServiceError> {
-    let f = File::open(path.clone())?;
+    let f = File::open(path)?;
     read_private_key(f)
 }
 
@@ -138,6 +135,6 @@ pub fn update_certificate(server_name: String, chain: Vec<u8>, key: Vec<u8>) {
         CERTIFICATE_MAP
             .write()
             .unwrap()
-            .insert(server_name.clone(), Arc::new(certified_key));
+            .insert(server_name, Arc::new(certified_key));
     }
 }
