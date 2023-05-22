@@ -1,9 +1,13 @@
 mod servers;
 mod tcp_server;
 mod uds_server;
-use std::future::Future;
+use std::{future::Future, io, rc::Rc};
 
 use anyhow::{bail, Result};
+use log::{error, info, warn};
+use monoio::io::stream::Stream;
+use monolake_core::service::Service;
+use monolake_services::common::Accept;
 pub use servers::Servers;
 
 use self::{tcp_server::TcpServer, uds_server::UdsServer};
@@ -53,6 +57,32 @@ impl Server for ServerWrapper {
                 ServerWrapper::UdsServer(server) => server.init().await,
                 ServerWrapper::Unknown => bail!("unimplement!"),
             }
+        }
+    }
+}
+
+async fn serve<S, Svc, A>(mut listener: S, handler: Rc<Svc>)
+where
+    S: Stream<Item = io::Result<A>> + 'static,
+    Svc: Service<A> + 'static,
+    A: 'static,
+{
+    while let Some(accept) = listener.next().await {
+        match accept {
+            Ok(accept) => {
+                let svc = handler.clone();
+                monoio::spawn(async move {
+                    match svc.call(accept).await {
+                        Ok(_) => {
+                            info!("Connection complete");
+                        }
+                        Err(e) => {
+                            error!("Connection error: {e}");
+                        }
+                    }
+                });
+            }
+            Err(e) => warn!("Accept connection failed: {e}"),
         }
     }
 }

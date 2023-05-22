@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use log::{error, info, warn};
+use log::info;
 use monoio::net::{unix::SocketAddr, UnixListener, UnixStream};
 use monolake_core::{
     config::{KeepaliveConfig, Route, TlsConfig, TlsStack},
@@ -13,7 +13,6 @@ use monolake_services::{
         HttpCoreService,
     },
     tls::{NativeTlsService, RustlsService},
-    uds::UdsListenerService,
 };
 
 use std::{
@@ -93,44 +92,18 @@ impl UdsServer {
     }
 
     #[allow(unreachable_code, unused_assignments, unused_variables, unused_unsafe)]
-    async fn listener_loop<Handler>(&self, handler: Rc<Handler>) -> Result<(), anyhow::Error>
+    async fn listener_loop<Svc>(&self, handler: Rc<Svc>) -> Result<(), anyhow::Error>
     where
-        Handler: Service<Accept<UnixStream, SocketAddr>> + 'static,
+        Svc: Service<Accept<UnixStream, SocketAddr>> + 'static,
     {
-        let listener: Rc<UnixListener> = match self.listener {
+        let listener = match self.listener {
             Some(raw_fd) => unsafe {
-                Rc::new(UnixListener::from_std(StdUnixListener::from_raw_fd(
-                    raw_fd,
-                ))?)
+                UnixListener::from_std(StdUnixListener::from_raw_fd(raw_fd))?
             },
             None => bail!("The raw fd is not exist for the uds listener"),
         };
-
-        // let listener = Rc::new(listener);
-        let svc = UdsListenerService;
-        loop {
-            info!("Accepting new connection from {:?}", self.addr.clone());
-            let handler = handler.clone();
-
-            match svc.call(listener.clone()).await {
-                Ok(accept) => {
-                    monoio::spawn(async move {
-                        match handler.call(accept).await {
-                            Ok(_) => {
-                                info!("Connection complete");
-                            }
-                            Err(e) => {
-                                error!("Connection error: {}", e);
-                            }
-                        }
-                    });
-                }
-                Err(e) => {
-                    warn!("Accept connection failed: {}", e);
-                    std::thread::sleep(std::time::Duration::from_secs(10));
-                }
-            }
-        }
+        super::serve(listener, handler).await;
+        Ok(())
     }
 }
 

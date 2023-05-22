@@ -1,7 +1,7 @@
 use std::{future::Future, net::SocketAddr, rc::Rc};
 
-use anyhow::{bail, Result};
-use log::{error, info, warn};
+use anyhow::{anyhow, bail, Result};
+use log::info;
 use monoio::net::{ListenerConfig, TcpListener, TcpStream};
 use monolake_core::{
     config::{KeepaliveConfig, Route, TlsConfig, TlsStack},
@@ -14,7 +14,6 @@ use monolake_services::{
         handlers::{ConnReuseHandler, ProxyHandler, RewriteHandler},
         HttpCoreService,
     },
-    tcp::TcpListenerService,
     tls::{NativeTlsService, RustlsService},
 };
 
@@ -82,39 +81,15 @@ impl TcpServer {
         Ok(())
     }
 
-    async fn listener_loop<Handler>(&self, handler: Rc<Handler>) -> Result<(), anyhow::Error>
+    async fn listener_loop<Svc>(&self, handler: Rc<Svc>) -> Result<(), anyhow::Error>
     where
-        Handler: Service<Accept<TcpStream, SocketAddr>> + 'static,
+        Svc: Service<Accept<TcpStream, SocketAddr>> + 'static,
     {
         let addr = self.addr;
         let listener = TcpListener::bind_with_config(addr, &ListenerConfig::default());
-        if let Err(e) = listener {
-            bail!("Error when binding address({})", e);
-        }
-        let listener = Rc::new(listener.unwrap());
-        let svc = TcpListenerService;
-        loop {
-            info!("Accepting new connection from {:?}", addr);
-            let handler = handler.clone();
-
-            match svc.call(listener.clone()).await {
-                Ok(accept) => {
-                    monoio::spawn(async move {
-                        match handler.call(accept).await {
-                            Ok(_) => {
-                                info!("Connection complete");
-                            }
-                            Err(e) => {
-                                error!("Connection error: {}", e);
-                            }
-                        }
-                    });
-                }
-                Err(e) => {
-                    warn!("Accept connection failed: {}", e);
-                }
-            }
-        }
+        let listener = listener.map_err(|e| anyhow!("Error when binding address({e})"))?;
+        super::serve(listener, handler).await;
+        Ok(())
     }
 }
 
