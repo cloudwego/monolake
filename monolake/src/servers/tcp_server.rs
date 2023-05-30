@@ -1,10 +1,10 @@
-use std::{future::Future, net::SocketAddr, rc::Rc};
+use std::{future::Future, net::SocketAddr, rc::Rc, fmt::Display};
 
 use anyhow::{anyhow, bail, Result};
-use log::info;
+use tracing::info;
 use monoio::net::{ListenerConfig, TcpListener, TcpStream};
 use monolake_core::{
-    config::{KeepaliveConfig, Route, TlsConfig, TlsStack},
+    config::{KeepaliveConfig, RouteConfig, TlsConfig, TlsStack},
     service::{Service, ServiceLayer},
     tls::update_certificate,
 };
@@ -26,7 +26,7 @@ use super::Server;
 pub struct TcpServer {
     name: String,
     addr: SocketAddr,
-    routes: Vec<Route>,
+    routes: Vec<RouteConfig>,
     tls: Option<TlsConfig>,
     keepalive_config: Option<KeepaliveConfig>,
 }
@@ -35,7 +35,7 @@ impl TcpServer {
     pub fn new(
         name: String,
         addr: SocketAddr,
-        routes: Vec<Route>,
+        routes: Vec<RouteConfig>,
         tls: Option<TlsConfig>,
         keepalive_config: Option<KeepaliveConfig>,
     ) -> TcpServer {
@@ -84,6 +84,7 @@ impl TcpServer {
     async fn listener_loop<Svc>(&self, handler: Rc<Svc>) -> Result<(), anyhow::Error>
     where
         Svc: Service<Accept<TcpStream, SocketAddr>> + 'static,
+        Svc::Error: Display,
     {
         let addr = self.addr;
         let listener = TcpListener::bind_with_config(addr, &ListenerConfig::default());
@@ -114,16 +115,17 @@ impl Server for TcpServer {
             );
 
             match &self.tls {
-                Some(tls) => match tls.stack {
-                    TlsStack::Rustls => {
-                        let service = RustlsService::layer(self.name.clone()).layer(service);
-                        self.listener_loop(Rc::new(service)).await
-                    }
-                    TlsStack::NativeTls => {
-                        let service = NativeTlsService::layer(self.name.clone()).layer(service);
-                        self.listener_loop(Rc::new(service)).await
-                    }
-                },
+                Some(tls) => {todo!() },
+                // match tls.stack {
+                //     TlsStack::Rustls => {
+                //         let service = RustlsService::layer(self.name.clone()).layer(service);
+                //         self.listener_loop(Rc::new(service)).await
+                //     }
+                //     TlsStack::NativeTls => {
+                //         let service = NativeTlsService::layer(self.name.clone()).layer(service);
+                //         self.listener_loop(Rc::new(service)).await
+                //     }
+                // },
                 None => self.listener_loop(Rc::new(service)).await,
             }
         }

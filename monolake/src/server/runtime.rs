@@ -1,14 +1,12 @@
 use std::future::Future;
 
-use anyhow::Result;
-
 #[cfg(all(target_os = "linux"))]
 use monoio::IoUringDriver;
 
 #[cfg(all(target_os = "linux"))]
 const MIN_SQPOLL_IDLE_TIME: u32 = 1000;
 
-use monoio::{time::TimeDriver, LegacyDriver, Runtime, RuntimeBuilder};
+use monoio::{time::TimeDriver, utils::detect_uring, LegacyDriver, Runtime, RuntimeBuilder};
 use monolake_core::config::{RuntimeConfig, RuntimeType};
 
 pub enum RuntimeWrapper {
@@ -19,7 +17,16 @@ pub enum RuntimeWrapper {
 
 impl From<&RuntimeConfig> for RuntimeWrapper {
     fn from(config: &RuntimeConfig) -> Self {
-        match config.runtime_type {
+        #[cfg(all(target_os = "linux"))]
+        let runtime_type = if config.runtime_type == RuntimeType::IoUring && detect_uring() {
+            RuntimeType::IoUring
+        } else {
+            RuntimeType::Legacy
+        };
+        #[cfg(not(target_os = "linux"))]
+        let runtime_type = RuntimeType::Legacy;
+
+        match runtime_type {
             #[cfg(all(target_os = "linux"))]
             RuntimeType::IoUring => {
                 let builder = match config.sqpoll_idle {
@@ -54,7 +61,7 @@ impl From<&RuntimeConfig> for RuntimeWrapper {
 impl RuntimeWrapper {
     pub fn block_on<F>(&mut self, future: F) -> F::Output
     where
-        F: Future<Output = Result<()>>,
+        F: Future,
     {
         match self {
             #[cfg(all(target_os = "linux"))]

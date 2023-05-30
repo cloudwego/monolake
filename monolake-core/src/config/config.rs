@@ -1,12 +1,11 @@
 use std::{
     collections::HashMap,
+    num::NonZeroUsize,
     os::unix::prelude::OsStrExt,
     path::{Path, PathBuf},
 };
 
 use anyhow::bail;
-
-use crate::max_parallel_count;
 
 use super::parsers::parse;
 use bytes::{Bytes, BytesMut};
@@ -22,46 +21,48 @@ const DEFAULT_ENTRIES: u32 = 32768;
 pub const DEFAULT_TIME: usize = 3600;
 pub const DEFAULT_TIMEOUT: usize = 75;
 pub const DEFAULT_REQUESTS: usize = 1000;
+pub const MAX_CONFIG_SIZE_LIMIT: usize = 8072;
+pub const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
+pub const MIN_SQPOLL_IDLE_TIME: u32 = 1000; // 1s idle time.
+pub const FALLBACK_PARALLELISM: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1) };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub runtime: RuntimeConfig,
-    pub servers: HashMap<String, Server>,
+    pub servers: HashMap<String, ServerConfig>,
 }
 
-fn default_entries() -> u32 {
+const fn default_entries() -> u32 {
     DEFAULT_ENTRIES
 }
 
-fn default_workers() -> u16 {
-    let num_cpus = max_parallel_count().get();
-    match num_cpus {
-        n if n > (u16::MAX as usize) => u16::MAX,
-        n => n as u16,
-    }
+fn default_workers() -> usize {
+    std::thread::available_parallelism()
+        .unwrap_or(FALLBACK_PARALLELISM)
+        .into()
 }
 
-fn default_cpu_affinity() -> bool {
+const fn default_cpu_affinity() -> bool {
     true
 }
 
-fn default_keepalive_requests() -> usize {
+const fn default_keepalive_requests() -> usize {
     DEFAULT_REQUESTS
 }
 
-fn default_keepalive_time() -> usize {
+const fn default_keepalive_time() -> usize {
     DEFAULT_TIME
 }
 
-fn default_keepalive_timeout() -> usize {
+const fn default_keepalive_timeout() -> usize {
     DEFAULT_TIMEOUT
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeConfig {
     #[serde(default = "default_workers")]
-    pub workers: u16,
+    pub worker_threads: usize,
     #[serde(default = "default_entries")]
     pub entries: u32,
     pub sqpoll_idle: Option<u32>,
@@ -92,7 +93,7 @@ impl Default for RuntimeType {
 impl Default for RuntimeConfig {
     fn default() -> Self {
         RuntimeConfig {
-            workers: default_workers(),
+            worker_threads: default_workers(),
             entries: default_entries(),
             sqpoll_idle: None,
             runtime_type: Default::default(),
@@ -102,11 +103,11 @@ impl Default for RuntimeConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Server {
+pub struct ServerConfig {
     pub name: String,
-    pub listeners: Vec<Listener>,
+    pub listeners: Vec<ListenerConfig>,
     pub tls: Option<TlsConfig>,
-    pub routes: Vec<Route>,
+    pub routes: Vec<RouteConfig>,
     pub keepalive_config: Option<KeepaliveConfig>,
 }
 
@@ -142,12 +143,12 @@ pub struct KeepaliveConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
-pub enum Listener {
+pub enum ListenerConfig {
     SocketAddress(SocketAddress),
     Uds(Uds),
 }
 
-impl Listener {
+impl ListenerConfig {
     pub fn transport_protocol(&self) -> TransportProtocol {
         match self {
             Self::SocketAddress(s) => s.transport_protocol.to_owned(),
@@ -157,7 +158,7 @@ impl Listener {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Route {
+pub struct RouteConfig {
     #[serde(skip)]
     pub id: String,
     pub path: String,

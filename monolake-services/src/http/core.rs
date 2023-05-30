@@ -5,7 +5,7 @@ use crate::http::{COUNTER_HEADER_NAME, TIMER_HEADER_NAME};
 use crate::{common::Accept, http::is_conn_reuse};
 use async_channel::Receiver;
 use http::{HeaderValue, Request, Response, StatusCode};
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 use monoio::io::{
     sink::{Sink, SinkExt},
     stream::Stream,

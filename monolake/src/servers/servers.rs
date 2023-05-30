@@ -3,7 +3,7 @@ use std::{collections::HashMap, future::Future};
 use anyhow::Result;
 use monoio::task::JoinHandle;
 use monolake_core::{
-    config::{Listener, Server as ServerConfig, TransportProtocol},
+    config::{ListenerConfig, ServerConfig as ServerConfig, TransportProtocol},
     util::hash::sha256,
 };
 
@@ -44,7 +44,7 @@ impl From<HashMap<String, ServerConfig>> for Servers {
 
                         match listener.transport_protocol() {
                             TransportProtocol::Tcp => match listener {
-                                Listener::SocketAddress(addr) => {
+                                ListenerConfig::SocketAddress(addr) => {
                                     ServerWrapper::TcpServer(TcpServer::new(
                                         server_config.name.to_owned(),
                                         addr.socket_addr,
@@ -53,7 +53,7 @@ impl From<HashMap<String, ServerConfig>> for Servers {
                                         server_config.keepalive_config.to_owned(),
                                     ))
                                 }
-                                Listener::Uds(addr) => ServerWrapper::UdsServer(UdsServer::new(
+                                ListenerConfig::Uds(addr) => ServerWrapper::UdsServer(UdsServer::new(
                                     server_config.name.to_owned(),
                                     addr.uds_path,
                                     routes,
@@ -86,7 +86,7 @@ impl Server for Servers {
                 .map(|server| {
                     monoio::spawn(async move {
                         if let Err(e) = server.serve().await {
-                            log::error!("Serve Error: {}", e);
+                            tracing::error!("Serve Error: {}", e);
                         }
                     })
                 })

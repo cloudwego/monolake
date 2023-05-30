@@ -15,7 +15,7 @@ monoio-http-client = { version = "0.1.0", features = ["logging", "tls"] }
 
 
 anyhow = "1"
-log = "0.4"
+tracing = "0.1"
 http = "0.2"
 bytes = "1"
 

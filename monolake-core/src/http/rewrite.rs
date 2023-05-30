@@ -15,7 +15,7 @@ impl Rewrite {
         if let Some(authority) = remote.authority() {
             let header_value = HeaderValue::from_str(authority.as_str())
                 .unwrap_or(HeaderValue::from_static(""));
-            log::debug!(
+            tracing::debug!(
                 "Request: {:?} -> {:?}",
                 request.headers().get(http::header::HOST),
                 header_value

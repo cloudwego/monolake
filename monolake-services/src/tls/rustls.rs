@@ -1,72 +1,74 @@
-use std::{future::Future, sync::Arc};
+use std::{fmt::Display, future::Future, sync::Arc};
 
-use anyhow::bail;
-use monoio::io::{AsyncReadRent, AsyncWriteRent, Split};
+use monoio::io::{AsyncReadRent, AsyncWriteRent};
 use monoio_rustls::{ServerTlsStream, TlsAcceptor};
-use monolake_core::{
-    service::ServiceError,
-    service::{Service, ServiceLayer},
-    tls::CertificateResolver,
+use monolake_core::service::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Param, Service,
 };
 use rustls::ServerConfig;
-use tower_layer::{layer_fn, Layer};
 
-use crate::common::Accept;
+use crate::{common::Accept, AnyError};
 
-type TlsAccept<Stream, SocketAddr> = (ServerTlsStream<Stream>, SocketAddr);
+type RustlsAccept<Stream, SocketAddr> = (ServerTlsStream<Stream>, SocketAddr);
 
-#[derive(Clone)]
 pub struct RustlsService<T> {
-    config: ServerConfig,
+    acceptor: TlsAcceptor,
     inner: T,
 }
 
-impl<T, Stream, SocketAddr> Service<Accept<Stream, SocketAddr>> for RustlsService<T>
+impl<T, S, A> Service<Accept<S, A>> for RustlsService<T>
 where
-    T: Service<TlsAccept<Stream, SocketAddr>>,
-    Stream: Split + AsyncReadRent + AsyncWriteRent + 'static,
-    SocketAddr: 'static,
+    T: Service<RustlsAccept<S, A>>,
+    T::Error: Into<AnyError> + Display,
+    S: AsyncReadRent + AsyncWriteRent,
 {
     type Response = T::Response;
 
-    type Error = ServiceError;
+    type Error = AnyError;
 
     type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
     where
-        Self: 'cx;
+        Self: 'cx,
+        Accept<S, A>: 'cx;
 
-    fn call(&self, accept: Accept<Stream, SocketAddr>) -> Self::Future<'_> {
+    fn call(&self, (stream, addr): Accept<S, A>) -> Self::Future<'_> {
         async move {
-            let acceptor = self.get_acceptor();
-            match acceptor.accept(accept.0).await {
-                Ok(stream) => match self.inner.call((stream, accept.1)).await {
-                    Ok(resp) => Ok(resp),
-                    Err(err) => bail!("{}", err),
-                },
-                Err(err) => bail!("TLS error: {:?}", err),
-            }
+            let stream = self.acceptor.accept(stream).await?;
+            self.inner.call((stream, addr)).await.map_err(Into::into)
         }
     }
 }
 
-impl<T> ServiceLayer<T> for RustlsService<T> {
-    type Param = String;
-    type Layer = impl Layer<T, Service = Self>;
+pub struct RustlsServiceFactory<F> {
+    config: Arc<ServerConfig>,
+    inner: F,
+}
 
-    fn layer(param: Self::Param) -> Self::Layer {
-        let config = ServerConfig::builder()
-            .with_safe_defaults()
-            .with_no_client_auth()
-            .with_cert_resolver(Arc::new(CertificateResolver::new(param)));
-        layer_fn(move |inner: T| RustlsService {
-            config: config.clone(),
+impl<F> RustlsServiceFactory<F> {
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
+    where
+        C: Param<ServerConfig>,
+    {
+        layer_fn::<C, _, _, _>(|c, inner| RustlsServiceFactory {
+            config: Arc::new(c.param()),
             inner,
         })
     }
 }
 
-impl<S> RustlsService<S> {
-    fn get_acceptor(&self) -> TlsAcceptor {
-        TlsAcceptor::from(self.config.clone())
+impl<F> MakeService for RustlsServiceFactory<F>
+where
+    F: MakeService,
+{
+    type Service = RustlsService<F::Service>;
+    type Error = F::Error;
+
+    fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
+        let acceptor = TlsAcceptor::from(self.config.clone());
+        Ok(RustlsService {
+            acceptor,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
+        })
     }
 }

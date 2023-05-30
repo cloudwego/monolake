@@ -2,9 +2,9 @@ use std::thread;
 
 use anyhow::Result;
 
-use log::info;
+use tracing::info;
 use monoio::utils::bind_to_cpu_set;
-use monolake_core::{config::RuntimeConfig, max_parallel_count};
+use monolake_core::{config::RuntimeConfig};
 
 use super::RuntimeWrapper;
 use crate::servers::Server;
@@ -12,6 +12,7 @@ use crate::servers::Server;
 #[derive(Debug, Clone)]
 pub struct Runtimes {
     config: RuntimeConfig,
+    cpu_cores: usize,
 }
 
 impl Runtimes {
@@ -24,9 +25,9 @@ impl Runtimes {
             return;
         }
 
-        let cpu_counts = max_parallel_count().get();
+        // let cpu_counts = max_parallel_count().get();
         let cpu_id = worker % cpu_counts;
-        bind_to_cpu_set(vec![cpu_id]).unwrap();
+        bind_to_cpu_set([cpu_id]).unwrap();
     }
 
     pub fn execute<S>(&self, server: &S) -> Result<()>

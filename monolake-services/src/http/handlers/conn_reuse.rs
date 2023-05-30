@@ -1,7 +1,7 @@
 use std::future::Future;
 
 use http::{HeaderMap, HeaderValue, Response, StatusCode, Version};
-use log::debug;
+use tracing::debug;
 use monoio_http::h1::payload::Payload;
 use monolake_core::{
     config::KeepaliveConfig,

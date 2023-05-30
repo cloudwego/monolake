@@ -1,18 +1,22 @@
 use std::{future::Future, time::Duration};
 
-use monolake_core::service::{Service, ServiceLayer};
-use tower_layer::{layer_fn, Layer};
+use monolake_core::service::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Param, Service,
+};
+
+#[derive(Debug, Clone, Copy)]
+pub struct Delay(pub Duration);
 
 #[derive(Clone)]
 pub struct DelayService<T> {
+    delay: Duration,
     inner: T,
-    duration: Duration,
 }
 
 impl<R, T> Service<R> for DelayService<T>
 where
     T: Service<R>,
-    R: 'static,
 {
     type Response = T::Response;
 
@@ -20,23 +24,43 @@ where
 
     type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
     where
-        Self: 'cx;
+        Self: 'cx,
+        R: 'cx;
 
     fn call(&self, req: R) -> Self::Future<'_> {
         async {
-            monoio::time::sleep(self.duration).await;
+            monoio::time::sleep(self.delay).await;
             self.inner.call(req).await
         }
     }
 }
 
-impl<S> ServiceLayer<S> for DelayService<S> {
-    type Param = Duration;
-    type Layer = impl Layer<S, Service = Self>;
-    fn layer(param: Self::Param) -> Self::Layer {
-        layer_fn(move |inner| DelayService {
+impl<F> DelayService<F> {
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
+    where
+        C: Param<Delay>,
+    {
+        layer_fn::<C, _, _, _>(|c, inner| DelayService {
+            delay: c.param().0,
             inner,
-            duration: param,
+        })
+    }
+}
+
+impl<F> MakeService for DelayService<F>
+where
+    F: MakeService,
+{
+    type Service = DelayService<F::Service>;
+    type Error = F::Error;
+
+    fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
+        Ok(DelayService {
+            delay: self.delay,
+            inner: self
+                .inner
+                .make_via_ref(old.map(|o| &o.inner))
+                .map_err(Into::into)?,
         })
     }
 }

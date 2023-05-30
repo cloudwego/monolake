@@ -1,51 +1,73 @@
-use std::{fmt::Display, future::Future, time::Duration};
+use std::{future::Future, time::Duration};
 
 use monoio::time::timeout;
-use monolake_core::{
-    service::ServiceError,
-    service::{Service, ServiceLayer},
+use monolake_core::service::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Param, Service,
 };
-use tower_layer::{layer_fn, Layer};
+
+use crate::AnyError;
+
+#[derive(Debug, Clone, Copy)]
+pub struct Timeout(pub Duration);
 
 #[derive(Clone)]
 pub struct TimeoutService<T> {
-    inner: T,
     timeout: Duration,
+    inner: T,
 }
 
 impl<R, T> Service<R> for TimeoutService<T>
 where
     T: Service<R>,
-    T::Error: Display,
-    R: 'static,
+    T::Error: Into<AnyError>,
 {
-    type Response = Option<T::Response>;
+    type Response = T::Response;
 
-    type Error = ServiceError;
+    type Error = AnyError;
 
     type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
     where
-        Self: 'cx;
+        Self: 'cx,
+        R: 'cx;
 
     fn call(&self, req: R) -> Self::Future<'_> {
         async {
             match timeout(self.timeout, self.inner.call(req)).await {
-                Ok(Ok(resp)) => Ok(Some(resp)),
-                Ok(Err(err)) => Err(anyhow::anyhow!("{}", err)),
-                Err(_) => Err(anyhow::anyhow!("timeout")),
+                Ok(Ok(resp)) => Ok(resp),
+                Ok(Err(err)) => Err(err.into()),
+                Err(e) => Err(e.into()),
             }
         }
     }
 }
 
-impl<S> ServiceLayer<S> for TimeoutService<S> {
-    type Param = Duration;
-    type Layer = impl Layer<S, Service = Self>;
-
-    fn layer(timeout: Self::Param) -> Self::Layer {
-        layer_fn(move |inner| TimeoutService {
+impl<F> TimeoutService<F> {
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
+    where
+        C: Param<Timeout>,
+    {
+        layer_fn::<C, _, _, _>(|c, inner| TimeoutService {
+            timeout: c.param().0,
             inner,
-            timeout: timeout.clone(),
+        })
+    }
+}
+
+impl<F> MakeService for TimeoutService<F>
+where
+    F: MakeService,
+{
+    type Service = TimeoutService<F::Service>;
+    type Error = F::Error;
+
+    fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
+        Ok(TimeoutService {
+            timeout: self.timeout,
+            inner: self
+                .inner
+                .make_via_ref(old.map(|o| &o.inner))
+                .map_err(Into::into)?,
         })
     }
 }
