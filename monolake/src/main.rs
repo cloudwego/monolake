@@ -1,15 +1,16 @@
 #![feature(impl_trait_in_assoc_type)]
 
-use std::{io, net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
 
-use monoio::net::{TcpListener, TcpStream};
+use monoio::net::TcpStream;
 use monolake_core::{
     config::RuntimeConfig,
+    listener::ListenerBuilder,
     print_logo,
-    service::{stack::FactoryStack, KeepFirst, MakeService, Param},
+    service::{stack::FactoryStack, KeepFirst, Param},
 };
 use monolake_services::{
     tcp::echo::{EchoConfig, EchoService},
@@ -58,16 +59,15 @@ async fn main() -> Result<()> {
         .push_map_target(KeepFirst)
         .push(UnifiedTlsFactory::layer())
         .into_inner();
-    let listener_factory = SimpleTcpListenerBuilder {
-        addr: "0.0.0.0:8080".parse().unwrap(),
-    };
+    let listener_factory_unified =
+        ListenerBuilder::Tcp("0.0.0.0:8080".parse().unwrap(), Default::default());
 
     // Broadcast Add command to worker threads
     let broadcast_result = manager
         .apply(server::Command::Add(
             "demo".to_string(),
             Arc::new(factory_chain),
-            Arc::new(listener_factory),
+            Arc::new(listener_factory_unified),
         ))
         .await;
     for r in broadcast_result.into_iter() {
@@ -107,19 +107,5 @@ impl Param<EchoConfig> for DemoConfig {
 impl Param<TlsConfig> for DemoConfig {
     fn param(&self) -> TlsConfig {
         self.tls.clone()
-    }
-}
-
-#[derive(Clone)]
-struct SimpleTcpListenerBuilder {
-    addr: SocketAddr,
-}
-
-impl MakeService for SimpleTcpListenerBuilder {
-    type Service = TcpListener;
-    type Error = io::Error;
-
-    fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        TcpListener::bind(self.addr)
     }
 }
