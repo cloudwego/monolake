@@ -1,14 +1,15 @@
 #![feature(impl_trait_in_assoc_type)]
 
+#[macro_use]
+mod error;
+pub use error::{AnyError, AnyResult};
+
 pub mod config;
 pub mod http;
 pub mod listener;
 pub mod service;
 pub mod tls;
 pub mod util;
-
-mod error;
-pub use error::{Error, Result};
 
 use figlet_rs::FIGfont;
 

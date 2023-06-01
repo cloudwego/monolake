@@ -3,13 +3,16 @@ use std::{fmt::Display, future::Future};
 use anyhow::bail;
 use monoio::io::{AsyncReadRent, AsyncWriteRent};
 use monoio_native_tls::{TlsAcceptor, TlsStream};
-use monolake_core::service::{
-    layer::{layer_fn, FactoryLayer},
-    MakeService, Param, Service,
+use monolake_core::{
+    service::{
+        layer::{layer_fn, FactoryLayer},
+        MakeService, Param, Service,
+    },
+    AnyError,
 };
 use native_tls::Identity;
 
-use crate::{common::Accept, AnyError};
+use crate::common::Accept;
 
 type NativeTlsAccept<Stream, SocketAddr> = (TlsStream<Stream>, SocketAddr);
 
@@ -69,10 +72,7 @@ where
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         let builder = native_tls::TlsAcceptor::builder(self.identity.clone());
-        let acceptor = match builder.build() {
-            Ok(acceptor) => TlsAcceptor::from(acceptor),
-            Err(e) => bail!("Tls acceptor configure error: {:?}", e),
-        };
+        let acceptor = TlsAcceptor::from(builder.build().map_err(AnyError::from)?);
         Ok(NativeTlsService {
             acceptor,
             inner: self

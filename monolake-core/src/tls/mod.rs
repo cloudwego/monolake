@@ -5,7 +5,6 @@ use rustls::server::ResolvesServerCert;
 
 use std::{io::Cursor, sync::Arc};
 
-use crate::error::Result;
 use rustls::sign::CertifiedKey;
 
 lazy_static! {
@@ -37,14 +36,14 @@ impl ResolvesServerCert for CertificateResolver {
     }
 }
 
-pub fn read_pem_chain_file(path: impl AsRef<Path> + Debug) -> Result<Vec<Vec<u8>>> {
+pub fn read_pem_chain_file(path: impl AsRef<Path> + Debug) -> anyhow::Result<Vec<Vec<u8>>> {
     let f = File::open(path)?;
     let mut reader = BufReader::new(f);
     let pems = rustls_pemfile::certs(&mut reader)?;
     Ok(pems)
 }
 
-pub fn read_pem_chain<R>(read: R) -> Result<Vec<Vec<u8>>>
+pub fn read_pem_chain<R>(read: R) -> anyhow::Result<Vec<Vec<u8>>>
 where
     R: std::io::Read,
 {
@@ -79,7 +78,7 @@ where
 //     read_private_key(f)
 // }
 
-pub fn read_private_key<R>(read: R) -> Result<Vec<Vec<u8>>>
+pub fn read_private_key<R>(read: R) -> anyhow::Result<Vec<Vec<u8>>>
 where
     R: std::io::Read,
 {

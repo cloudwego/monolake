@@ -1,12 +1,10 @@
 use std::{future::Future, time::Duration};
 
 use monoio::time::timeout;
-use monolake_core::service::{
+use monolake_core::{service::{
     layer::{layer_fn, FactoryLayer},
     MakeService, Param, Service,
-};
-
-use crate::AnyError;
+}, AnyError};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Timeout(pub Duration);

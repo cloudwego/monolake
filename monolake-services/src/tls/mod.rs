@@ -2,12 +2,10 @@ mod rustls;
 pub use self::rustls::RustlsService;
 
 use crate::common::Accept;
-use crate::AnyError;
-use ::rustls::ServerConfig;
-use monolake_core::service::{
+use monolake_core::{service::{
     layer::{layer_fn, FactoryLayer},
     MakeService, Param, Service,
-};
+}, AnyError};
 use native_tls::Identity;
 use std::future::Future;
 
@@ -144,7 +142,7 @@ where
 }
 
 #[derive(Clone)]
-pub enum TlsConfig<A = ServerConfig, B = Identity> {
+pub enum TlsConfig<A = ::rustls::ServerConfig, B = Identity> {
     Rustls(A),
     Native(B),
     None,
@@ -154,7 +152,7 @@ impl<F> UnifiedTlsFactory<F> {
     pub fn layer<C, A, B>() -> impl FactoryLayer<C, F, Factory = Self>
     where
         C: Param<TlsConfig<A, B>>,
-        A: Param<ServerConfig>,
+        A: Param<::rustls::ServerConfig>,
         B: Param<Identity>,
     {
         layer_fn::<C, _, _, _>(|c, inner| match &c.param() {

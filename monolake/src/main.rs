@@ -1,6 +1,6 @@
 #![feature(impl_trait_in_assoc_type)]
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 use clap::Parser;
@@ -13,7 +13,7 @@ use monolake_core::{
     service::{stack::FactoryStack, KeepFirst, Param},
 };
 use monolake_services::{
-    tcp::echo::{EchoConfig, EchoService},
+    tcp::toy_echo::{EchoReplaceConfig, EchoReplaceService},
     tls::{TlsConfig, UnifiedTlsFactory},
 };
 use server::Manager;
@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
     // Construct Service Factory and Listener Factory
     let demo_config = DemoConfig::default();
     let factory_chain = FactoryStack::new(demo_config)
-        .push(EchoService::layer())
+        .push(EchoReplaceService::layer())
         .check_make_svc::<TcpStream>()
         .push_map_target(KeepFirst)
         .push(UnifiedTlsFactory::layer())
@@ -73,7 +73,40 @@ async fn main() -> Result<()> {
     for r in broadcast_result.into_iter() {
         r.unwrap();
     }
-    tracing::info!("broadcast site factory to workers successfully");
+    tracing::info!("broadcast site add to workers successfully");
+
+    // Wait for 10 secs and update the service.
+    monoio::time::sleep(Duration::from_secs(10)).await;
+    let demo_config_new = DemoConfig {
+        echo_replace: b'B',
+        ..Default::default()
+    };
+    let factory_chain = FactoryStack::new(demo_config_new)
+        .push(EchoReplaceService::layer())
+        .check_make_svc::<TcpStream>()
+        .push_map_target(KeepFirst)
+        .push(UnifiedTlsFactory::layer())
+        .into_inner();
+    let broadcast_result = manager
+        .apply(server::Command::Update(
+            "demo".to_string(),
+            Arc::new(factory_chain),
+        ))
+        .await;
+    for r in broadcast_result.into_iter() {
+        r.unwrap();
+    }
+    tracing::info!("broadcast site update to workers successfully");
+
+    // Wait for 10 secs and remove the service.
+    monoio::time::sleep(Duration::from_secs(10)).await;
+    let broadcast_result = manager
+        .apply(server::Command::Remove("demo".to_string()))
+        .await;
+    for r in broadcast_result.into_iter() {
+        r.unwrap();
+    }
+    tracing::info!("broadcast site remove to workers successfully");
 
     // Wait for workers
     join_handlers.into_iter().for_each(|h| {
@@ -83,23 +116,23 @@ async fn main() -> Result<()> {
 }
 
 pub struct DemoConfig {
-    echo_buffer_size: usize,
+    echo_replace: u8,
     tls: TlsConfig,
 }
 
 impl Default for DemoConfig {
     fn default() -> Self {
         Self {
-            echo_buffer_size: 1024,
+            echo_replace: b'A',
             tls: TlsConfig::None,
         }
     }
 }
 
-impl Param<EchoConfig> for DemoConfig {
-    fn param(&self) -> EchoConfig {
-        EchoConfig {
-            buffer_size: self.echo_buffer_size,
+impl Param<EchoReplaceConfig> for DemoConfig {
+    fn param(&self) -> EchoReplaceConfig {
+        EchoReplaceConfig {
+            replace: self.echo_replace,
         }
     }
 }
