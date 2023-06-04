@@ -7,6 +7,8 @@ use monolake_core::{
     config::ServerConfig,
     listener::{AcceptedAddr, AcceptedStream},
 };
+#[cfg(feature = "openid")]
+use monolake_services::http::handlers::OpenIdHandler;
 use monolake_services::{
     common::Accept,
     http::{
@@ -26,7 +28,19 @@ pub fn l7_factory(
     Service = impl Service<Accept<AcceptedStream, AcceptedAddr>, Error = impl Debug>,
     Error = impl Debug,
 > {
-    FactoryStack::new(config)
+    #[cfg(feature = "openid")]
+    return FactoryStack::new(config.clone())
+        .replace(ProxyHandler::factory())
+        .push(ConnReuseHandler::layer())
+        .push(RewriteHandler::layer())
+        .push(OpenIdHandler::layer(config.openid_config))
+        .push(HttpCoreService::layer())
+        .check_make_svc::<(TcpStream, SocketAddr)>()
+        .push(UnifiedTlsFactory::layer())
+        .check_make_svc::<(AcceptedStream, AcceptedAddr)>()
+        .into_inner();
+    #[cfg(not(feature = "openid"))]
+    return FactoryStack::new(config)
         .replace(ProxyHandler::factory())
         .push(ConnReuseHandler::layer())
         .push(RewriteHandler::layer())
@@ -34,5 +48,5 @@ pub fn l7_factory(
         .check_make_svc::<(TcpStream, SocketAddr)>()
         .push(UnifiedTlsFactory::layer())
         .check_make_svc::<(AcceptedStream, AcceptedAddr)>()
-        .into_inner()
+        .into_inner();
 }

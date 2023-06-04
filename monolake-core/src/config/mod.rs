@@ -108,6 +108,8 @@ pub struct ServerConfig {
     pub tls: Option<TlsConfig>,
     pub routes: Vec<RouteConfig>,
     pub keepalive_config: Option<KeepaliveConfig>,
+    #[cfg(feature = "openid")]
+    pub openid_config: Option<OpenIdConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -168,6 +170,16 @@ pub struct KeepaliveConfig {
     pub keepalive_time: u64,
     #[serde(default = "default_keepalive_timeout")]
     pub keepalive_timeout: usize,
+}
+
+#[cfg(feature = "openid")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenIdConfig {
+    // TODO: Need to add openid scopes etc.
+    pub client_id: String,
+    pub client_secret: String,
+    pub issuer_url: String,
+    pub redirect_url: String,
 }
 
 define_const!(default_keepalive_requests, DEFAULT_REQUESTS, usize);
