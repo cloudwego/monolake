@@ -1,7 +1,10 @@
 use std::{convert::Infallible, future::Future, io};
 
 use monoio::io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt};
-use monolake_core::service::{MakeService, Service, Param, layer::{FactoryLayer, layer_fn}};
+use monolake_core::service::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Param, Service,
+};
 
 #[derive(Debug, Clone)]
 pub struct EchoConfig {

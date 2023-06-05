@@ -1,6 +1,5 @@
 use std::{fmt::Display, future::Future};
 
-use anyhow::bail;
 use monoio::io::{AsyncReadRent, AsyncWriteRent};
 use monoio_native_tls::{TlsAcceptor, TlsStream};
 use monolake_core::{

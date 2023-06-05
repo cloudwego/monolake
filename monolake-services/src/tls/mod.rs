@@ -2,10 +2,13 @@ mod rustls;
 pub use self::rustls::RustlsService;
 
 use crate::common::Accept;
-use monolake_core::{service::{
-    layer::{layer_fn, FactoryLayer},
-    MakeService, Param, Service,
-}, AnyError};
+use monolake_core::{
+    service::{
+        layer::{layer_fn, FactoryLayer},
+        MakeService, Param, Service,
+    },
+    AnyError, tls::TlsConfig,
+};
 use native_tls::Identity;
 use std::future::Future;
 
@@ -139,13 +142,6 @@ where
                 .map_err(Into::into),
         }
     }
-}
-
-#[derive(Clone)]
-pub enum TlsConfig<A = ::rustls::ServerConfig, B = Identity> {
-    Rustls(A),
-    Native(B),
-    None,
 }
 
 impl<F> UnifiedTlsFactory<F> {

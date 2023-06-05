@@ -13,13 +13,13 @@ pub mod util;
 
 use figlet_rs::FIGfont;
 
-pub trait Builder<Config> {
-    fn build_with_config(config: Config) -> Self;
-}
-
 pub fn print_logo() {
     let standard_font = FIGfont::standard().unwrap();
     if let Some(figure) = standard_font.convert("Monolake") {
         println!("{}", figure);
     }
+}
+
+pub(crate) mod sealed {
+    pub trait Sealed {}
 }

@@ -1,23 +1,23 @@
 use std::future::Future;
 
-#[cfg(all(target_os = "linux"))]
+#[cfg(target_os = "linux")]
 use monoio::IoUringDriver;
 
-#[cfg(all(target_os = "linux"))]
+#[cfg(target_os = "linux")]
 const MIN_SQPOLL_IDLE_TIME: u32 = 1000;
 
 use monoio::{time::TimeDriver, utils::detect_uring, LegacyDriver, Runtime, RuntimeBuilder};
 use monolake_core::config::{RuntimeConfig, RuntimeType};
 
 pub enum RuntimeWrapper {
-    #[cfg(all(target_os = "linux"))]
+    #[cfg(target_os = "linux")]
     IoUring(Runtime<TimeDriver<IoUringDriver>>),
     Legacy(Runtime<TimeDriver<LegacyDriver>>),
 }
 
 impl From<&RuntimeConfig> for RuntimeWrapper {
     fn from(config: &RuntimeConfig) -> Self {
-        #[cfg(all(target_os = "linux"))]
+        #[cfg(target_os = "linux")]
         let runtime_type = if config.runtime_type == RuntimeType::IoUring && detect_uring() {
             RuntimeType::IoUring
         } else {
@@ -27,7 +27,7 @@ impl From<&RuntimeConfig> for RuntimeWrapper {
         let runtime_type = RuntimeType::Legacy;
 
         match runtime_type {
-            #[cfg(all(target_os = "linux"))]
+            #[cfg(target_os = "linux")]
             RuntimeType::IoUring => {
                 let builder = match config.sqpoll_idle {
                     Some(idle) => {
@@ -35,7 +35,7 @@ impl From<&RuntimeConfig> for RuntimeWrapper {
                         let idle = MIN_SQPOLL_IDLE_TIME.max(idle);
                         let mut uring_builder = io_uring::IoUring::builder();
                         uring_builder.setup_sqpoll(idle);
-                        builder.uring_builder(&uring_builder)
+                        builder.uring_builder(uring_builder)
                     }
                     None => RuntimeBuilder::<monoio::IoUringDriver>::new(),
                 };
@@ -64,7 +64,7 @@ impl RuntimeWrapper {
         F: Future,
     {
         match self {
-            #[cfg(all(target_os = "linux"))]
+            #[cfg(target_os = "linux")]
             RuntimeWrapper::IoUring(driver) => driver.block_on(future),
             RuntimeWrapper::Legacy(driver) => driver.block_on(future),
         }

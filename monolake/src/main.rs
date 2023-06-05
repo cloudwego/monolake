@@ -1,28 +1,33 @@
 #![feature(impl_trait_in_assoc_type)]
+#![feature(type_alias_impl_trait)]
 
-use std::{sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use clap::Parser;
 
 use monoio::net::TcpStream;
 use monolake_core::{
-    config::RuntimeConfig,
-    listener::ListenerBuilder,
+    config::{Config, RuntimeConfig},
+    listener::{AcceptedAddr, AcceptedStream, ListenerBuilder},
     print_logo,
-    service::{stack::FactoryStack, KeepFirst, Param},
+    service::{stack::FactoryStack, Param},
+    tls::TlsConfig,
 };
 use monolake_services::{
-    tcp::toy_echo::{EchoReplaceConfig, EchoReplaceService},
-    tls::{TlsConfig, UnifiedTlsFactory},
+    http::{
+        handlers::{ConnReuseHandler, ProxyHandler, RewriteHandler},
+        HttpCoreService,
+    },
+    tcp::toy_echo::EchoReplaceConfig,
+    tls::UnifiedTlsFactory,
 };
 use server::Manager;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
-// use runtimes::Runtimes;
-// use servers::Servers;
-// mod runtimes;
-// mod servers;
 
+// use crate::factory::l7_factory;
+
+// mod factory;
 mod server;
 
 #[derive(Parser, Debug)]
@@ -43,70 +48,48 @@ async fn main() -> Result<()> {
                 .from_env_lossy(),
         )
         .init();
+    monoio_native_tls::init();
     print_logo();
+
+    // Read config
+    let args = Args::parse();
+    let config = Config::load(&args.config).await?;
 
     // Start workers
     let runtime_config = RuntimeConfig::default();
     let mut manager = Manager::new(runtime_config);
     let join_handlers = manager.spawn_workers();
-    tracing::info!("{} workers started", join_handlers.len());
+    tracing::info!(
+        "Start monolake with {:?} runtime, {} worker(s), {} entries and sqpoll {:?}.",
+        manager.config().runtime_type,
+        join_handlers.len(),
+        manager.config().entries,
+        manager.config().sqpoll_idle
+    );
 
     // Construct Service Factory and Listener Factory
-    let demo_config = DemoConfig::default();
-    let factory_chain = FactoryStack::new(demo_config)
-        .push(EchoReplaceService::layer())
-        .check_make_svc::<TcpStream>()
-        .push_map_target(KeepFirst)
-        .push(UnifiedTlsFactory::layer())
-        .into_inner();
-    let listener_factory_unified =
-        ListenerBuilder::Tcp("0.0.0.0:8080".parse().unwrap(), Default::default());
-
-    // Broadcast Add command to worker threads
-    let broadcast_result = manager
-        .apply(server::Command::Add(
-            "demo".to_string(),
-            Arc::new(factory_chain),
-            Arc::new(listener_factory_unified),
-        ))
-        .await;
-    for r in broadcast_result.into_iter() {
-        r.unwrap();
+    for (name, (lis_cfg, svc_cfg)) in config.servers.into_iter() {
+        let lis_fac = ListenerBuilder::try_from(lis_cfg).expect("build listener failed");
+        // let svc_fac = l7_factory(svc_cfg);
+        let svc_fac = FactoryStack::new(svc_cfg)
+            .replace(ProxyHandler::factory())
+            .push(ConnReuseHandler::layer())
+            .push(RewriteHandler::layer())
+            .push(HttpCoreService::layer())
+            .check_make_svc::<(TcpStream, SocketAddr)>()
+            .push(UnifiedTlsFactory::layer())
+            .check_make_svc::<(AcceptedStream, AcceptedAddr)>()
+            .into_inner();
+        manager
+            .apply(server::Command::Add(
+                name,
+                Arc::new(svc_fac),
+                Arc::new(lis_fac),
+            ))
+            .await
+            .err()
+            .expect("apply init config failed");
     }
-    tracing::info!("broadcast site add to workers successfully");
-
-    // Wait for 10 secs and update the service.
-    monoio::time::sleep(Duration::from_secs(10)).await;
-    let demo_config_new = DemoConfig {
-        echo_replace: b'B',
-        ..Default::default()
-    };
-    let factory_chain = FactoryStack::new(demo_config_new)
-        .push(EchoReplaceService::layer())
-        .check_make_svc::<TcpStream>()
-        .push_map_target(KeepFirst)
-        .push(UnifiedTlsFactory::layer())
-        .into_inner();
-    let broadcast_result = manager
-        .apply(server::Command::Update(
-            "demo".to_string(),
-            Arc::new(factory_chain),
-        ))
-        .await;
-    for r in broadcast_result.into_iter() {
-        r.unwrap();
-    }
-    tracing::info!("broadcast site update to workers successfully");
-
-    // Wait for 10 secs and remove the service.
-    monoio::time::sleep(Duration::from_secs(10)).await;
-    let broadcast_result = manager
-        .apply(server::Command::Remove("demo".to_string()))
-        .await;
-    for r in broadcast_result.into_iter() {
-        r.unwrap();
-    }
-    tracing::info!("broadcast site remove to workers successfully");
 
     // Wait for workers
     join_handlers.into_iter().for_each(|h| {

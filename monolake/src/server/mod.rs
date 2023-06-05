@@ -72,7 +72,7 @@ where
     /// Broadcast command to all workers, a Vec of each result will be returned.
     // TODO: Make workers apply command in parallel(use FuturesOrdered).
     // TODO: Return a custom struct(impl Iter) and provide a simple fn to check all ok.
-    pub async fn apply(&mut self, cmd: Command<F, LF>) -> Vec<Result<(), AnyError>>
+    pub async fn apply(&mut self, cmd: Command<F, LF>) -> ResultGroup<(), AnyError>
     where
         Command<F, LF>: Clone,
     {
@@ -87,7 +87,7 @@ where
                 Err(e) => results.push(Err(e.into())),
             }
         }
-        results
+        results.into()
     }
 }
 
@@ -97,6 +97,33 @@ impl<F, LF> Manager<F, LF> {
             runtime_config,
             workers: Vec::new(),
         }
+    }
+
+    pub fn config(&self) -> &RuntimeConfig {
+        &self.runtime_config
+    }
+}
+
+pub struct ResultGroup<T, E>(Vec<Result<T, E>>);
+
+impl<T, E> From<Vec<Result<T, E>>> for ResultGroup<T, E> {
+    fn from(value: Vec<Result<T, E>>) -> Self {
+        Self(value)
+    }
+}
+
+impl<T, E> From<ResultGroup<T, E>> for Vec<Result<T, E>> {
+    fn from(value: ResultGroup<T, E>) -> Self {
+        value.0
+    }
+}
+
+impl<E> ResultGroup<(), E> {
+    pub fn err(self) -> Result<(), E> {
+        for r in self.0.into_iter() {
+            r?;
+        }
+        Ok(())
     }
 }
 

@@ -12,6 +12,14 @@ impl<C> FactoryStack<C, ()> {
 }
 
 impl<C, F> FactoryStack<C, F> {
+    /// Replace inner with a new factory.
+    pub fn replace<NF>(self, factory: NF) -> FactoryStack<C, NF> {
+        FactoryStack {
+            config: self.config,
+            inner: factory,
+        }
+    }
+
     /// Push a new factory layer.
     pub fn push<L>(self, layer: L) -> FactoryStack<C, L::Factory>
     where

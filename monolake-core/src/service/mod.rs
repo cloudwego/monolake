@@ -7,7 +7,7 @@ pub mod utils;
 mod param;
 pub use param::Param;
 mod map;
-pub use map::{MapTargetService, KeepFirst};
+pub use map::{KeepFirst, MapTargetService};
 
 pub trait Service<Request> {
     /// Responses given by the service.
@@ -50,7 +50,6 @@ impl<T: MakeService> MakeService for Arc<T> {
         self.as_ref().make_via_ref(old)
     }
 }
-
 
 #[deprecated]
 pub trait ServiceLayer<S> {

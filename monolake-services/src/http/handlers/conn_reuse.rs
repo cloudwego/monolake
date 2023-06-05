@@ -1,15 +1,18 @@
 use std::future::Future;
 
-use http::{HeaderMap, HeaderValue, Response, StatusCode, Version};
-use tracing::debug;
+use http::{HeaderMap, HeaderName, HeaderValue, Request, Response, StatusCode, Version};
 use monoio_http::h1::payload::Payload;
 use monolake_core::{
     config::KeepaliveConfig,
-    http::{HttpError, HttpHandler},
+    http::HttpHandler,
+    service::{layer::{FactoryLayer, layer_fn}, MakeService, Param, Service},
 };
-use tower_layer::{layer_fn, Layer};
+use tracing::debug;
 
-use crate::http::{generate_response, is_conn_reuse, CONN_CLOSE, CONN_KEEP_ALIVE, COUNTER_HEADER_NAME, TIMER_HEADER_NAME};
+use crate::http::{
+    generate_response, is_conn_reuse, CONN_CLOSE, CONN_KEEP_ALIVE, COUNTER_HEADER_NAME,
+    TIMER_HEADER_NAME,
+};
 
 #[derive(Clone)]
 pub struct ConnReuseHandler<H> {
@@ -18,14 +21,9 @@ pub struct ConnReuseHandler<H> {
 }
 
 impl<H> ConnReuseHandler<H> {
-    pub fn layer(keepalive_config: Option<KeepaliveConfig>) -> impl Layer<H, Service = ConnReuseHandler<H>> {
-        layer_fn(move |inner| ConnReuseHandler {
-            inner,
-            keepalive_config: keepalive_config.clone(),
-        })
-    }
-
     fn should_close_conn(&self, headers: &HeaderMap<HeaderValue>) -> bool {
+        // TODO(ihciah): remove keepalive according to request count and timer.
+        // Does nginx have this machanism?
         match &self.keepalive_config {
             Some(config) => {
                 let cnt_str = headers.get(COUNTER_HEADER_NAME).unwrap();
@@ -34,28 +32,28 @@ impl<H> ConnReuseHandler<H> {
                     return true;
                 }
 
-                let time_str = headers.get(TIMER_HEADER_NAME).unwrap();
-                let elapsed_time : u64 = time_str.to_str().unwrap().parse().unwrap();
-                if elapsed_time >= config.keepalive_time as u64 {
-                    return true;
-                }
-
-                return false;
-            },
-            None => {
-                return true;
+                let time_str = headers
+                    .get(HeaderName::from_static(TIMER_HEADER_NAME))
+                    .unwrap();
+                let elapsed_time: u64 = time_str.to_str().unwrap().parse().unwrap();
+                elapsed_time >= config.keepalive_time
             }
+            None => true,
         }
     }
 }
 
-impl<H> HttpHandler for ConnReuseHandler<H>
+impl<H> Service<Request<Payload>> for ConnReuseHandler<H>
 where
-    H: HttpHandler<Body = Payload> + 'static,
+    H: HttpHandler,
 {
-    type Body = Payload;
-    type Future<'a> = impl Future<Output = Result<Response<Self::Body>, HttpError>> + 'a;
-    fn handle(&self, mut request: http::Request<Self::Body>) -> Self::Future<'_> {
+    type Response = Response<Payload>;
+    type Error = H::Error;
+    type Future<'a> = impl Future<Output = Result<Response<Payload>, Self::Error>> + 'a
+    where
+        Self: 'a;
+
+    fn call(&self, mut request: Request<Payload>) -> Self::Future<'_> {
         async move {
             let version = request.version();
             let reuse_conn = is_conn_reuse(request.headers(), version);
@@ -78,8 +76,37 @@ where
                     *response.version_mut() = version;
                     Ok(response)
                 }
+                // TODO(ihciah): Is it ok to return Ok even when Err?
                 Err(_e) => Ok(generate_response(StatusCode::INTERNAL_SERVER_ERROR)),
             }
         }
+    }
+}
+
+// ConnReuseHandler is a Service and a MakeService.
+impl<F> MakeService for ConnReuseHandler<F>
+where
+    F: MakeService,
+{
+    type Service = ConnReuseHandler<F::Service>;
+    type Error = F::Error;
+
+    fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
+        Ok(ConnReuseHandler {
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
+            keepalive_config: self.keepalive_config,
+        })
+    }
+}
+
+impl<F> ConnReuseHandler<F> {
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
+    where
+        C: Param<Option<KeepaliveConfig>>,
+    {
+        layer_fn::<C, _, _, _>(|c, inner| Self {
+            keepalive_config: c.param(),
+            inner,
+        })
     }
 }

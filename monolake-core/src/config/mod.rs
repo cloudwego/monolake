@@ -1,16 +1,16 @@
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
-    os::unix::prelude::OsStrExt,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 use anyhow::bail;
-use bytes::{Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
 
-mod parsers;
-use parsers::parse;
+use crate::listener::ListenerBuilder;
+
+mod extrator;
 
 // MAX configuration file size: 16 MB
 const MAX_CONFIG_FILE_SIZE: usize = 16 * 1024 * 1024;
@@ -19,7 +19,7 @@ const READ_BUFFER_SIZE: usize = 8 * 1024;
 // Default iouring/epoll entries: 32k
 const DEFAULT_ENTRIES: u32 = 32768;
 
-pub const DEFAULT_TIME: usize = 3600;
+pub const DEFAULT_TIME: u64 = 3600;
 pub const DEFAULT_TIMEOUT: usize = 75;
 pub const DEFAULT_REQUESTS: usize = 1000;
 pub const MAX_CONFIG_SIZE_LIMIT: usize = 8072;
@@ -27,37 +27,19 @@ pub const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 pub const MIN_SQPOLL_IDLE_TIME: u32 = 1000; // 1s idle time.
 pub const FALLBACK_PARALLELISM: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1) };
 
+macro_rules! define_const {
+    ($name: ident, $val: expr, $type: ty) => {
+        const fn $name() -> $type {
+            $val
+        }
+    };
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub runtime: RuntimeConfig,
-    pub servers: HashMap<String, ServerConfig>,
-}
-
-const fn default_entries() -> u32 {
-    DEFAULT_ENTRIES
-}
-
-fn default_workers() -> usize {
-    std::thread::available_parallelism()
-        .unwrap_or(FALLBACK_PARALLELISM)
-        .into()
-}
-
-const fn default_cpu_affinity() -> bool {
-    true
-}
-
-const fn default_keepalive_requests() -> usize {
-    DEFAULT_REQUESTS
-}
-
-const fn default_keepalive_time() -> usize {
-    DEFAULT_TIME
-}
-
-const fn default_keepalive_timeout() -> usize {
-    DEFAULT_TIMEOUT
+    pub servers: HashMap<String, (ListenerConfig, ServerConfig)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,24 +55,6 @@ pub struct RuntimeConfig {
     pub cpu_affinity: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum RuntimeType {
-    #[cfg(all(target_os = "linux"))]
-    IoUring,
-    Legacy,
-}
-
-impl Default for RuntimeType {
-    #[cfg(all(target_os = "linux"))]
-    fn default() -> Self {
-        Self::IoUring
-    }
-    #[cfg(not(target_os = "linux"))]
-    fn default() -> Self {
-        Self::Legacy
-    }
-}
-
 impl Default for RuntimeConfig {
     fn default() -> Self {
         RuntimeConfig {
@@ -103,13 +67,57 @@ impl Default for RuntimeConfig {
     }
 }
 
+fn default_workers() -> usize {
+    std::thread::available_parallelism()
+        .unwrap_or(FALLBACK_PARALLELISM)
+        .into()
+}
+
+define_const!(default_entries, DEFAULT_ENTRIES, u32);
+define_const!(default_cpu_affinity, true, bool);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RuntimeType {
+    #[cfg(target_os = "linux")]
+    IoUring,
+    Legacy,
+}
+
+impl Default for RuntimeType {
+    #[cfg(target_os = "linux")]
+    fn default() -> Self {
+        Self::IoUring
+    }
+    #[cfg(not(target_os = "linux"))]
+    fn default() -> Self {
+        Self::Legacy
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
     pub name: String,
-    pub listeners: Vec<ListenerConfig>,
     pub tls: Option<TlsConfig>,
     pub routes: Vec<RouteConfig>,
     pub keepalive_config: Option<KeepaliveConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum ListenerConfig {
+    SocketAddress(SocketAddress),
+    Uds(Uds),
+}
+
+impl TryFrom<ListenerConfig> for ListenerBuilder {
+    type Error = std::io::Error;
+
+    fn try_from(value: ListenerConfig) -> Result<Self, Self::Error> {
+        match value {
+            ListenerConfig::SocketAddress(addr) => ListenerBuilder::bind_tcp(addr.socket_addr, Default::default()),
+            ListenerConfig::Uds(addr) => ListenerBuilder::bind_unix(addr.uds_path),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,32 +141,6 @@ impl Default for TlsStack {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KeepaliveConfig {
-    #[serde(default = "default_keepalive_requests")]
-    pub keepalive_requests: usize,
-    #[serde(default = "default_keepalive_time")]
-    pub keepalive_time: usize,
-    #[serde(default = "default_keepalive_timeout")]
-    pub keepalive_timeout: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(untagged)]
-pub enum ListenerConfig {
-    SocketAddress(SocketAddress),
-    Uds(Uds),
-}
-
-impl ListenerConfig {
-    pub fn transport_protocol(&self) -> TransportProtocol {
-        match self {
-            Self::SocketAddress(s) => s.transport_protocol.to_owned(),
-            Self::Uds(u) => u.transport_protocol.to_owned(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RouteConfig {
     #[serde(skip)]
     pub id: String,
@@ -166,8 +148,25 @@ pub struct RouteConfig {
     pub upstreams: Vec<Upstream>,
 }
 
-fn default_weight() -> u16 {
-    1
+// TODO(ihciah): rename _name to _sec
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub struct KeepaliveConfig {
+    #[serde(default = "default_keepalive_requests")]
+    pub keepalive_requests: usize,
+    #[serde(default = "default_keepalive_time")]
+    pub keepalive_time: u64,
+    #[serde(default = "default_keepalive_timeout")]
+    pub keepalive_timeout: usize,
+}
+
+define_const!(default_keepalive_requests, DEFAULT_REQUESTS, usize);
+define_const!(default_keepalive_time, DEFAULT_TIME, u64);
+define_const!(default_keepalive_timeout, DEFAULT_TIMEOUT, usize);
+
+impl KeepaliveConfig {
+    pub fn keepalive_time(&self) -> Duration {
+        Duration::from_secs(self.keepalive_time)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,6 +176,8 @@ pub struct Upstream {
     pub weight: u16,
 }
 
+define_const!(default_weight, 1, u16);
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Endpoint {
@@ -185,16 +186,11 @@ pub enum Endpoint {
     Uds(Uds),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum TransportProtocol {
+    #[default]
     Tcp,
     Udp,
-}
-
-impl Default for TransportProtocol {
-    fn default() -> Self {
-        Self::Tcp
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -217,61 +213,55 @@ pub struct Uri {
     pub uri: http::Uri,
 }
 
-async fn read_file(path: impl AsRef<Path>) -> anyhow::Result<Bytes> {
-    let mut data = BytesMut::new();
-
-    let file = match monoio::fs::File::open(path).await {
-        Ok(file) => file,
-        Err(e) => bail!("Config: error open file: {:?}", e),
-    };
-
-    let mut buffer = BytesMut::with_capacity(READ_BUFFER_SIZE);
-    let mut current: u64 = 0;
-
-    loop {
-        let (res, buf) = file.read_at(buffer, current).await;
-        let n = res?;
-        buffer = buf;
-
-        if data.len() + n > MAX_CONFIG_FILE_SIZE {
-            bail!("Config: max file size: {}", MAX_CONFIG_FILE_SIZE);
-        }
-
-        data.extend_from_slice(&buffer[..n]);
-
-        if n < READ_BUFFER_SIZE {
-            break;
-        }
-
-        current += n as u64;
-        buffer.clear();
+impl Config {
+    pub async fn load(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        Self::from_slice(&Self::read_file(path).await?)
     }
 
-    Ok(Bytes::from(data))
-}
+    pub fn from_slice(content: &[u8]) -> anyhow::Result<Self> {
+        // read first non-space u8
+        let is_json = match content
+            .iter()
+            .find(|&&b| b != b' ' && b != b'\r' && b != b'\n' && b != b'\t')
+        {
+            Some(first) => *first == b'{',
+            None => false,
+        };
+        match is_json {
+            true => serde_json::from_slice::<Self>(content).map_err(Into::into),
+            false => toml::from_str::<Self>(&String::from_utf8_lossy(content)).map_err(Into::into),
+        }
+    }
 
-fn parse_extension(path: &impl AsRef<Path>) -> String {
-    let extension = path
-        .as_ref()
-        .extension()
-        .unwrap_or_default()
-        .as_bytes()
-        .to_ascii_lowercase();
-    String::from_utf8(extension).unwrap_or_default()
-}
+    async fn read_file(path: impl AsRef<Path>) -> anyhow::Result<Vec<u8>> {
+        let file = match monoio::fs::File::open(path).await {
+            Ok(file) => file,
+            Err(e) => bail!("Config: error open file: {:?}", e),
+        };
 
-impl Config {
-    pub async fn load(path: impl AsRef<Path>) -> anyhow::Result<Config> {
-        parse(parse_extension(&path), &read_file(path).await?)
+        let mut data = Vec::new();
+        let mut buffer = Vec::with_capacity(READ_BUFFER_SIZE);
+
+        loop {
+            let (res, buf) = file.read_at(buffer, data.len() as u64).await;
+            let n = res?;
+            buffer = buf;
+            if n == 0 {
+                break;
+            }
+
+            if data.len() + n > MAX_CONFIG_FILE_SIZE {
+                bail!("Config: max file size: {}", MAX_CONFIG_FILE_SIZE);
+            }
+            data.extend_from_slice(&buffer);
+        }
+
+        Ok(data)
     }
 }
 
 #[cfg(test)]
 mod tests {
-
-    use crate::config::parsers::parse;
-    use bytes::Bytes;
-
     use super::Config;
 
     #[test]
@@ -297,7 +287,7 @@ mod tests {
             }
         ";
 
-        let config: Config = parse("json".to_string(), &Bytes::from(TEST_CONFIG)).unwrap();
+        let config = Config::from_slice(TEST_CONFIG.as_bytes()).unwrap();
         assert_eq!("test-server", config.servers.keys().next().unwrap());
     }
 
@@ -325,7 +315,7 @@ mod tests {
             weight = 2
         ";
 
-        let config: Config = parse("toml".to_string(), &Bytes::from(TEST_CONFIG)).unwrap();
+        let config: Config = Config::from_slice(TEST_CONFIG.as_bytes()).unwrap();
         assert_eq!("test-server", config.servers.keys().next().unwrap());
     }
 }

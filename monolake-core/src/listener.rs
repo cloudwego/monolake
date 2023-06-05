@@ -2,7 +2,7 @@ use std::{future::Future, io, net::SocketAddr, path::Path};
 
 use monoio::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
-    io::{stream::Stream, AsyncReadRent, AsyncWriteRent},
+    io::{stream::Stream, AsyncReadRent, AsyncWriteRent, Split},
     net::{ListenerOpts, TcpListener, TcpStream},
     BufResult,
 };
@@ -94,6 +94,9 @@ pub enum AcceptedStream {
     Unix(monoio::net::UnixStream),
 }
 
+unsafe impl Split for AcceptedStream {}
+
+#[derive(Debug, Clone)]
 pub enum AcceptedAddr {
     Tcp(SocketAddr),
     #[cfg(unix)]

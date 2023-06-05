@@ -1,15 +1,18 @@
-use std::{future::Future, rc::Rc};
+use std::future::Future;
 
-use http::{Response, StatusCode};
-use tracing::debug;
+use http::{Request, Response, StatusCode};
 use matchit::Router;
 use monoio_http::h1::payload::Payload;
 use monolake_core::{
     config::RouteConfig,
-    http::{HttpError, HttpHandler, Rewrite},
+    http::{HttpHandler, Rewrite},
+    service::{
+        layer::{layer_fn, FactoryLayer},
+        MakeService, Param, Service,
+    },
 };
 use rand::RngCore;
-use tower_layer::{layer_fn, Layer};
+use tracing::debug;
 
 use crate::http::generate_response;
 
@@ -19,26 +22,17 @@ pub struct RewriteHandler<H> {
     router: Router<RouteConfig>,
 }
 
-impl<H> RewriteHandler<H> {
-    pub fn layer(routes: Rc<Vec<RouteConfig>>) -> impl Layer<H, Service = RewriteHandler<H>> {
-        let mut router: Router<RouteConfig> = Router::new();
-        for route in routes.iter() {
-            router.insert(route.path.clone(), route.clone()).unwrap();
-        }
-        layer_fn(move |inner| RewriteHandler {
-            inner,
-            router: router.clone(),
-        })
-    }
-}
-
-impl<H> HttpHandler for RewriteHandler<H>
+impl<H> Service<Request<Payload>> for RewriteHandler<H>
 where
-    H: HttpHandler<Body = Payload> + 'static,
+    H: HttpHandler,
 {
-    type Body = Payload;
-    type Future<'a> = impl Future<Output = Result<Response<Self::Body>, HttpError>> + 'a;
-    fn handle(&self, mut request: http::Request<Self::Body>) -> Self::Future<'_> {
+    type Response = Response<Payload>;
+    type Error = H::Error;
+    type Future<'a> = impl Future<Output = Result<Response<Payload>, Self::Error>> + 'a
+    where
+        Self: 'a;
+
+    fn call(&self, mut request: Request<Payload>) -> Self::Future<'_> {
         async move {
             let req_path = request.uri().path();
             tracing::info!("request path: {}", req_path);
@@ -65,6 +59,38 @@ where
     }
 }
 
+// RewriteHandler is a Service and a MakeService.
+impl<F> MakeService for RewriteHandler<F>
+where
+    F: MakeService,
+{
+    type Service = RewriteHandler<F::Service>;
+    type Error = F::Error;
+
+    fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
+        Ok(RewriteHandler {
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
+            router: self.router.clone(),
+        })
+    }
+}
+
+impl<F> RewriteHandler<F> {
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
+    where
+        C: Param<Vec<RouteConfig>>,
+    {
+        layer_fn::<C, _, _, _>(|c, inner| {
+            let routes = c.param();
+            let mut router: Router<RouteConfig> = Router::new();
+            for route in routes.into_iter() {
+                router.insert(route.path.clone(), route.clone()).unwrap();
+            }
+            Self { inner, router }
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::SystemTime;
@@ -72,7 +98,7 @@ mod tests {
     use matchit::Router;
     use monolake_core::config::{Endpoint, RouteConfig, Upstream, Uri};
 
-    fn iterate_match<'a>(req_path: &str, routes: &'a Vec<RouteConfig>) -> Option<&'a RouteConfig> {
+    fn iterate_match<'a>(req_path: &str, routes: &'a [RouteConfig]) -> Option<&'a RouteConfig> {
         let mut target_route = None;
         let mut route_len = 0;
         for route in routes.iter() {
@@ -88,7 +114,7 @@ mod tests {
 
     fn create_routes() -> impl Iterator<Item = RouteConfig> {
         let total_routes = 1024 * 100;
-        (0..total_routes).into_iter().map(|n| RouteConfig {
+        (0..total_routes).map(|n| RouteConfig {
             id: "testroute".to_string(),
             path: format!("/{}", n),
             upstreams: Vec::from([Upstream {
@@ -103,7 +129,7 @@ mod tests {
     #[test]
     fn test_iterate_match() {
         let mut router: Router<RouteConfig> = Router::new();
-        create_routes().for_each(|route| router.insert(route.path.clone(), route.clone()).unwrap());
+        create_routes().for_each(|route| router.insert(route.path.clone(), route).unwrap());
         let routes: Vec<RouteConfig> = create_routes().collect();
         let target_path = "/1024";
 

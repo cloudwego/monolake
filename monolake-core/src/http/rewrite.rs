@@ -13,8 +13,8 @@ impl Rewrite {
             _ => unimplemented!("not implement"),
         };
         if let Some(authority) = remote.authority() {
-            let header_value = HeaderValue::from_str(authority.as_str())
-                .unwrap_or(HeaderValue::from_static(""));
+            let header_value =
+                HeaderValue::from_str(authority.as_str()).unwrap_or(HeaderValue::from_static(""));
             tracing::debug!(
                 "Request: {:?} -> {:?}",
                 request.headers().get(http::header::HOST),
