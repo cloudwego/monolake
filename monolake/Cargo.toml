@@ -9,7 +9,7 @@ description = "Proxy solution base on monoio"
 monolake-core = { path = "../monolake-core" }
 monolake-services = { path = "../monolake-services" }
 
-monoio = "0.1.3"
+monoio = "0.1.4"
 monoio-http = "0.1.0"
 monoio-http-client = { version = "0.1.0", features = ["logging", "tls"] }
 

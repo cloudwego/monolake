@@ -28,7 +28,7 @@ impl From<&RuntimeConfig> for RuntimeWrapper {
                         let idle = MIN_SQPOLL_IDLE_TIME.max(idle);
                         let mut uring_builder = io_uring::IoUring::builder();
                         uring_builder.setup_sqpoll(idle);
-                        builder.uring_builder(&uring_builder)
+                        builder.uring_builder(uring_builder)
                     }
                     None => RuntimeBuilder::<monoio::IoUringDriver>::new(),
                 };
