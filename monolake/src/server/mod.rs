@@ -130,7 +130,7 @@ impl<E> ResultGroup<(), E> {
 /// WorkerController is holden by worker threads, it saved every sites' service.
 // TODO: make up a better name.
 pub struct WorkerController<S> {
-    sites: Rc<UnsafeCell<HashMap<String, SiteHandler<S>>>>,
+    sites: Rc<UnsafeCell<HashMap<Arc<String>, SiteHandler<S>>>>,
 }
 
 impl<S> Default for WorkerController<S> {
@@ -192,9 +192,9 @@ impl<S> HandlerSlot<S> {
 /// It should be cheap to clone.
 #[derive(Clone)]
 pub enum Command<F, LF> {
-    Add(String, F, LF),
-    Update(String, F),
-    Remove(String),
+    Add(Arc<String>, F, LF),
+    Update(Arc<String>, F),
+    Remove(Arc<String>),
 }
 
 pub struct Update<F, LF> {
@@ -276,14 +276,11 @@ impl<S> WorkerController<S> {
     where
         Command<F, LF>: Execute<A, S>,
     {
-        info!("worker controller started");
         while let Some(upd) = rx.next().await {
-            info!("got an update");
             if let Err(e) = upd.result.send(upd.cmd.execute(self)) {
                 error!("unable to send back result: {e:?}");
             }
         }
-        info!("worker coltroller exit");
     }
 }
 

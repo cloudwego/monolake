@@ -5,7 +5,10 @@ use monoio_http::h1::payload::Payload;
 use monolake_core::{
     config::KeepaliveConfig,
     http::HttpHandler,
-    service::{layer::{FactoryLayer, layer_fn}, MakeService, Param, Service},
+    service::{
+        layer::{layer_fn, FactoryLayer},
+        MakeService, Param, Service,
+    },
 };
 use tracing::debug;
 

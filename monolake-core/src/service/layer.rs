@@ -5,7 +5,7 @@ pub trait FactoryLayer<C, F> {
     fn layer(&self, config: &C, inner: F) -> Self::Factory;
 }
 
-pub fn layer_fn<C, F, FN, O>(f: FN) -> LayerFn<C, FN>
+pub const fn layer_fn<C, F, FN, O>(f: FN) -> LayerFn<C, FN>
 where
     FN: Fn(&C, F) -> O,
 {

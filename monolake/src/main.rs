@@ -1,33 +1,25 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(type_alias_impl_trait)]
 
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
 
-use monoio::net::TcpStream;
 use monolake_core::{
-    config::{Config, RuntimeConfig},
-    listener::{AcceptedAddr, AcceptedStream, ListenerBuilder},
+    config::{Config, RuntimeConfig, ServerConfigWithListener},
+    listener::ListenerBuilder,
     print_logo,
-    service::{stack::FactoryStack, Param},
+    service::Param,
     tls::TlsConfig,
 };
-use monolake_services::{
-    http::{
-        handlers::{ConnReuseHandler, ProxyHandler, RewriteHandler},
-        HttpCoreService,
-    },
-    tcp::toy_echo::EchoReplaceConfig,
-    tls::UnifiedTlsFactory,
-};
+use monolake_services::tcp::toy_echo::EchoReplaceConfig;
 use server::Manager;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
-// use crate::factory::l7_factory;
+use crate::factory::l7_factory;
 
-// mod factory;
+mod factory;
 mod server;
 
 #[derive(Parser, Debug)]
@@ -68,21 +60,12 @@ async fn main() -> Result<()> {
     );
 
     // Construct Service Factory and Listener Factory
-    for (name, (lis_cfg, svc_cfg)) in config.servers.into_iter() {
-        let lis_fac = ListenerBuilder::try_from(lis_cfg).expect("build listener failed");
-        // let svc_fac = l7_factory(svc_cfg);
-        let svc_fac = FactoryStack::new(svc_cfg)
-            .replace(ProxyHandler::factory())
-            .push(ConnReuseHandler::layer())
-            .push(RewriteHandler::layer())
-            .push(HttpCoreService::layer())
-            .check_make_svc::<(TcpStream, SocketAddr)>()
-            .push(UnifiedTlsFactory::layer())
-            .check_make_svc::<(AcceptedStream, AcceptedAddr)>()
-            .into_inner();
+    for (name, ServerConfigWithListener { listener, server }) in config.servers.into_iter() {
+        let lis_fac = ListenerBuilder::try_from(listener).expect("build listener failed");
+        let svc_fac = l7_factory(server);
         manager
             .apply(server::Command::Add(
-                name,
+                Arc::new(name),
                 Arc::new(svc_fac),
                 Arc::new(lis_fac),
             ))
@@ -90,7 +73,9 @@ async fn main() -> Result<()> {
             .err()
             .expect("apply init config failed");
     }
+    tracing::info!("init config broadcast successfully");
 
+    // TODO(ihciah): run update task or api server to do config update, maybe in xDS protocol
     // Wait for workers
     join_handlers.into_iter().for_each(|h| {
         h.join().unwrap();

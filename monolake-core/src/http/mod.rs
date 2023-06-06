@@ -27,7 +27,7 @@ impl<T: Service<Request<Payload>, Response = Response<Payload>>> HttpHandler for
     where
         Self: 'a;
 
-    fn handle(&self, _request: Request<Payload>) -> Self::Future<'_> {
-        async move { todo!() }
+    fn handle(&self, req: Request<Payload>) -> Self::Future<'_> {
+        async move { self.call(req).await }
     }
 }

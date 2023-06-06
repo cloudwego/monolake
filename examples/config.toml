@@ -5,11 +5,8 @@ entries = 8192
 
 # server1
 [servers.server1]
-name = "gateway.example.com"
-listeners = [
-    { socket_addr = "0.0.0.0:8080" },
-    { uds_path = "examples/tmp/test.sock" },
-]
+name = "gateway.monoio.rs"
+listener = { uds_path = "/tmp/monolake.sock" }
 
 [[servers.server1.routes]]
 upstreams = [
@@ -28,9 +25,9 @@ path = '/*p'
 
 # server2
 [servers.server2]
-tls = { chain = "examples/tmp/certs/cert.pem", key = "examples/tmp/certs/key.pem" }
-name = "gateway.example.com"
-listeners = [{ socket_addr = "0.0.0.0:8081" }]
+tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.pkcs8" }
+name = "gateway.monoio.rs"
+listener = { socket_addr = "0.0.0.0:8081" }
 
 [[servers.server2.routes]]
 path = '/'
@@ -43,10 +40,19 @@ upstreams = [{ endpoint = { uri = "http://127.0.0.1:9080" } }]
 
 # server3
 [servers.server3]
-tls = { chain = "examples/tmp/certs/cert.pem", key = "examples/tmp/certs/key.pem" }
-name = "gateway.example.com"
-listeners = [{ socket_addr = "0.0.0.0:8082" }]
+tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.pkcs8", stack = "Rustls" }
+name = "gateway.monoio.rs"
+listener = { socket_addr = "0.0.0.0:8082" }
 
 [[servers.server3.routes]]
 path = '/'
-upstreams = [{ endpoint = { uri = "https://www.wikipedia.org" } }]
+upstreams = [{ endpoint = { uri = "https://rsproxy.cn" } }]
+
+# server4
+[servers.server4]
+name = "gateway.monoio.rs"
+listener = { socket_addr = "0.0.0.0:8083" }
+
+[[servers.server4.routes]]
+upstreams = [{ endpoint = { uri = "https://rsproxy.cn" } }]
+path = '/'

@@ -15,11 +15,14 @@ impl TryFrom<&crate::config::TlsConfig> for TlsConfig {
         let key = std::fs::read(&value.key)?;
         match value.stack {
             crate::config::TlsStack::Rustls => {
-                let chain = rustls_pemfile::certs(&mut Cursor::new(chain))?
+                let chain = rustls_pemfile::certs(&mut Cursor::new(&chain))?
                     .into_iter()
                     .map(::rustls::Certificate)
                     .collect::<Vec<_>>();
-                let key = rustls_pemfile::pkcs8_private_keys(&mut Cursor::new(key))?
+                if chain.is_empty() {
+                    anyhow::bail!("empty cert file");
+                }
+                let key = rustls_pemfile::pkcs8_private_keys(&mut Cursor::new(&key))?
                     .pop()
                     .map(::rustls::PrivateKey)
                     .ok_or_else(|| anyhow::anyhow!("empty key file"))?;

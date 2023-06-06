@@ -1,14 +1,15 @@
 //! Preconstructed factories.
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{fmt::Debug, net::SocketAddr};
 
 use monoio::net::TcpStream;
-use monoio_http_client::Client;
 use monolake_core::{
     config::ServerConfig,
-    service::{stack::FactoryStack, MakeService}, AnyError, listener::{AcceptedStream, AcceptedAddr},
+    listener::{AcceptedAddr, AcceptedStream},
+    service::{stack::FactoryStack, MakeService, Service},
 };
 use monolake_services::{
+    common::Accept,
     http::{
         handlers::{ConnReuseHandler, ProxyHandler, RewriteHandler},
         HttpCoreService,
@@ -16,15 +17,15 @@ use monolake_services::{
     tls::UnifiedTlsFactory,
 };
 
-// type L7Factory = impl MakeService<Service = S> where Self::Error: Debug, S: Service<A> + 'static,S::Error: Debug, A: 'static;
-
-pub fn l7_factory(config: ServerConfig) -> impl MakeService //<Error = AnyError>
-// <Service = S, Error = HttpError>
-// where
-//     S: Service<A> + 'static,
-//     S::Error: std::fmt::Debug,
-//     A: 'static,
-{
+/// Create a new factory for l7 proxy.
+// Here we use a fixed generic type `Accept<AcceptedStream, AcceptedAddr>`
+// for simplification and make return impl work.
+pub fn l7_factory(
+    config: ServerConfig,
+) -> impl MakeService<
+    Service = impl Service<Accept<AcceptedStream, AcceptedAddr>, Error = impl Debug>,
+    Error = impl Debug,
+> {
     FactoryStack::new(config)
         .replace(ProxyHandler::factory())
         .push(ConnReuseHandler::layer())

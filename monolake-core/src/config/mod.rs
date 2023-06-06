@@ -39,7 +39,14 @@ macro_rules! define_const {
 pub struct Config {
     #[serde(default)]
     pub runtime: RuntimeConfig,
-    pub servers: HashMap<String, (ListenerConfig, ServerConfig)>,
+    pub servers: HashMap<String, ServerConfigWithListener>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerConfigWithListener {
+    pub listener: ListenerConfig,
+    #[serde(flatten)]
+    pub server: ServerConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,7 +121,9 @@ impl TryFrom<ListenerConfig> for ListenerBuilder {
 
     fn try_from(value: ListenerConfig) -> Result<Self, Self::Error> {
         match value {
-            ListenerConfig::SocketAddress(addr) => ListenerBuilder::bind_tcp(addr.socket_addr, Default::default()),
+            ListenerConfig::SocketAddress(addr) => {
+                ListenerBuilder::bind_tcp(addr.socket_addr, Default::default())
+            }
             ListenerConfig::Uds(addr) => ListenerBuilder::bind_unix(addr.uds_path),
         }
     }

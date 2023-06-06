@@ -4,5 +4,4 @@
 .swp
 *.pem
 
-/exmaples/tmp
-
+/examples/certs

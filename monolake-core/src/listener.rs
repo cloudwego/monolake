@@ -18,6 +18,8 @@ pub enum ListenerBuilder {
 impl ListenerBuilder {
     #[cfg(unix)]
     pub fn bind_unix<P: AsRef<Path>>(path: P) -> io::Result<ListenerBuilder> {
+        // Try remove file first
+        let _ = std::fs::remove_file(path.as_ref());
         let listener = std::os::unix::net::UnixListener::bind(path)?;
         Ok(Self::Unix(listener))
     }

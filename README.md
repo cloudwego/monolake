@@ -5,7 +5,7 @@ A high performance reverse proxy based on [Monoio](http://github.com/bytedance/m
 ## Basic Usage
 
 ```shell
-# debug 
+# debug
 cargo build
 RUST_LOG=debug target/debug/monolake --config examples/config.toml
 
@@ -25,9 +25,7 @@ entries = 1024
 # example server
 [servers.example]
 name = "gateway.example.com"
-listeners = [
-    { socket_addr = "0.0.0.0:8080" },
-]
+listener = { socket_addr = "0.0.0.0:8080" }
 
 [[servers.example.routes]]
 upstreams = [
