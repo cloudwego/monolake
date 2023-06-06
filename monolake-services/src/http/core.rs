@@ -1,6 +1,6 @@
 use std::convert::Infallible;
 use std::time::{Duration, Instant};
-use std::{cell::UnsafeCell, fmt::Debug, future::Future, rc::Rc};
+use std::{fmt::Debug, future::Future, rc::Rc};
 
 use crate::http::util::MaybeDoubleFuture;
 use crate::http::{COUNTER_HEADER_NAME, TIMER_HEADER_NAME};

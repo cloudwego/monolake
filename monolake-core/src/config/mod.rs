@@ -280,7 +280,7 @@ mod tests {
                 \"servers\": {
                     \"test-server\": {
                         \"name\": \"test\",
-                        \"listeners\": [{\"socket_addr\" : \"0.0.0.0:8080\"}],
+                        \"listener\": {\"socket_addr\" : \"0.0.0.0:8080\"},
                         \"routes\": [{
                             \"path\": \"/\",
                             \"upstreams\": [{
@@ -305,11 +305,7 @@ mod tests {
         const TEST_CONFIG: &str = "
             [servers.test-server]
             name = 'gateway.example.com'
-            listeners = [
-                { socket_addr = '[::]:8080' },
-                { socket_addr = '0.0.0.0:8080' },
-                { uds_path = '/tmp/abc.sock' }
-            ]
+            listener = { socket_addr = '[::]:8080' }
 
             [[servers.test-server.routes]]
             path = '/'

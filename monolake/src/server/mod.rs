@@ -190,6 +190,7 @@ impl<S> HandlerSlot<S> {
 }
 
 /// It should be cheap to clone.
+#[allow(dead_code)]
 #[derive(Clone)]
 pub enum Command<F, LF> {
     Add(Arc<String>, F, LF),

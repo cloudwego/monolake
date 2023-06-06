@@ -1,0 +1,71 @@
+name: build
+
+on: [ push, pull_request ]
+
+jobs:
+  build:
+    name: monolake-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            override: true
+            components: rustfmt, clippy
+      - run: sudo apt-get install libssl-dev pkg-config
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+  test:
+    name: monolake-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            override: true
+            components: rustfmt, clippy
+      - run: sudo apt-get install libssl-dev pkg-config
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+  format:
+    name: monolake-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            override: true
+            components: rustfmt, clippy
+      - run: sudo apt-get install libssl-dev pkg-config
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+  clippy:
+    name: monolake-clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            override: true
+            components: rustfmt, clippy
+      - run: sudo apt-get install libssl-dev pkg-config
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
