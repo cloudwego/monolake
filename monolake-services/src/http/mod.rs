@@ -1,8 +1,11 @@
-mod core;
-pub use self::core::HttpCoreService;
 use http::{HeaderMap, HeaderValue, Response, StatusCode};
 use monoio_http::h1::payload::Payload;
+
+pub use self::core::HttpCoreService;
+
+mod core;
 pub mod handlers;
+mod util;
 
 const CONNECTION: &str = "Connection";
 const CONN_CLOSE: &[u8] = b"close";

@@ -28,9 +28,9 @@ monoio-native-tls = { version = "0.1.0" }
 native-tls = "0.2"
 openssl-sys = "0.9"
 
-
 async-channel = "1"
 tower-layer = "0"
 rand = "0"
 matchit = "0"
 ppp = "2"
+pin-project-lite = "0.2"

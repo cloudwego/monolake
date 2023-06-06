@@ -838,6 +838,7 @@ dependencies = [
  "monolake-core",
  "native-tls",
  "openssl-sys",
+ "pin-project-lite",
  "ppp",
  "rand",
  "rustls",

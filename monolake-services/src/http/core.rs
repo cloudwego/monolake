@@ -2,6 +2,7 @@ use std::convert::Infallible;
 use std::time::{Duration, Instant};
 use std::{cell::UnsafeCell, fmt::Debug, future::Future, rc::Rc};
 
+use crate::http::util::MaybeDoubleFuture;
 use crate::http::{COUNTER_HEADER_NAME, TIMER_HEADER_NAME};
 use crate::{common::Accept, http::is_conn_reuse};
 use async_channel::Receiver;
@@ -57,23 +58,21 @@ where
     }
 
     #[inline]
-    async fn close_conn<O>(&self, encoder: Rc<UnsafeCell<GenericEncoder<O>>>)
+    async fn close_conn<O>(&self, encoder: &mut GenericEncoder<O>)
     where
-        O: AsyncWriteRent + 'static,
+        O: AsyncWriteRent,
         GenericEncoder<O>: monoio::io::sink::Sink<Response<Payload>>,
     {
-        let _ = unsafe { &mut *encoder.get() }.close().await;
+        let _ = encoder.close().await;
     }
 
     #[inline]
-    async fn send_error<O>(&self, encoder: Rc<UnsafeCell<GenericEncoder<O>>>, status: StatusCode)
+    async fn send_error<O>(&self, encoder: &mut GenericEncoder<O>, status: StatusCode)
     where
-        O: AsyncWriteRent + 'static,
+        O: AsyncWriteRent,
         GenericEncoder<O>: monoio::io::sink::Sink<Response<Payload>>,
     {
-        let _ = unsafe { &mut *encoder.get() }
-            .send_and_flush(generate_response(status))
-            .await;
+        let _ = encoder.send_and_flush(generate_response(status)).await;
 
         let _ = self.close_conn(encoder).await;
     }
@@ -82,16 +81,16 @@ where
     async fn process_response<O>(
         &self,
         response: Response<Payload>,
-        encoder: Rc<UnsafeCell<GenericEncoder<O>>>,
+        encoder: &mut GenericEncoder<O>,
         rx: Receiver<()>,
     ) where
-        O: AsyncWriteRent + 'static,
+        O: AsyncWriteRent,
         GenericEncoder<O>: monoio::io::sink::Sink<Response<Payload>>,
     {
         let should_close_conn = !is_conn_reuse(response.headers(), response.version());
 
         monoio::select! {
-            _ = unsafe { &mut *encoder.get() }.send_and_flush(response) => {
+            _ = encoder.send_and_flush(response) => {
                 if should_close_conn {
                     self.close_conn(encoder).await;
                 }
@@ -106,10 +105,10 @@ where
     async fn process_request<O>(
         &self,
         request: Request<Payload>,
-        encoder: Rc<UnsafeCell<GenericEncoder<O>>>,
+        encoder: &mut GenericEncoder<O>,
         rx: Receiver<()>,
     ) where
-        O: AsyncWriteRent + 'static,
+        O: AsyncWriteRent,
         GenericEncoder<O>: monoio::io::sink::Sink<Response<Payload>>,
     {
         match self.handle(request).await {
@@ -125,8 +124,8 @@ where
 
 impl<H, Stream, SocketAddr> Service<Accept<Stream, SocketAddr>> for HttpCoreService<H>
 where
-    Stream: Split + AsyncReadRent + AsyncWriteRent + 'static,
-    SocketAddr: Debug + 'static,
+    Stream: Split + AsyncReadRent + AsyncWriteRent,
+    SocketAddr: Debug,
     H: HttpHandler,
     H::Error: Into<HttpError>,
 {
@@ -134,7 +133,7 @@ where
     type Error = Infallible;
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a;
+        Self: 'a, Accept<Stream, SocketAddr>: 'a;
 
     // TODO(ihciah): remove counter and timer
     fn call(&self, incoming_stream: Accept<Stream, SocketAddr>) -> Self::Future<'_> {
@@ -143,18 +142,21 @@ where
         let service = Rc::new(self.to_owned());
         let (tx, rx) = async_channel::bounded(1);
         let mut decoder = RequestDecoder::new(reader);
-        let encoder = Rc::new(UnsafeCell::new(GenericEncoder::new(writer)));
+        let mut encoder = GenericEncoder::new(writer);
 
         let mut counter: usize = 0;
         let starting_time = Instant::now();
 
         async move {
+            let mut maybe_processing = None;
             loop {
                 counter += 1;
 
+                let next_future = MaybeDoubleFuture::new(decoder.next(), maybe_processing);
+
                 // Pending refactor due to timeout function have double meaning:
                 // 1) keepalive idle conn timeout. 2) accept request timeout.
-                match monoio::time::timeout(self.timeout, decoder.next()).await {
+                match monoio::time::timeout(self.timeout, next_future).await {
                     Ok(Some(Ok(mut request))) => {
                         let counter_header_value =
                             HeaderValue::from_bytes(counter.to_string().as_bytes()).unwrap();
@@ -168,9 +170,8 @@ where
                             HeaderName::from_static(TIMER_HEADER_NAME),
                             timer_header_value,
                         );
-                        service
-                            .process_request(request, encoder.clone(), rx.clone())
-                            .await;
+                        let processing = service.process_request(request, &mut encoder, rx.clone());
+                        maybe_processing = Some(processing);
                     }
                     Ok(Some(Err(err))) => {
                         warn!("{}", err);
