@@ -339,6 +339,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
+name = "futures"
+version = "0.3.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23342abe12aba583913b2e62f22225ff9c950774065e4bfb61a19cd9770fec40"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "futures-executor",
+ "futures-io",
+ "futures-sink",
+ "futures-task",
+ "futures-util",
+]
+
+[[package]]
 name = "futures-channel"
 version = "0.3.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -353,6 +368,23 @@ name = "futures-core"
 version = "0.3.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4bca583b7e26f571124fe5b7561d49cb2868d79116cfa0eefce955557c6fee8c"
+
+[[package]]
+name = "futures-executor"
+version = "0.3.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccecee823288125bd88b4d7f565c9e58e41858e47ab72e8ea2d64e93624386e0"
+dependencies = [
+ "futures-core",
+ "futures-task",
+ "futures-util",
+]
+
+[[package]]
+name = "futures-io"
+version = "0.3.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fff74096e71ed47f8e023204cfd0aa1289cd54ae5430a9523be060cdb849964"
 
 [[package]]
 name = "futures-macro"
@@ -383,10 +415,13 @@ version = "0.3.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26b01e40b772d54cf6c6d721c1d1abd0647a0106a12ecaa1c186273392a69533"
 dependencies = [
+ "futures-channel",
  "futures-core",
+ "futures-io",
  "futures-macro",
  "futures-sink",
  "futures-task",
+ "memchr",
  "pin-project-lite",
  "pin-utils",
  "slab",
@@ -673,9 +708,9 @@ dependencies = [
 
 [[package]]
 name = "monoio-codec"
-version = "0.0.4"
+version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9c29115e9aa7ec1d70dcd36692750abf9a6ca7dc28c4280c8b16e4545c844bf"
+checksum = "5cbcf155d1b96a2a47895b0068b7acdc8b8b6b8deba68bafa5de7e3083570768"
 dependencies = [
  "bytes",
  "monoio",
@@ -683,24 +718,45 @@ dependencies = [
 ]
 
 [[package]]
-name = "monoio-http"
-version = "0.1.0"
+name = "monoio-compat"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f057eb40261b4d0105b0994c13b349e878d4e2e4f123600c9b263ddd3544b479"
+checksum = "cc7b456f37f985b3602e5263a011fa10f8e8df0004db21794e752c7ca61c30d1"
+dependencies = [
+ "monoio",
+ "reusable-box-future",
+ "tokio",
+]
+
+[[package]]
+name = "monoio-http"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff2b18cf7fc28bbbd8a1fd1d6c1f6034e61ac0ad3f43da1884a741364d9cf7cd"
 dependencies = [
  "bytes",
+ "fnv",
+ "futures-core",
+ "futures-sink",
+ "futures-util",
  "http",
  "httparse",
+ "indexmap",
  "monoio",
  "monoio-codec",
+ "monoio-compat",
+ "slab",
  "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
 name = "monoio-http-client"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdcb9212bbfd247f9a02b62ef47265b8230dfff572ac4d9098214e79d66c1232"
+checksum = "60b87361cc70d8ceb01d80b5febaa707525f6438c9d7889a3257b8cbf66058d1"
 dependencies = [
  "bytes",
  "http",
@@ -829,6 +885,7 @@ dependencies = [
  "anyhow",
  "async-channel",
  "bytes",
+ "futures",
  "http",
  "matchit",
  "monoio",
@@ -1147,6 +1204,12 @@ name = "regex-syntax"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5996294f19bd3aae0453a862ad728f60e6600695733dd5df01da90c54363a3c"
+
+[[package]]
+name = "reusable-box-future"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e0e61cd21fbddd85fbd9367b775660a01d388c08a61c6d2824af480b0309bb9"
 
 [[package]]
 name = "ring"
@@ -1508,6 +1571,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0aa32867d44e6f2ce3385e89dceb990188b8bb0fb25b0cf576647a6f98ac5105"
 dependencies = [
  "autocfg",
+ "bytes",
  "pin-project-lite",
  "windows-sys 0.48.0",
 ]

@@ -2,14 +2,18 @@
 mod rewrite;
 use std::future::Future;
 
-use http::{Request, Response};
+use crate::sealed::Sealed;
+use http::{version::Version, Request, Response};
+use monoio::io::PrefixedReadIo;
 use monoio_http::h1::payload::Payload;
 pub use rewrite::Rewrite;
 use service_async::Service;
-
-use crate::sealed::Sealed;
+use std::io::Cursor;
 
 pub type HttpError = anyhow::Error;
+
+pub type HttpAccept<Stream, SocketAddr> =
+    (Version, PrefixedReadIo<Stream, Cursor<Vec<u8>>>, SocketAddr);
 
 pub trait HttpHandler: Sealed {
     type Error;
