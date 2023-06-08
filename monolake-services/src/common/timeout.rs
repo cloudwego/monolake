@@ -1,12 +1,10 @@
 use std::{future::Future, time::Duration};
 
 use monoio::time::timeout;
-use monolake_core::{
-    service::{
-        layer::{layer_fn, FactoryLayer},
-        MakeService, Param, Service,
-    },
-    AnyError,
+use monolake_core::AnyError;
+use service_async::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Param, Service,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -48,7 +46,7 @@ impl<F> TimeoutService<F> {
     where
         C: Param<Timeout>,
     {
-        layer_fn::<C, _, _, _>(|c, inner| TimeoutService {
+        layer_fn(|c: &C, inner| TimeoutService {
             timeout: c.param().0,
             inner,
         })

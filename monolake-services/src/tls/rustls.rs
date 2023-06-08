@@ -2,14 +2,12 @@ use std::{fmt::Display, future::Future, sync::Arc};
 
 use monoio::io::{AsyncReadRent, AsyncWriteRent};
 use monoio_rustls::{ServerTlsStream, TlsAcceptor};
-use monolake_core::{
-    service::{
-        layer::{layer_fn, FactoryLayer},
-        MakeService, Param, Service,
-    },
-    AnyError,
-};
+use monolake_core::AnyError;
 use rustls::ServerConfig;
+use service_async::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Param, Service,
+};
 
 use crate::common::Accept;
 
@@ -53,7 +51,7 @@ impl<F> RustlsServiceFactory<F> {
     where
         C: Param<ServerConfig>,
     {
-        layer_fn::<C, _, _, _>(|c, inner| RustlsServiceFactory {
+        layer_fn(|c: &C, inner| RustlsServiceFactory {
             config: Arc::new(c.param()),
             inner,
         })

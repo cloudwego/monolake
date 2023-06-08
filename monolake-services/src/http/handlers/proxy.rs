@@ -3,7 +3,7 @@ use std::{convert::Infallible, future::Future};
 use http::{Request, Response, StatusCode};
 use monoio_http::h1::payload::Payload;
 use monoio_http_client::Client;
-use monolake_core::service::{MakeService, Service};
+use service_async::{MakeService, Service};
 
 use crate::http::generate_response;
 

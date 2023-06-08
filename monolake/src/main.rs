@@ -10,11 +10,11 @@ use monolake_core::{
     config::{Config, RuntimeConfig, ServerConfigWithListener},
     listener::ListenerBuilder,
     print_logo,
-    service::Param,
     tls::TlsConfig,
 };
 use monolake_services::tcp::toy_echo::EchoReplaceConfig;
 use server::Manager;
+use service_async::Param;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
 use crate::factory::l7_factory;

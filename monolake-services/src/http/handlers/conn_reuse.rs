@@ -2,13 +2,10 @@ use std::future::Future;
 
 use http::{HeaderMap, HeaderName, HeaderValue, Request, Response, StatusCode, Version};
 use monoio_http::h1::payload::Payload;
-use monolake_core::{
-    config::KeepaliveConfig,
-    http::HttpHandler,
-    service::{
-        layer::{layer_fn, FactoryLayer},
-        MakeService, Param, Service,
-    },
+use monolake_core::{config::KeepaliveConfig, http::HttpHandler};
+use service_async::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Param, Service,
 };
 use tracing::debug;
 
@@ -107,7 +104,7 @@ impl<F> ConnReuseHandler<F> {
     where
         C: Param<Option<KeepaliveConfig>>,
     {
-        layer_fn::<C, _, _, _>(|c, inner| Self {
+        layer_fn(|c: &C, inner| Self {
             keepalive_config: c.param(),
             inner,
         })

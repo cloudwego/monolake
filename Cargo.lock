@@ -787,6 +787,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "service-async",
  "thiserror",
  "tower-layer",
  "tracing",
@@ -813,10 +814,10 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "serde_valid",
+ "service-async",
  "sha2",
  "thiserror",
  "toml",
- "tower-layer",
  "tracing",
  "webpki-roots 0.22.6",
 ]
@@ -843,6 +844,7 @@ dependencies = [
  "rand",
  "rustls",
  "rustls-pemfile",
+ "service-async",
  "tower-layer",
  "tracing",
  "webpki-roots 0.23.0",
@@ -1343,6 +1345,12 @@ dependencies = [
  "paste",
  "regex",
 ]
+
+[[package]]
+name = "service-async"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d2d9a043a221e0774d35fb26789bf6fc6364cf666e85c423061ed973baa7a4e"
 
 [[package]]
 name = "sha2"

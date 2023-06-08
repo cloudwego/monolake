@@ -6,8 +6,7 @@ use monoio::{
     net::{ListenerOpts, TcpListener, TcpStream},
     BufResult,
 };
-
-use crate::service::MakeService;
+use service_async::MakeService;
 
 pub enum ListenerBuilder {
     Tcp(SocketAddr, ListenerOpts),

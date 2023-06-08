@@ -2,14 +2,12 @@ use std::{fmt::Display, future::Future};
 
 use monoio::io::{AsyncReadRent, AsyncWriteRent};
 use monoio_native_tls::{TlsAcceptor, TlsStream};
-use monolake_core::{
-    service::{
-        layer::{layer_fn, FactoryLayer},
-        MakeService, Param, Service,
-    },
-    AnyError,
-};
+use monolake_core::AnyError;
 use native_tls::Identity;
+use service_async::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Param, Service,
+};
 
 use crate::common::Accept;
 
@@ -54,7 +52,7 @@ impl<F> NativeTlsServiceFactory<F> {
     where
         C: Param<Identity>,
     {
-        layer_fn::<C, _, _, _>(|c, inner| NativeTlsServiceFactory {
+        layer_fn(|c: &C, inner| NativeTlsServiceFactory {
             identity: c.param(),
             inner,
         })

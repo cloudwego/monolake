@@ -2,15 +2,12 @@ mod rustls;
 pub use self::rustls::RustlsService;
 
 use crate::common::Accept;
-use monolake_core::{
-    service::{
-        layer::{layer_fn, FactoryLayer},
-        MakeService, Param, Service,
-    },
-    tls::TlsConfig,
-    AnyError,
-};
+use monolake_core::{tls::TlsConfig, AnyError};
 use native_tls::Identity;
+use service_async::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Param, Service,
+};
 use std::future::Future;
 
 mod nativetls;
@@ -152,7 +149,7 @@ impl<F> UnifiedTlsFactory<F> {
         A: Param<::rustls::ServerConfig>,
         B: Param<Identity>,
     {
-        layer_fn::<C, _, _, _>(|c, inner| match &c.param() {
+        layer_fn(|c: &C, inner| match &c.param() {
             TlsConfig::Rustls(i) => Self::Rustls(RustlsServiceFactory::layer().layer(i, inner)),
             TlsConfig::Native(i) => Self::Native(NativeTlsServiceFactory::layer().layer(i, inner)),
             TlsConfig::None => Self::None(inner),

@@ -1,6 +1,6 @@
 use std::{future::Future, time::Duration};
 
-use monolake_core::service::{
+use service_async::{
     layer::{layer_fn, FactoryLayer},
     MakeService, Param, Service,
 };
@@ -40,7 +40,7 @@ impl<F> DelayService<F> {
     where
         C: Param<Delay>,
     {
-        layer_fn::<C, _, _, _>(|c, inner| DelayService {
+        layer_fn(|c: &C, inner| DelayService {
             delay: c.param().0,
             inner,
         })

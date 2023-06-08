@@ -6,7 +6,6 @@ use monoio::net::TcpStream;
 use monolake_core::{
     config::ServerConfig,
     listener::{AcceptedAddr, AcceptedStream},
-    service::{stack::FactoryStack, MakeService, Service},
 };
 use monolake_services::{
     common::Accept,
@@ -16,6 +15,7 @@ use monolake_services::{
     },
     tls::UnifiedTlsFactory,
 };
+use service_async::{stack::FactoryStack, MakeService, Service};
 
 /// Create a new factory for l7 proxy.
 // Here we use a fixed generic type `Accept<AcceptedStream, AcceptedAddr>`

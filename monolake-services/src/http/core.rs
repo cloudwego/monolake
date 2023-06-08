@@ -17,12 +17,13 @@ use monoio_http::h1::{
     payload::Payload,
 };
 use monolake_core::http::HttpError;
-use monolake_core::service::layer::{layer_fn, FactoryLayer};
-use monolake_core::service::{MakeService, Param};
 use monolake_core::{
     config::{KeepaliveConfig, DEFAULT_TIMEOUT},
     http::HttpHandler,
-    service::Service,
+};
+use service_async::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Param, Service,
 };
 use tracing::{debug, info, warn};
 
@@ -215,7 +216,7 @@ impl<F> HttpCoreService<F> {
     where
         C: Param<Option<KeepaliveConfig>>,
     {
-        layer_fn::<C, _, _, _>(|c, inner| Self::new(inner, c.param()))
+        layer_fn(|c: &C, inner| Self::new(inner, c.param()))
     }
 }
 
@@ -225,7 +226,8 @@ mod tests {
 
     use http::{HeaderValue, Request, Response};
     use monoio_http::h1::payload::Payload;
-    use monolake_core::{http::HttpHandler, service::Service};
+    use monolake_core::http::HttpHandler;
+    use service_async::Service;
     use tower_layer::{layer_fn, Layer};
 
     use crate::http::core::HttpCoreService;

@@ -6,12 +6,12 @@ use monoio_http::h1::payload::Payload;
 use monolake_core::{
     config::RouteConfig,
     http::{HttpHandler, Rewrite},
-    service::{
-        layer::{layer_fn, FactoryLayer},
-        MakeService, Param, Service,
-    },
 };
 use rand::RngCore;
+use service_async::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Param, Service,
+};
 use tracing::debug;
 
 use crate::http::generate_response;
@@ -80,7 +80,7 @@ impl<F> RewriteHandler<F> {
     where
         C: Param<Vec<RouteConfig>>,
     {
-        layer_fn::<C, _, _, _>(|c, inner| {
+        layer_fn(|c: &C, inner| {
             let routes = c.param();
             let mut router: Router<RouteConfig> = Router::new();
             for route in routes.into_iter() {

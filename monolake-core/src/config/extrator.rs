@@ -1,4 +1,6 @@
-use crate::{service::Param, tls::TlsConfig};
+use service_async::Param;
+
+use crate::tls::TlsConfig;
 
 use super::{KeepaliveConfig, RouteConfig, ServerConfig};
 

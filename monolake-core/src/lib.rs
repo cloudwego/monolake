@@ -7,7 +7,6 @@ pub use error::{AnyError, AnyResult};
 pub mod config;
 pub mod http;
 pub mod listener;
-pub mod service;
 pub mod tls;
 pub mod util;
 

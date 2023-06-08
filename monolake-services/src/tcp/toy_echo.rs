@@ -1,7 +1,7 @@
 use std::{convert::Infallible, future::Future, io};
 
 use monoio::io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt};
-use monolake_core::service::{
+use service_async::{
     layer::{layer_fn, FactoryLayer},
     MakeService, Param, Service,
 };
@@ -65,7 +65,7 @@ impl EchoReplaceService {
     where
         C: Param<EchoReplaceConfig>,
     {
-        layer_fn::<C, (), _, _>(|c, ()| Self {
+        layer_fn(|c: &C, ()| Self {
             replace: c.param().replace,
         })
     }
