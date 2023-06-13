@@ -1,83 +1,85 @@
 use std::future::Future;
 
-use http::{HeaderMap, HeaderName, HeaderValue, Request, Response, StatusCode, Version};
+use http::{Request, Version};
 use monoio_http::h1::payload::Payload;
-use monolake_core::{config::KeepaliveConfig, http::HttpHandler};
+use monolake_core::http::{HttpHandler, ResponseWithContinue};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Param, Service,
+    MakeService, Service,
 };
 use tracing::debug;
 
-use crate::http::{
-    generate_response, is_conn_reuse, CONN_CLOSE, CONN_KEEP_ALIVE, COUNTER_HEADER_NAME,
-    TIMER_HEADER_NAME,
-};
+use crate::http::{CLOSE, CLOSE_VALUE, KEEPALIVE, KEEPALIVE_VALUE};
 
+/// ConnReuseHandler judges whether the request supports keepalive,
+/// and adds relevant headers to the response.
 #[derive(Clone)]
 pub struct ConnReuseHandler<H> {
     inner: H,
-    keepalive_config: Option<KeepaliveConfig>,
-}
-
-impl<H> ConnReuseHandler<H> {
-    fn should_close_conn(&self, headers: &HeaderMap<HeaderValue>) -> bool {
-        // TODO(ihciah): remove keepalive according to request count and timer.
-        // Does nginx have this machanism?
-        match &self.keepalive_config {
-            Some(config) => {
-                let cnt_str = headers.get(COUNTER_HEADER_NAME).unwrap();
-                let counter: usize = cnt_str.to_str().unwrap().parse().unwrap();
-                if counter >= config.keepalive_requests {
-                    return true;
-                }
-
-                let time_str = headers
-                    .get(HeaderName::from_static(TIMER_HEADER_NAME))
-                    .unwrap();
-                let elapsed_time: u64 = time_str.to_str().unwrap().parse().unwrap();
-                elapsed_time >= config.keepalive_time
-            }
-            None => true,
-        }
-    }
 }
 
 impl<H> Service<Request<Payload>> for ConnReuseHandler<H>
 where
     H: HttpHandler,
 {
-    type Response = Response<Payload>;
+    type Response = ResponseWithContinue;
     type Error = H::Error;
-    type Future<'a> = impl Future<Output = Result<Response<Payload>, Self::Error>> + 'a
+    type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a;
+        Self: 'a, Request<Payload>: 'a;
 
     fn call(&self, mut request: Request<Payload>) -> Self::Future<'_> {
         async move {
             let version = request.version();
-            let reuse_conn = is_conn_reuse(request.headers(), version);
-            let should_close = self.should_close_conn(request.headers());
-            debug!("frontend conn reuse {:?}", reuse_conn);
-            // update the http request to make sure the backend conn reuse
-            *request.version_mut() = Version::HTTP_11;
-            let _ = request.headers_mut().remove(http::header::CONNECTION);
+            let keepalive = is_conn_keepalive(request.headers(), version);
+            debug!("frontend keepalive {:?}", keepalive);
 
-            match self.inner.handle(request).await {
-                Ok(mut response) => {
-                    let header_value = if reuse_conn && !should_close {
-                        unsafe { HeaderValue::from_maybe_shared_unchecked(CONN_KEEP_ALIVE) }
-                    } else {
-                        unsafe { HeaderValue::from_maybe_shared_unchecked(CONN_CLOSE) }
-                    };
-                    response
-                        .headers_mut()
-                        .insert(http::header::CONNECTION, header_value);
+            match version {
+                // for http 1.0, hack it to 1.1 like setting nginx `proxy_http_version` to 1.1
+                Version::HTTP_10 => {
+                    // modify to 1.1 and remove connection header
+                    *request.version_mut() = Version::HTTP_11;
+                    let _ = request.headers_mut().remove(http::header::CONNECTION);
+
+                    // send
+                    let (mut response, mut cont) = self.inner.handle(request).await?;
+                    cont &= keepalive;
+
+                    // modify back and make sure reply keepalive if client want it and server support it.
+                    let _ = response.headers_mut().remove(http::header::CONNECTION);
+                    if cont {
+                        // insert keepalive header
+                        response
+                            .headers_mut()
+                            .insert(http::header::CONNECTION, KEEPALIVE_VALUE);
+                    }
                     *response.version_mut() = version;
-                    Ok(response)
+
+                    Ok((response, cont))
                 }
-                // TODO(ihciah): Is it ok to return Ok even when Err?
-                Err(_e) => Ok(generate_response(StatusCode::INTERNAL_SERVER_ERROR)),
+                Version::HTTP_11 => {
+                    // remove connection header
+                    let _ = request.headers_mut().remove(http::header::CONNECTION);
+
+                    // send
+                    let (mut response, mut cont) = self.inner.handle(request).await?;
+                    cont &= keepalive;
+
+                    // modify back and make sure reply keepalive if client want it and server support it.
+                    let _ = response.headers_mut().remove(http::header::CONNECTION);
+                    if !cont {
+                        // insert close header
+                        response
+                            .headers_mut()
+                            .insert(http::header::CONNECTION, CLOSE_VALUE);
+                    }
+                    Ok((response, cont))
+                }
+                // for http 0.9 and other versions, just relay it
+                _ => {
+                    let (response, _) = self.inner.handle(request).await?;
+                    Ok((response, false))
+                }
             }
         }
     }
@@ -94,19 +96,29 @@ where
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(ConnReuseHandler {
             inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
-            keepalive_config: self.keepalive_config,
         })
     }
 }
 
 impl<F> ConnReuseHandler<F> {
-    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
-    where
-        C: Param<Option<KeepaliveConfig>>,
-    {
-        layer_fn(|c: &C, inner| Self {
-            keepalive_config: c.param(),
-            inner,
-        })
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self> {
+        layer_fn(|_: &C, inner| Self { inner })
+    }
+}
+
+fn is_conn_keepalive(headers: &http::HeaderMap<http::HeaderValue>, version: Version) -> bool {
+    match (version, headers.get(http::header::CONNECTION)) {
+        (Version::HTTP_10, Some(header))
+            if header.as_bytes().eq_ignore_ascii_case(KEEPALIVE.as_bytes()) =>
+        {
+            true
+        }
+        (Version::HTTP_11, None) => true,
+        (Version::HTTP_11, Some(header))
+            if !header.as_bytes().eq_ignore_ascii_case(CLOSE.as_bytes()) =>
+        {
+            true
+        }
+        _ => false,
     }
 }

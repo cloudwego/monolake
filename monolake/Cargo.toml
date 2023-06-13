@@ -3,22 +3,16 @@ name = "monolake"
 version = "0.2.0"
 edition = "2021"
 keywords = ["monoio", "http", "async"]
-description = "Proxy solution base on monoio"
+description = "High Performance Proxy base on Monoio"
 
 [dependencies]
+monoio = { version = "0.1.4", features = ["sync", "async-cancel"] }
 monolake-core = { path = "../monolake-core" }
 monolake-services = { path = "../monolake-services" }
 service-async = "0.1"
 
-monoio = { version = "0.1.4", features = ["sync", "async-cancel"] }
-monoio-http = "0.1.0"
-monoio-http-client = { version = "0.1.0", features = ["logging", "tls"] }
-
-# tls
-monoio-rustls = { version = "0.1.2" }
+# tls: needed for native-tls init
 monoio-native-tls = { version = "0.1.0" }
-native-tls = "0"
-openssl-sys = "0"
 
 # error
 thiserror = "1"
@@ -33,16 +27,11 @@ clap = { version = "4", features = ['derive'] }
 serde = "1"
 serde_json = "1"
 serde_derive = "1"
-bytes = "1"
 http = "0.2"
-httparse = "1"
 
 # futures
 futures-util = { version = "0.3", features = ["sink"] }
 futures-channel = { version = "0.3", features = ["sink"] }
-
-# to-remove
-tower-layer = "0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 io-uring = "0.5"

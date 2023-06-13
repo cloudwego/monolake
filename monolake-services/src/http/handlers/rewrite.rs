@@ -1,11 +1,11 @@
 use std::future::Future;
 
-use http::{Request, Response, StatusCode};
+use http::{Request, StatusCode};
 use matchit::Router;
 use monoio_http::h1::payload::Payload;
 use monolake_core::{
     config::RouteConfig,
-    http::{HttpHandler, Rewrite},
+    http::{HttpHandler, ResponseWithContinue, Rewrite},
 };
 use rand::RngCore;
 use service_async::{
@@ -26,9 +26,9 @@ impl<H> Service<Request<Payload>> for RewriteHandler<H>
 where
     H: HttpHandler,
 {
-    type Response = Response<Payload>;
+    type Response = ResponseWithContinue;
     type Error = H::Error;
-    type Future<'a> = impl Future<Output = Result<Response<Payload>, Self::Error>> + 'a
+    type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
         Self: 'a;
 
@@ -52,7 +52,7 @@ where
                 }
                 Err(e) => {
                     debug!("match request uri: {} with error: {}", request.uri(), e);
-                    Ok(generate_response(StatusCode::NOT_FOUND))
+                    Ok((generate_response(StatusCode::NOT_FOUND, false), true))
                 }
             }
         }

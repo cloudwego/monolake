@@ -1,73 +1,82 @@
 use std::{future::Future, task::Poll};
 
 pin_project_lite::pin_project! {
-    /// MaybeDoubleFuture for http decoder and processor.
-    #[project = EnumProj]
-    pub(crate) enum MaybeDoubleFuture<FA, FB, T> {
-        Single{#[pin] fut: FA},
-        Double{
-            #[pin] future_a: FA,
-            #[pin] future_b: FB,
-            slot_a: Option<T>,
-            ready_b: bool
-        },
+    /// AccompanyPair for http decoder and processor.
+    /// We have to fill payload when process request
+    /// since inner logic may read chunked body; also
+    /// fill payload when process response since we
+    /// may use the request body stream in response
+    /// body stream.
+    pub(crate) struct AccompanyPair<FMAIN, FACC, T> {
+        #[pin]
+        main: FMAIN,
+        #[pin]
+        accompany: FACC,
+        accompany_slot: Option<T>
     }
 }
 
-impl<FA, FB, T> Future for MaybeDoubleFuture<FA, FB, T>
+pin_project_lite::pin_project! {
+    /// Accompany for http decoder and processor.
+    pub(crate) struct Accompany<FACC, T> {
+        #[pin]
+        accompany: FACC,
+        accompany_slot: Option<T>
+    }
+}
+
+impl<FMAIN, FACC, T> Future for AccompanyPair<FMAIN, FACC, T>
 where
-    FA: Future<Output = T>,
-    FB: Future,
+    FMAIN: Future,
+    FACC: Future<Output = T>,
+{
+    type Output = FMAIN::Output;
+
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        if this.accompany_slot.is_none() && let Poll::Ready(t) = this.accompany.poll(cx) {
+            *this.accompany_slot = Some(t);
+        }
+        this.main.poll(cx)
+    }
+}
+
+impl<FACC, T> Future for Accompany<FACC, T>
+where
+    FACC: Future<Output = T>,
 {
     type Output = T;
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-        match self.project() {
-            EnumProj::Single { fut } => fut.poll(cx),
-            EnumProj::Double {
-                future_a,
-                future_b,
-                slot_a,
-                ready_b,
-            } => {
-                // try poll future_b if not ready
-                if !*ready_b && matches!(future_b.poll(cx), Poll::Ready(_)) {
-                    *ready_b = true;
-                }
-                // poll future_a if not ready
-                if slot_a.is_none() {
-                    if let Poll::Ready(t) = future_a.poll(cx) {
-                        *slot_a = Some(t);
-                    }
-                }
-                // if future_b is not ready, return pending
-                if !*ready_b {
-                    return Poll::Pending;
-                }
-                // now future_b is ready, check a
-                match slot_a.take() {
-                    Some(t) => Poll::Ready(t),
-                    None => Poll::Pending,
-                }
-            }
+        let this = self.project();
+        if let Some(t) = this.accompany_slot.take() {
+            return Poll::Ready(t);
         }
+        this.accompany.poll(cx)
     }
 }
 
-impl<FA, FB, T> MaybeDoubleFuture<FA, FB, T>
-where
-    FA: Future<Output = T>,
-{
-    pub(crate) fn new(future_a: FA, future_b: Option<FB>) -> MaybeDoubleFuture<FA, FB, T> {
-        if let Some(future_b) = future_b {
-            MaybeDoubleFuture::Double {
-                future_a,
-                future_b,
-                slot_a: None,
-                ready_b: false,
-            }
-        } else {
-            MaybeDoubleFuture::Single { fut: future_a }
+impl<FMAIN, FACC, T> AccompanyPair<FMAIN, FACC, T> {
+    pub(crate) fn new(main: FMAIN, accompany: FACC) -> Self {
+        Self {
+            main,
+            accompany,
+            accompany_slot: None,
+        }
+    }
+
+    pub(crate) fn replace<FMAIN2>(self, main: FMAIN2) -> AccompanyPair<FMAIN2, FACC, T> {
+        AccompanyPair {
+            main,
+            accompany: self.accompany,
+            accompany_slot: self.accompany_slot,
+        }
+    }
+
+    pub(crate) fn into_accompany(self) -> Accompany<FACC, T> {
+        Accompany {
+            accompany: self.accompany,
+            accompany_slot: self.accompany_slot,
         }
     }
 }

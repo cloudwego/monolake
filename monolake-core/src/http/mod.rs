@@ -1,4 +1,3 @@
-// pub mod handler;
 mod rewrite;
 use std::future::Future;
 
@@ -11,20 +10,24 @@ use crate::sealed::Sealed;
 
 pub type HttpError = anyhow::Error;
 
+// Response and a bool indicating should continue processing the connection.
+// Service does not need to add `Connection: close` itself.
+pub type ResponseWithContinue = (Response<Payload>, bool);
+
 pub trait HttpHandler: Sealed {
     type Error;
-    type Future<'a>: Future<Output = Result<Response<Payload>, Self::Error>>
+    type Future<'a>: Future<Output = Result<ResponseWithContinue, Self::Error>>
     where
         Self: 'a;
 
     fn handle(&self, request: Request<Payload>) -> Self::Future<'_>;
 }
 
-impl<T: Service<Request<Payload>, Response = Response<Payload>>> Sealed for T {}
+impl<T: Service<Request<Payload>, Response = ResponseWithContinue>> Sealed for T {}
 
-impl<T: Service<Request<Payload>, Response = Response<Payload>>> HttpHandler for T {
+impl<T: Service<Request<Payload>, Response = ResponseWithContinue>> HttpHandler for T {
     type Error = T::Error;
-    type Future<'a> = impl Future<Output = Result<Response<Payload>, Self::Error>> + 'a
+    type Future<'a> = impl Future<Output = Result<ResponseWithContinue, Self::Error>> + 'a
     where
         Self: 'a;
 

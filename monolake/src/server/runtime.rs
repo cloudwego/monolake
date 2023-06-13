@@ -49,7 +49,6 @@ impl From<&RuntimeConfig> for RuntimeWrapper {
             RuntimeType::Legacy => {
                 let runtime = RuntimeBuilder::<monoio::LegacyDriver>::new()
                     .enable_timer()
-                    .with_entries(config.entries)
                     .build()
                     .unwrap();
                 RuntimeWrapper::Legacy(runtime)

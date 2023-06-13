@@ -84,6 +84,7 @@ define_const!(default_entries, DEFAULT_ENTRIES, u32);
 define_const!(default_cpu_affinity, true, bool);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum RuntimeType {
     #[cfg(target_os = "linux")]
     IoUring,
@@ -138,6 +139,7 @@ pub struct TlsConfig {
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum TlsStack {
     Rustls,
     NativeTls,
@@ -196,6 +198,7 @@ pub enum Endpoint {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum TransportProtocol {
     #[default]
     Tcp,

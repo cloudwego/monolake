@@ -1,5 +1,5 @@
 [runtime]
-# runtime_type = "Legacy"
+# runtime_type = "legacy"
 workers = 1
 entries = 8192
 
@@ -40,7 +40,7 @@ upstreams = [{ endpoint = { uri = "http://127.0.0.1:9080" } }]
 
 # server3
 [servers.server3]
-tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.pkcs8", stack = "Rustls" }
+tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.pkcs8", stack = "rustls" }
 name = "gateway.monoio.rs"
 listener = { socket_addr = "0.0.0.0:8082" }
 

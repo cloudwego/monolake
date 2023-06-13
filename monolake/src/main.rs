@@ -7,7 +7,7 @@ use anyhow::Result;
 use clap::Parser;
 
 use monolake_core::{
-    config::{Config, RuntimeConfig, ServerConfigWithListener},
+    config::{Config, ServerConfigWithListener},
     listener::ListenerBuilder,
     print_logo,
     tls::TlsConfig,
@@ -48,8 +48,7 @@ async fn main() -> Result<()> {
     let config = Config::load(&args.config).await?;
 
     // Start workers
-    let runtime_config = RuntimeConfig::default();
-    let mut manager = Manager::new(runtime_config);
+    let mut manager = Manager::new(config.runtime);
     let join_handlers = manager.spawn_workers();
     tracing::info!(
         "Start monolake with {:?} runtime, {} worker(s), {} entries and sqpoll {:?}.",
