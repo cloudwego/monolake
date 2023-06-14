@@ -1,34 +1,20 @@
-use lazy_static::lazy_static;
-use std::collections::HashMap;
-use std::future::Future;
-use std::sync::{Arc, RwLock};
-
-use service_async::{
-    layer::{layer_fn, FactoryLayer},
-    MakeService, Service,
+use std::{
+    collections::HashMap,
+    future::Future,
+    sync::{Arc, RwLock},
 };
 
-use tracing::debug;
-
+use bytes::Bytes;
+use cookie::Cookie;
 use http::{HeaderMap, HeaderValue, Request, Response, StatusCode};
+use lazy_static::lazy_static;
 use monoio::io::stream::Stream;
-use monoio_http::h1::payload::Payload;
+use monoio_http::h1::payload::{FixedPayload, Payload};
 use monoio_http_client::Client;
 use monolake_core::{
     config::OpenIdConfig,
     http::{HttpHandler, ResponseWithContinue},
 };
-
-use crate::http::generate_response;
-
-use cookie::Cookie;
-use serde::{Deserialize, Serialize};
-use url::Url;
-
-use bytes::Bytes;
-use monoio_http::h1::payload::FixedPayload;
-use thiserror::Error;
-
 #[allow(unused)]
 use openidconnect::core::{
     CoreAuthDisplay, CoreClaimName, CoreClaimType, CoreClient, CoreClientAuthMethod,
@@ -44,6 +30,16 @@ use openidconnect::{
     ProviderMetadata, RedirectUrl, RevocationUrl, Scope, UserInfoClaims,
 };
 use openidconnect::{HttpRequest, HttpResponse};
+use serde::{Deserialize, Serialize};
+use service_async::{
+    layer::{layer_fn, FactoryLayer},
+    MakeService, Service,
+};
+use thiserror::Error;
+use tracing::debug;
+use url::Url;
+
+use crate::http::generate_response;
 
 #[derive(Debug, Error)]
 pub enum Error {}
@@ -64,7 +60,7 @@ fn handle_error<T: std::error::Error>(fail: &T, msg: &'static str) {
         cur_fail = cause.source();
     }
     debug!("{}", err_msg);
-    //exit(1);
+    // exit(1);
 }
 
 pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Error> {
@@ -149,13 +145,14 @@ struct SessionState {
     pub access_token: Option<AccessToken>,
 }
 
-// TODO: This is only a PoC, eventually need to replace this with a backend store like Redis for example.
+// TODO: This is only a PoC, eventually need to replace this with a backend store like Redis for
+// example.
 lazy_static! {
     static ref SESSION_STORE: Arc<RwLock<HashMap<String, SessionState>>> =
         Arc::new(RwLock::new(HashMap::new()));
 }
 
-//impl<H> HttpHandler for OpenIdHandler<H>
+// impl<H> HttpHandler for OpenIdHandler<H>
 impl<H> Service<Request<Payload>> for OpenIdHandler<H>
 where
     H: HttpHandler,
@@ -165,7 +162,7 @@ where
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
         Self: 'a, Request<Payload>: 'a;
-    //fn handle(&self, request: http::Request<Self::Body>) -> Self::Future<'_> {
+    // fn handle(&self, request: http::Request<Self::Body>) -> Self::Future<'_> {
     fn call(&self, request: Request<Payload>) -> Self::Future<'_> {
         async move {
             if self.openid_config.is_none() {
@@ -363,7 +360,8 @@ where
             match self.inner.handle(request).await {
                 Ok((mut response, cont)) => {
                     let headers = response.headers_mut();
-                    // Use the state number (csrf) as the session-id for future auth. Need to add more cookies like expiration time.
+                    // Use the state number (csrf) as the session-id for future auth. Need to add
+                    // more cookies like expiration time.
                     headers.insert(http::header::SET_COOKIE, unsafe {
                         HeaderValue::from_maybe_shared_unchecked(format!(
                             "{}={}",

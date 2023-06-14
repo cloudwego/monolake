@@ -1,9 +1,5 @@
-use std::convert::Infallible;
-use std::pin::Pin;
-use std::time::Duration;
-use std::{fmt::Debug, future::Future};
+use std::{convert::Infallible, fmt::Debug, future::Future, pin::Pin, time::Duration};
 
-use crate::common::Accept;
 use http::StatusCode;
 use monoio::io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent, Split, Splitable};
 use monoio_http::h1::codec::{
@@ -20,8 +16,8 @@ use service_async::{
 };
 use tracing::{error, info, warn};
 
-use super::generate_response;
-use super::util::AccompanyPair;
+use super::{generate_response, util::AccompanyPair};
+use crate::common::Accept;
 
 #[derive(Clone)]
 pub struct HttpCoreService<H> {

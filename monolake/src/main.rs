@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
-
 use monolake_core::{
     config::{Config, ServerConfigWithListener},
     listener::ListenerBuilder,

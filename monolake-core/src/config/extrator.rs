@@ -1,10 +1,9 @@
 use service_async::Param;
 
-use crate::tls::TlsConfig;
-
 #[cfg(feature = "openid")]
 use super::OpenIdConfig;
 use super::{KeepaliveConfig, RouteConfig, ServerConfig};
+use crate::tls::TlsConfig;
 
 impl Param<Option<KeepaliveConfig>> for ServerConfig {
     fn param(&self) -> Option<KeepaliveConfig> {

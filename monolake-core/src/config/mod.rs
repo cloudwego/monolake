@@ -290,19 +290,25 @@ mod tests {
 
     #[test]
     fn test_json_deserialize() {
-        const TEST_CONFIG: &str = "
+        const TEST_CONFIG: &str =
+            "
             {
                 \"servers\": {
                     \"test-server\": {
-                        \"name\": \"test\",
-                        \"listener\": {\"socket_addr\" : \"0.0.0.0:8080\"},
+                        \
+             \"name\": \"test\",
+                        \"listener\": {\"socket_addr\" : \"0.0.0.0:8080\"},\
+             
                         \"routes\": [{
                             \"path\": \"/\",
-                            \"upstreams\": [{
-                                \"endpoint\": {\"uds_path\":\"/tmp/test\"},
+                            \
+             \"upstreams\": [{
+                                \"endpoint\": {\"uds_path\":\"/tmp/test\"},\
+             
                                 \"weight\": 1
                             }, {
-                                \"endpoint\": {\"uri\":\"https://gateway.example.com/\"},
+                                \
+             \"endpoint\": {\"uri\":\"https://gateway.example.com/\"},
                                 \"weight\": 2
                             }]
                         }]

@@ -45,7 +45,8 @@ where
                     let (mut response, mut cont) = self.inner.handle(request).await?;
                     cont &= keepalive;
 
-                    // modify back and make sure reply keepalive if client want it and server support it.
+                    // modify back and make sure reply keepalive if client want it and server
+                    // support it.
                     let _ = response.headers_mut().remove(http::header::CONNECTION);
                     if cont {
                         // insert keepalive header
@@ -65,7 +66,8 @@ where
                     let (mut response, mut cont) = self.inner.handle(request).await?;
                     cont &= keepalive;
 
-                    // modify back and make sure reply keepalive if client want it and server support it.
+                    // modify back and make sure reply keepalive if client want it and server
+                    // support it.
                     let _ = response.headers_mut().remove(http::header::CONNECTION);
                     if !cont {
                         // insert close header
