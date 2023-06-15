@@ -6,7 +6,7 @@ use monoio::IoUringDriver;
 #[cfg(target_os = "linux")]
 const MIN_SQPOLL_IDLE_TIME: u32 = 1000;
 
-use monoio::{time::TimeDriver, utils::detect_uring, LegacyDriver, Runtime, RuntimeBuilder};
+use monoio::{time::TimeDriver, LegacyDriver, Runtime, RuntimeBuilder};
 use monolake_core::config::{RuntimeConfig, RuntimeType};
 
 pub enum RuntimeWrapper {
@@ -18,11 +18,12 @@ pub enum RuntimeWrapper {
 impl From<&RuntimeConfig> for RuntimeWrapper {
     fn from(config: &RuntimeConfig) -> Self {
         #[cfg(target_os = "linux")]
-        let runtime_type = if config.runtime_type == RuntimeType::IoUring && detect_uring() {
-            RuntimeType::IoUring
-        } else {
-            RuntimeType::Legacy
-        };
+        let runtime_type =
+            if config.runtime_type == RuntimeType::IoUring && monoio::utils::detect_uring() {
+                RuntimeType::IoUring
+            } else {
+                RuntimeType::Legacy
+            };
         #[cfg(not(target_os = "linux"))]
         let runtime_type = RuntimeType::Legacy;
 

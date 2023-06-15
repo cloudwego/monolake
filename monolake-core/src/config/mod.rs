@@ -297,21 +297,16 @@ mod tests {
                     \"test-server\": {
                         \
              \"name\": \"test\",
-                        \"listener\": {\"socket_addr\" : \"0.0.0.0:8080\"},\
-             
-                        \"routes\": [{
-                            \"path\": \"/\",
+                                   \"listener\": {\"socket_addr\" : \
+             \"0.0.0.0:8080\"},
+                                   \"routes\": [{
                             \
-             \"upstreams\": [{
-                                \"endpoint\": {\"uds_path\":\"/tmp/test\"},\
-             
-                                \"weight\": 1
-                            }, {
+             \"path\": \"/\",
+                            \"upstreams\": [{
                                 \
-             \"endpoint\": {\"uri\":\"https://gateway.example.com/\"},
-                                \"weight\": 2
-                            }]
-                        }]
+             \"endpoint\": {\"uds_path\":\"/tmp/test\"},\"weight\": 1 }, {
+                                \
+             \"endpoint\": {\"uri\":\"https://gateway.example.com/\"},\"weight\": 2 }] }]
                     }
                 }
             }

@@ -28,25 +28,18 @@ pub fn l7_factory(
     Service = impl Service<Accept<AcceptedStream, AcceptedAddr>, Error = impl Debug>,
     Error = impl Debug,
 > {
+    let stacks = FactoryStack::new(config)
+        .replace(ProxyHandler::factory())
+        .push(ConnReuseHandler::layer())
+        .push(RewriteHandler::layer());
+
     #[cfg(feature = "openid")]
-    return FactoryStack::new(config.clone())
-        .replace(ProxyHandler::factory())
-        .push(ConnReuseHandler::layer())
-        .push(RewriteHandler::layer())
-        .push(OpenIdHandler::layer(config.openid_config))
+    stacks.push(OpenIdHandler::layer(config.openid_config));
+
+    stacks
         .push(HttpCoreService::layer())
         .check_make_svc::<(TcpStream, SocketAddr)>()
         .push(UnifiedTlsFactory::layer())
         .check_make_svc::<(AcceptedStream, AcceptedAddr)>()
-        .into_inner();
-    #[cfg(not(feature = "openid"))]
-    return FactoryStack::new(config)
-        .replace(ProxyHandler::factory())
-        .push(ConnReuseHandler::layer())
-        .push(RewriteHandler::layer())
-        .push(HttpCoreService::layer())
-        .check_make_svc::<(TcpStream, SocketAddr)>()
-        .push(UnifiedTlsFactory::layer())
-        .check_make_svc::<(AcceptedStream, AcceptedAddr)>()
-        .into_inner();
+        .into_inner()
 }
