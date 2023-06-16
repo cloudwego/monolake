@@ -5,6 +5,7 @@ use std::{fmt::Debug, net::SocketAddr};
 use monoio::net::TcpStream;
 use monolake_core::{
     config::ServerConfig,
+    http::HttpAccept,
     listener::{AcceptedAddr, AcceptedStream},
 };
 #[cfg(feature = "openid")]
@@ -13,7 +14,7 @@ use monolake_services::{
     common::Accept,
     http::{
         handlers::{ConnReuseHandler, ProxyHandler, RewriteHandler},
-        HttpCoreService,
+        HttpCoreService, HttpVersionDetect,
     },
     tls::UnifiedTlsFactory,
 };
@@ -38,7 +39,8 @@ pub fn l7_factory(
 
     stacks
         .push(HttpCoreService::layer())
-        .check_make_svc::<(TcpStream, SocketAddr)>()
+        .check_make_svc::<HttpAccept<TcpStream, SocketAddr>>()
+        .push(HttpVersionDetect::layer())
         .push(UnifiedTlsFactory::layer())
         .check_make_svc::<(AcceptedStream, AcceptedAddr)>()
         .into_inner()

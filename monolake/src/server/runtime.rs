@@ -16,7 +16,7 @@ pub enum RuntimeWrapper {
 }
 
 impl From<&RuntimeConfig> for RuntimeWrapper {
-    fn from(config: &RuntimeConfig) -> Self {
+    fn from(_config: &RuntimeConfig) -> Self {
         #[cfg(target_os = "linux")]
         let runtime_type =
             if config.runtime_type == RuntimeType::IoUring && monoio::utils::detect_uring() {

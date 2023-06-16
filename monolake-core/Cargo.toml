@@ -8,7 +8,7 @@ openid = []
 
 [dependencies]
 monoio = { version = "0.1.4", features = ['splice'] }
-monoio-http = "0.1.0"
+monoio-http = "0.1.1"
 
 service-async = "0.1"
 thiserror = "1"
@@ -16,6 +16,7 @@ anyhow = "1"
 http = "0.2"
 http-serde = "1"
 bytes = "1"
+futures = "0.3"
 
 serde = "1"
 serde_derive = "1"
