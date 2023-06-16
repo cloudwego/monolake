@@ -108,8 +108,7 @@ pub struct ServerConfig {
     pub tls: Option<TlsConfig>,
     pub routes: Vec<RouteConfig>,
     pub keepalive_config: Option<KeepaliveConfig>,
-    #[cfg(feature = "openid")]
-    pub openid_config: Option<OpenIdConfig>,
+    pub auth_config: Option<AuthConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -170,6 +169,13 @@ pub struct KeepaliveConfig {
     pub keepalive_time: u64,
     #[serde(default = "default_keepalive_timeout")]
     pub keepalive_timeout: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum AuthConfig {
+    #[cfg(feature = "openid")]
+    OpenIdConfig(OpenIdConfig),
 }
 
 #[cfg(feature = "openid")]
