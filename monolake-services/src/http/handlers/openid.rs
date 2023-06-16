@@ -33,7 +33,7 @@ use openidconnect::{HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Service,
+    MakeService, Param, Service,
 };
 use thiserror::Error;
 use tracing::debug;
@@ -128,12 +128,13 @@ where
 }
 
 impl<F> OpenIdHandler<F> {
-    pub fn layer<C>(
-        openid_config: Option<OpenIdConfig>,
-    ) -> impl FactoryLayer<C, F, Factory = Self> {
-        layer_fn(move |_: &C, inner| Self {
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
+    where
+        C: Param<Option<OpenIdConfig>>,
+    {
+        layer_fn(move |c: &C, inner| Self {
             inner: inner,
-            openid_config: openid_config.clone(),
+            openid_config: c.param(),
         })
     }
 }

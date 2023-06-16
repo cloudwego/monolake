@@ -14,7 +14,12 @@ impl Param<Option<KeepaliveConfig>> for ServerConfig {
 #[cfg(feature = "openid")]
 impl Param<Option<OpenIdConfig>> for ServerConfig {
     fn param(&self) -> Option<OpenIdConfig> {
-        self.openid_config.clone()
+        if self.auth_config.is_none() {
+            return None;
+        }
+        match self.auth_config.clone().unwrap() {
+            super::AuthConfig::OpenIdConfig(openid_config) => Some(openid_config),
+        }
     }
 }
 

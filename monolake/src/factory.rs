@@ -34,7 +34,7 @@ pub fn l7_factory(
         .push(RewriteHandler::layer());
 
     #[cfg(feature = "openid")]
-    stacks.push(OpenIdHandler::layer(config.openid_config));
+    let stacks = stacks.push(OpenIdHandler::layer());
 
     stacks
         .push(HttpCoreService::layer())

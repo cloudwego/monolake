@@ -7,7 +7,7 @@ edition = "2021"
 openid = []
 
 [dependencies]
-monoio = { version = "0.1.3", features = ['splice'] }
+monoio = { version = "0.1.4", features = ['splice'] }
 monoio-http = "0.1.0"
 
 service-async = "0.1"
