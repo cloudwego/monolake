@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 openid = []
+proxy-protocol = []
 
 [dependencies]
 monoio = { version = "0.1.4", features = ['splice'] }
@@ -35,3 +36,4 @@ native-tls = "0"
 webpki-roots = "0.22"
 sha2 = "0"
 hex = "0"
+fnv = "1"

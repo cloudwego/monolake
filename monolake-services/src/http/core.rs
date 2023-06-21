@@ -1,4 +1,4 @@
-use std::{convert::Infallible, fmt::Debug, future::Future, pin::Pin, time::Duration};
+use std::{convert::Infallible, future::Future, pin::Pin, time::Duration};
 
 use bytes::Bytes;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
@@ -20,6 +20,7 @@ use monoio_http::{
 };
 use monolake_core::{
     config::{KeepaliveConfig, DEFAULT_TIMEOUT},
+    environments::{Environments, PEER_ADDR},
     http::{HttpAccept, HttpError, HttpHandler},
 };
 use service_async::{
@@ -51,7 +52,7 @@ impl<H> HttpCoreService<H> {
         }
     }
 
-    async fn h1_svc<S, SocketAddr: Debug>(&self, stream: S, addr: SocketAddr)
+    async fn h1_svc<S>(&self, stream: S, environments: Environments)
     where
         S: Split + AsyncReadRent + AsyncWriteRent,
         H: HttpHandler,
@@ -72,12 +73,18 @@ impl<H> HttpCoreService<H> {
                 }
                 Ok(None) => {
                     // EOF
-                    info!("Connection {addr:?} closed");
+                    info!(
+                        "Connection {:?} closed",
+                        environments.get(&PEER_ADDR.to_string())
+                    );
                     break;
                 }
                 Err(_) => {
                     // timeout
-                    info!("Connection {addr:?} keepalive timed out");
+                    info!(
+                        "Connection {:?} keepalive timed out",
+                        environments.get(&PEER_ADDR.to_string())
+                    );
                     break;
                 }
             };
@@ -86,8 +93,10 @@ impl<H> HttpCoreService<H> {
 
             // handle request and reply response
             // 1. do these things simultaneously: read body and send + handle request
-            let mut acc_fut =
-                AccompanyPair::new(self.handler_chain.handle(req), decoder.fill_payload());
+            let mut acc_fut = AccompanyPair::new(
+                self.handler_chain.handle(req, environments.clone()),
+                decoder.fill_payload(),
+            );
             let res = unsafe { Pin::new_unchecked(&mut acc_fut) }.await;
             match res {
                 Ok((resp, should_cont)) => {
@@ -177,7 +186,7 @@ impl<H> HttpCoreService<H> {
         }
     }
 
-    async fn h2_svc<S, SocketAddr: Debug>(&self, stream: S, addr: SocketAddr)
+    async fn h2_svc<S>(&self, stream: S, environments: Environments)
     where
         S: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
         H: HttpHandler,
@@ -190,7 +199,10 @@ impl<H> HttpCoreService<H> {
             .await
             .unwrap();
 
-        info!("H2 handshake complete for {:?}", addr);
+        info!(
+            "H2 handshake complete for {:?}",
+            environments.get(&PEER_ADDR.to_string())
+        );
 
         let (tx, mut rx) = local_sync::mpsc::unbounded::channel();
         let mut backend_resp_stream = FuturesUnordered::new();
@@ -210,6 +222,7 @@ impl<H> HttpCoreService<H> {
         });
 
         loop {
+            let environments = environments.clone();
             futures::select! {
                 result = rx.recv().fuse() => {
                     match result {
@@ -221,7 +234,7 @@ impl<H> HttpCoreService<H> {
                             );
 
                             backend_resp_stream.push( async move {
-                                (self.handler_chain.handle(request).await, response_handle)
+                                (self.handler_chain.handle(request, environments).await, response_handle)
                             });
                         },
                         Some(Err(e)) => {
@@ -252,10 +265,9 @@ impl<H> HttpCoreService<H> {
     }
 }
 
-impl<H, Stream, SocketAddr> Service<HttpAccept<Stream, SocketAddr>> for HttpCoreService<H>
+impl<H, Stream> Service<HttpAccept<Stream, Environments>> for HttpCoreService<H>
 where
     Stream: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
-    SocketAddr: Debug,
     H: HttpHandler,
     H::Error: Into<HttpError>,
 {
@@ -263,14 +275,14 @@ where
     type Error = Infallible;
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a, Accept<Stream, SocketAddr>: 'a;
+        Self: 'a, Accept<Stream, Environments>: 'a;
 
-    fn call(&self, incoming_stream: HttpAccept<Stream, SocketAddr>) -> Self::Future<'_> {
-        let (is_h2, stream, addr) = incoming_stream;
+    fn call(&self, incoming_stream: HttpAccept<Stream, Environments>) -> Self::Future<'_> {
+        let (is_h2, stream, environments) = incoming_stream;
         async move {
             match is_h2 {
-                false => self.h1_svc(stream, addr).await,
-                true => self.h2_svc(stream, addr).await,
+                false => self.h1_svc(stream, environments).await,
+                true => self.h2_svc(stream, environments).await,
             }
             Ok(())
         }

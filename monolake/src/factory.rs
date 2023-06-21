@@ -1,15 +1,14 @@
 //! Preconstructed factories.
 
-use std::{fmt::Debug, net::SocketAddr};
+use std::fmt::Debug;
 
-use monoio::net::TcpStream;
 use monolake_core::{
-    config::ServerConfig,
-    http::HttpAccept,
-    listener::{AcceptedAddr, AcceptedStream},
+    config::ServerConfig, environments::Environments, http::HttpAccept, listener::AcceptedStream,
 };
 #[cfg(feature = "openid")]
 use monolake_services::http::handlers::OpenIdHandler;
+#[cfg(feature = "proxy-protocol")]
+use monolake_services::proxy_protocol::ProxyProtocolServiceFactory;
 use monolake_services::{
     common::Accept,
     http::{
@@ -26,22 +25,28 @@ use service_async::{stack::FactoryStack, MakeService, Service};
 pub fn l7_factory(
     config: ServerConfig,
 ) -> impl MakeService<
-    Service = impl Service<Accept<AcceptedStream, AcceptedAddr>, Error = impl Debug>,
+    Service = impl Service<Accept<AcceptedStream, Environments>, Error = impl Debug>,
     Error = impl Debug,
 > {
     let stacks = FactoryStack::new(config)
         .replace(ProxyHandler::factory())
-        .push(ConnReuseHandler::layer())
         .push(RewriteHandler::layer());
 
     #[cfg(feature = "openid")]
     let stacks = stacks.push(OpenIdHandler::layer());
 
-    stacks
+    let stacks = stacks
+        .push(ConnReuseHandler::layer())
         .push(HttpCoreService::layer())
-        .check_make_svc::<HttpAccept<TcpStream, SocketAddr>>()
-        .push(HttpVersionDetect::layer())
-        .push(UnifiedTlsFactory::layer())
-        .check_make_svc::<(AcceptedStream, AcceptedAddr)>()
+        .check_make_svc::<HttpAccept<AcceptedStream, Environments>>()
+        .push(HttpVersionDetect::layer());
+
+    let stacks = stacks.push(UnifiedTlsFactory::layer());
+
+    #[cfg(feature = "proxy-protocol")]
+    let stacks = stacks.push(ProxyProtocolServiceFactory::layer());
+
+    stacks
+        .check_make_svc::<Accept<AcceptedStream, Environments>>()
         .into_inner()
 }

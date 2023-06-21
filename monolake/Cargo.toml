@@ -6,7 +6,12 @@ keywords = ["monoio", "http", "async"]
 description = "High Performance Proxy base on Monoio"
 
 [features]
-openid = []
+default = []
+openid = ["monolake-core/openid", "monolake-services/openid"]
+proxy-protocol = [
+    "monolake-core/proxy-protocol",
+    "monolake-services/proxy-protocol",
+]
 
 [dependencies]
 monoio = { version = "0.1.4", features = ["sync", "async-cancel"] }
