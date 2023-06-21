@@ -6,7 +6,7 @@ use monoio_http::h1::payload::Payload;
 pub use rewrite::Rewrite;
 use service_async::Service;
 
-use crate::sealed::Sealed;
+use crate::{environments::Environments, sealed::Sealed};
 
 pub type HttpError = anyhow::Error;
 
@@ -20,18 +20,20 @@ pub trait HttpHandler: Sealed {
     where
         Self: 'a;
 
-    fn handle(&self, request: Request<Payload>) -> Self::Future<'_>;
+    fn handle(&self, request: Request<Payload>, environments: Environments) -> Self::Future<'_>;
 }
 
-impl<T: Service<Request<Payload>, Response = ResponseWithContinue>> Sealed for T {}
+impl<T: Service<(Request<Payload>, Environments), Response = ResponseWithContinue>> Sealed for T {}
 
-impl<T: Service<Request<Payload>, Response = ResponseWithContinue>> HttpHandler for T {
+impl<T: Service<(Request<Payload>, Environments), Response = ResponseWithContinue>> HttpHandler
+    for T
+{
     type Error = T::Error;
     type Future<'a> = impl Future<Output = Result<ResponseWithContinue, Self::Error>> + 'a
     where
         Self: 'a;
 
-    fn handle(&self, req: Request<Payload>) -> Self::Future<'_> {
-        async move { self.call(req).await }
+    fn handle(&self, req: Request<Payload>, environments: Environments) -> Self::Future<'_> {
+        async move { self.call((req, environments)).await }
     }
 }

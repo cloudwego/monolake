@@ -16,10 +16,10 @@ use server::Manager;
 use service_async::Param;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
-use crate::factory::l7_factory;
+use crate::services::{CurrentServiceBuilder, ServiceBuilder};
 
-mod factory;
 mod server;
+mod services;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -60,7 +60,8 @@ async fn main() -> Result<()> {
     // Construct Service Factory and Listener Factory
     for (name, ServerConfigWithListener { listener, server }) in config.servers.into_iter() {
         let lis_fac = ListenerBuilder::try_from(listener).expect("build listener failed");
-        let svc_fac = l7_factory(server);
+        let svc_fac = CurrentServiceBuilder::new(server).build();
+
         manager
             .apply(server::Command::Add(
                 Arc::new(name),

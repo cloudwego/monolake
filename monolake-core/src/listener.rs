@@ -8,6 +8,11 @@ use monoio::{
 };
 use service_async::MakeService;
 
+use crate::{
+    config::ENVIRONMENTS_DEFAULT_CAPACITY,
+    environments::{Environments, ValueType, PEER_ADDR},
+};
+
 pub enum ListenerBuilder {
     Tcp(SocketAddr, ListenerOpts),
     #[cfg(unix)]
@@ -58,7 +63,7 @@ pub enum Listener {
 }
 
 impl Stream for Listener {
-    type Item = io::Result<(AcceptedStream, AcceptedAddr)>;
+    type Item = io::Result<(AcceptedStream, Environments)>;
 
     type NextFuture<'a> = impl std::future::Future<Output = Option<Self::Item>> + 'a
     where
@@ -68,19 +73,28 @@ impl Stream for Listener {
         async move {
             match self {
                 Listener::Tcp(l) => match l.next().await {
-                    Some(Ok(accepted)) => Some(Ok((
-                        AcceptedStream::Tcp(accepted.0),
-                        AcceptedAddr::Tcp(accepted.1),
-                    ))),
+                    Some(Ok(accepted)) => {
+                        let mut environments = Environments::new(ENVIRONMENTS_DEFAULT_CAPACITY);
+                        environments
+                            .insert(PEER_ADDR.to_string(), ValueType::SocketAddr(accepted.1));
+                        Some(Ok((AcceptedStream::Tcp(accepted.0), environments)))
+                    }
                     Some(Err(e)) => Some(Err(e)),
                     None => None,
                 },
                 #[cfg(unix)]
                 Listener::Unix(l) => match l.next().await {
-                    Some(Ok(accepted)) => Some(Ok((
-                        AcceptedStream::Unix(accepted.0),
-                        AcceptedAddr::Unix(accepted.1),
-                    ))),
+                    Some(Ok(accepted)) => {
+                        let mut environments = Environments::new(ENVIRONMENTS_DEFAULT_CAPACITY);
+                        let socket_addr: monoio::net::unix::SocketAddr = accepted.1;
+                        match socket_addr.as_pathname() {
+                            Some(path) => environments
+                                .insert(PEER_ADDR.to_string(), ValueType::Path(path.to_path_buf())),
+                            None => (),
+                        }
+
+                        Some(Ok((AcceptedStream::Unix(accepted.0), environments)))
+                    }
                     Some(Err(e)) => Some(Err(e)),
                     None => None,
                 },

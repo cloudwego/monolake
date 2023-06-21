@@ -13,6 +13,7 @@ use monoio_http::h1::payload::{FixedPayload, Payload};
 use monoio_http_client::Client;
 use monolake_core::{
     config::OpenIdConfig,
+    environments::Environments,
     http::{HttpHandler, ResponseWithContinue},
 };
 #[allow(unused)]
@@ -154,7 +155,7 @@ lazy_static! {
 }
 
 // impl<H> HttpHandler for OpenIdHandler<H>
-impl<H> Service<Request<Payload>> for OpenIdHandler<H>
+impl<H> Service<(Request<Payload>, Environments)> for OpenIdHandler<H>
 where
     H: HttpHandler,
 {
@@ -164,10 +165,10 @@ where
     where
         Self: 'a, Request<Payload>: 'a;
     // fn handle(&self, request: http::Request<Self::Body>) -> Self::Future<'_> {
-    fn call(&self, request: Request<Payload>) -> Self::Future<'_> {
+    fn call(&self, (request, environments): (Request<Payload>, Environments)) -> Self::Future<'_> {
         async move {
             if self.openid_config.is_none() {
-                return self.inner.handle(request).await;
+                return self.inner.handle(request, environments).await;
             }
 
             let headers = request.headers();
@@ -204,7 +205,7 @@ where
                 if session_store.contains_key(&auth_cookie.clone().unwrap()) {
                     let access = session_store.get(&auth_cookie.unwrap());
                     if !access.is_none() {
-                        return self.inner.handle(request).await;
+                        return self.inner.handle(request, environments).await;
                     }
                 }
             }
@@ -358,7 +359,7 @@ where
                     Some(token_response.access_token().clone());
             }
 
-            match self.inner.handle(request).await {
+            match self.inner.handle(request, environments).await {
                 Ok((mut response, cont)) => {
                     let headers = response.headers_mut();
                     // Use the state number (csrf) as the session-id for future auth. Need to add

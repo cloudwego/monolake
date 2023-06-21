@@ -1,4 +1,4 @@
-use std::{convert::Infallible, fmt::Debug, future::Future, pin::Pin, time::Duration};
+use std::{convert::Infallible, future::Future, pin::Pin, time::Duration};
 
 use http::StatusCode;
 use monoio::io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent, Split, Splitable};
@@ -8,6 +8,7 @@ use monoio_http::h1::codec::{
 };
 use monolake_core::{
     config::{KeepaliveConfig, DEFAULT_TIMEOUT},
+    environments::{Environments, PEER_ADDR},
     http::{HttpError, HttpHandler},
 };
 use service_async::{
@@ -38,10 +39,9 @@ impl<H> HttpCoreService<H> {
     }
 }
 
-impl<H, Stream, SocketAddr> Service<Accept<Stream, SocketAddr>> for HttpCoreService<H>
+impl<H, Stream> Service<Accept<Stream, Environments>> for HttpCoreService<H>
 where
     Stream: Split + AsyncReadRent + AsyncWriteRent,
-    SocketAddr: Debug,
     H: HttpHandler,
     H::Error: Into<HttpError>,
 {
@@ -49,10 +49,10 @@ where
     type Error = Infallible;
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a, Accept<Stream, SocketAddr>: 'a;
+        Self: 'a, Accept<Stream, Environments>: 'a;
 
-    fn call(&self, incoming_stream: Accept<Stream, SocketAddr>) -> Self::Future<'_> {
-        let (stream, addr) = incoming_stream;
+    fn call(&self, incoming_stream: Accept<Stream, Environments>) -> Self::Future<'_> {
+        let (stream, environments) = incoming_stream;
         let (reader, writer) = stream.into_split();
         let mut decoder = RequestDecoder::new(reader);
         let mut encoder = GenericEncoder::new(writer);
@@ -70,12 +70,18 @@ where
                     }
                     Ok(None) => {
                         // EOF
-                        info!("Connection {addr:?} closed");
+                        info!(
+                            "Connection {:?} closed",
+                            environments.get(&PEER_ADDR.to_string())
+                        );
                         break;
                     }
                     Err(_) => {
                         // timeout
-                        info!("Connection {addr:?} keepalive timed out");
+                        info!(
+                            "Connection {:?} keepalive timed out",
+                            environments.get(&PEER_ADDR.to_string())
+                        );
                         break;
                     }
                 };
@@ -84,8 +90,10 @@ where
 
                 // handle request and reply response
                 // 1. do these things simultaneously: read body and send + handle request
-                let mut acc_fut =
-                    AccompanyPair::new(self.handler_chain.handle(req), decoder.fill_payload());
+                let mut acc_fut = AccompanyPair::new(
+                    self.handler_chain.handle(req, environments.clone()),
+                    decoder.fill_payload(),
+                );
                 let res = unsafe { Pin::new_unchecked(&mut acc_fut) }.await;
                 match res {
                     Ok((resp, should_cont)) => {
