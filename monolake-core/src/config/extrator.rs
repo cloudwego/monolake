@@ -38,3 +38,7 @@ impl Param<TlsConfig> for ServerConfig {
         }
     }
 }
+
+impl Param<()> for ServerConfig {
+    fn param(&self) {}
+}

@@ -5,6 +5,7 @@ use matchit::Router;
 use monoio_http::h1::payload::Payload;
 use monolake_core::{
     config::RouteConfig,
+    environments::Environments,
     http::{HttpHandler, ResponseWithContinue, Rewrite},
 };
 use rand::RngCore;
@@ -22,7 +23,7 @@ pub struct RewriteHandler<H> {
     router: Router<RouteConfig>,
 }
 
-impl<H> Service<Request<Payload>> for RewriteHandler<H>
+impl<H> Service<(Request<Payload>, Environments)> for RewriteHandler<H>
 where
     H: HttpHandler,
 {
@@ -32,7 +33,10 @@ where
     where
         Self: 'a;
 
-    fn call(&self, mut request: Request<Payload>) -> Self::Future<'_> {
+    fn call(
+        &self,
+        (mut request, environments): (Request<Payload>, Environments),
+    ) -> Self::Future<'_> {
         async move {
             let req_path = request.uri().path();
             tracing::info!("request path: {}", req_path);
@@ -48,7 +52,7 @@ where
 
                     Rewrite::rewrite_request(&mut request, &upstream.endpoint);
 
-                    self.inner.handle(request).await
+                    self.inner.handle(request, environments).await
                 }
                 Err(e) => {
                     debug!("match request uri: {} with error: {}", request.uri(), e);
