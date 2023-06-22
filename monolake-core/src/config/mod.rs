@@ -27,6 +27,7 @@ pub const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 pub const MIN_SQPOLL_IDLE_TIME: u32 = 1000; // 1s idle time.
 pub const FALLBACK_PARALLELISM: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1) };
 pub const ENVIRONMENTS_DEFAULT_CAPACITY: usize = 64;
+pub const APLN_PROTOCOLS: [&[u8]; 2] = [b"h2", b"http/1.1"];
 
 macro_rules! define_const {
     ($name: ident, $val: expr, $type: ty) => {

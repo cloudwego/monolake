@@ -20,8 +20,7 @@ monolake-services = { path = "../monolake-services" }
 service-async = "0.1"
 
 # tls: needed for native-tls init
-monoio-native-tls = { version = "0.1.0" }
-
+monoio-native-tls = "0.1.0"
 # error
 thiserror = "1"
 anyhow = "1"

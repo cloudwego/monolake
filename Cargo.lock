@@ -1164,9 +1164,9 @@ dependencies = [
 
 [[package]]
 name = "monoio-rustls"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c047679d27fd16bfc875c8e2043bf35530b43a5417525e491dd2507ffbd43808"
+checksum = "eb21660deb944853458f16b8e5959873517459bb4fa336515a87e539d6777b1c"
 dependencies = [
  "bytes",
  "monoio",

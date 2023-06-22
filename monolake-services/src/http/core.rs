@@ -3,10 +3,7 @@ use std::{convert::Infallible, future::Future, pin::Pin, time::Duration};
 use bytes::Bytes;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use http::StatusCode;
-use monoio::{
-    buf::SliceMut,
-    io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent, Split, Splitable},
-};
+use monoio::io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent, Split, Splitable};
 use monoio_http::{
     common::response::Response,
     h1::{
@@ -20,8 +17,8 @@ use monoio_http::{
 };
 use monolake_core::{
     config::{KeepaliveConfig, DEFAULT_TIMEOUT},
-    environments::{Environments, PEER_ADDR},
-    http::{HttpAccept, HttpError, HttpHandler},
+    environments::{Environments, ValueType, ALPN_PROTOCOL, PEER_ADDR},
+    http::{HttpError, HttpHandler},
 };
 use service_async::{
     layer::{layer_fn, FactoryLayer},
@@ -31,8 +28,6 @@ use tracing::{error, info, warn};
 
 use super::{generate_response, util::AccompanyPair};
 use crate::common::Accept;
-
-const PREFACE: [u8; 24] = *b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 
 #[derive(Clone)]
 pub struct HttpCoreService<H> {
@@ -192,12 +187,17 @@ impl<H> HttpCoreService<H> {
         H: HttpHandler,
         H::Error: Into<HttpError>,
     {
-        let mut connection = monoio_http::h2::server::Builder::new()
+        let connection = monoio_http::h2::server::Builder::new()
             .initial_window_size(1_000_000)
             .max_concurrent_streams(1000)
             .handshake::<S, Bytes>(stream)
-            .await
-            .unwrap();
+            .await;
+        if connection.is_err() {
+            error!("error: {:?}", connection.err());
+            return ();
+        }
+
+        let mut connection = connection.unwrap();
 
         info!(
             "H2 handshake complete for {:?}",
@@ -265,7 +265,7 @@ impl<H> HttpCoreService<H> {
     }
 }
 
-impl<H, Stream> Service<HttpAccept<Stream, Environments>> for HttpCoreService<H>
+impl<H, Stream> Service<Accept<Stream, Environments>> for HttpCoreService<H>
 where
     Stream: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
     H: HttpHandler,
@@ -277,12 +277,14 @@ where
     where
         Self: 'a, Accept<Stream, Environments>: 'a;
 
-    fn call(&self, incoming_stream: HttpAccept<Stream, Environments>) -> Self::Future<'_> {
-        let (is_h2, stream, environments) = incoming_stream;
+    fn call(&self, incoming_stream: Accept<Stream, Environments>) -> Self::Future<'_> {
+        let (stream, environments) = incoming_stream;
         async move {
-            match is_h2 {
-                false => self.h1_svc(stream, environments).await,
-                true => self.h2_svc(stream, environments).await,
+            match environments.get(&ALPN_PROTOCOL.to_string()) {
+                Some(ValueType::String(protocol)) if protocol.eq("h2") => {
+                    self.h2_svc(stream, environments).await
+                }
+                _ => self.h1_svc(stream, environments).await,
             }
             Ok(())
         }
@@ -313,90 +315,5 @@ impl<F> HttpCoreService<F> {
         C: Param<Option<KeepaliveConfig>>,
     {
         layer_fn(|c: &C, inner| Self::new(inner, c.param()))
-    }
-}
-
-#[derive(Clone)]
-pub struct HttpVersionDetect<T> {
-    inner: T,
-}
-
-impl<F> MakeService for HttpVersionDetect<F>
-where
-    F: MakeService,
-{
-    type Service = HttpVersionDetect<F::Service>;
-    type Error = F::Error;
-
-    fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        Ok(HttpVersionDetect {
-            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
-        })
-    }
-}
-
-impl<F> HttpVersionDetect<F> {
-    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
-    where
-        C: Param<()>,
-    {
-        layer_fn(|_c: &C, inner| HttpVersionDetect { inner })
-    }
-}
-
-impl<T, Stream, SocketAddr> Service<Accept<Stream, SocketAddr>> for HttpVersionDetect<T>
-where
-    Stream: AsyncReadRent + AsyncWriteRent + 'static,
-    SocketAddr: 'static,
-    T: Service<HttpAccept<Stream, SocketAddr>>,
-{
-    type Response = ();
-
-    type Error = std::io::Error;
-
-    type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
-    where
-        Self: 'a;
-
-    fn call(&self, incoming_stream: Accept<Stream, SocketAddr>) -> Self::Future<'_> {
-        async move {
-            let (mut stream, addr) = incoming_stream;
-            let mut buf = vec![0; 24];
-            let mut pos = 0;
-            let mut h2_detect = false;
-            let len = buf.len();
-
-            loop {
-                let buf_slice = unsafe { SliceMut::new_unchecked(buf, pos, len) };
-                let (result, buf_slice) = stream.read(buf_slice).await;
-                buf = buf_slice.into_inner();
-                match result {
-                    Ok(0) => {
-                        break;
-                    }
-                    Ok(n) => {
-                        if PREFACE[pos..pos + n] != buf[pos..pos + n] {
-                            break;
-                        }
-                        pos += n;
-                    }
-                    Err(e) => {
-                        return Err(e);
-                    }
-                }
-
-                if pos == PREFACE.len() {
-                    h2_detect = true;
-                    break;
-                }
-            }
-
-            let preface_buf = std::io::Cursor::new(buf);
-            let rewind_io = monoio::io::PrefixedReadIo::new(stream, preface_buf);
-
-            let _ = self.inner.call((h2_detect, rewind_io, addr)).await;
-
-            Ok(())
-        }
     }
 }

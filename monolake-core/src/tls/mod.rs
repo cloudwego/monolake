@@ -1,5 +1,7 @@
 use std::io::Cursor;
 
+use crate::config::APLN_PROTOCOLS;
+
 #[derive(Clone)]
 pub enum TlsConfig<A = ::rustls::ServerConfig, B = ::native_tls::Identity> {
     Rustls(A),
@@ -26,10 +28,11 @@ impl TryFrom<&crate::config::TlsConfig> for TlsConfig {
                     .pop()
                     .map(::rustls::PrivateKey)
                     .ok_or_else(|| anyhow::anyhow!("empty key file"))?;
-                let scfg = ::rustls::ServerConfig::builder()
+                let mut scfg = ::rustls::ServerConfig::builder()
                     .with_safe_defaults()
                     .with_no_client_auth()
                     .with_single_cert(chain, key)?;
+                scfg.alpn_protocols = APLN_PROTOCOLS.map(|proto| proto.to_vec()).to_vec();
                 Ok(TlsConfig::Rustls(scfg))
             }
             crate::config::TlsStack::NativeTls => {

@@ -1,6 +1,6 @@
 use std::{convert::Infallible, future::Future};
 
-use http::{header, HeaderMap, HeaderValue, Request, StatusCode};
+use http::{header, HeaderMap, HeaderValue, Request, StatusCode, Version};
 use monoio_http::h1::payload::Payload;
 use monoio_http_client::Client;
 use monolake_core::{
@@ -73,6 +73,8 @@ impl Service<(Request<Payload>, Environments)> for ProxyHandler {
                 environments.get(&REMOTE_ADDR.to_string()),
                 environments.get(&PEER_ADDR.to_string()),
             );
+            // hard code upstream http request to http/1.1 since we only support http/1.1
+            *req.version_mut() = Version::HTTP_11;
             match self.client.send(req).await {
                 Ok(resp) => Ok((resp, true)),
                 // Bad gateway should not affect inbound connection.

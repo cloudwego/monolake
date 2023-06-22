@@ -2,9 +2,7 @@
 
 use std::fmt::Debug;
 
-use monolake_core::{
-    config::ServerConfig, environments::Environments, http::HttpAccept, listener::AcceptedStream,
-};
+use monolake_core::{config::ServerConfig, environments::Environments, listener::AcceptedStream};
 #[cfg(feature = "openid")]
 use monolake_services::http::handlers::OpenIdHandler;
 #[cfg(feature = "proxy-protocol")]
@@ -13,7 +11,7 @@ use monolake_services::{
     common::Accept,
     http::{
         handlers::{ConnReuseHandler, ProxyHandler, RewriteHandler},
-        HttpCoreService, HttpVersionDetect,
+        HttpCoreService,
     },
     tls::UnifiedTlsFactory,
 };
@@ -38,8 +36,7 @@ pub fn l7_factory(
     let stacks = stacks
         .push(ConnReuseHandler::layer())
         .push(HttpCoreService::layer())
-        .check_make_svc::<HttpAccept<AcceptedStream, Environments>>()
-        .push(HttpVersionDetect::layer());
+        .check_make_svc::<Accept<AcceptedStream, Environments>>();
 
     let stacks = stacks.push(UnifiedTlsFactory::layer());
 
