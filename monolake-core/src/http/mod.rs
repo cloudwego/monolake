@@ -1,9 +1,7 @@
 mod rewrite;
-use std::{future::Future, io::Cursor};
+use std::future::Future;
 
-use bytes::BytesMut;
 use http::{Request, Response};
-use monoio::io::PrefixedReadIo;
 use monoio_http::h1::payload::Payload;
 pub use rewrite::Rewrite;
 use service_async::Service;
@@ -15,9 +13,6 @@ pub type HttpError = anyhow::Error;
 // Response and a bool indicating should continue processing the connection.
 // Service does not need to add `Connection: close` itself.
 pub type ResponseWithContinue = (Response<Payload>, bool);
-
-pub type HttpAccept<Stream, SocketAddr> =
-    (bool, PrefixedReadIo<Stream, Cursor<BytesMut>>, SocketAddr);
 
 pub trait HttpHandler: Sealed {
     type Error;
