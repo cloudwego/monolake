@@ -31,7 +31,7 @@ impl ProxyHandler {
         remote_addr: Option<&ValueType>,
         peer_addr: Option<&ValueType>,
     ) {
-        let header_value = match remote_addr.clone() {
+        let header_value = match remote_addr {
             Some(ValueType::SocketAddr(socket_addr)) => {
                 HeaderValue::from_maybe_shared(socket_addr.ip().to_string()).ok()
             }
@@ -39,7 +39,7 @@ impl ProxyHandler {
                 Some(path) => HeaderValue::from_str(path).ok(),
                 None => None,
             },
-            _ => match peer_addr.clone() {
+            _ => match peer_addr {
                 Some(ValueType::SocketAddr(socket_addr)) => {
                     HeaderValue::from_maybe_shared(socket_addr.ip().to_string()).ok()
                 }
@@ -50,11 +50,8 @@ impl ProxyHandler {
                 _ => None,
             },
         };
-        match header_value {
-            Some(value) => {
-                headers.insert(header::FORWARDED, value);
-            }
-            None => (),
+        if let Some(value) = header_value {
+            headers.insert(header::FORWARDED, value);
         }
     }
 }

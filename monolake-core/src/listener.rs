@@ -87,10 +87,9 @@ impl Stream for Listener {
                     Some(Ok(accepted)) => {
                         let mut environments = Environments::new(ENVIRONMENTS_DEFAULT_CAPACITY);
                         let socket_addr: monoio::net::unix::SocketAddr = accepted.1;
-                        match socket_addr.as_pathname() {
-                            Some(path) => environments
-                                .insert(PEER_ADDR.to_string(), ValueType::Path(path.to_path_buf())),
-                            None => (),
+                        if let Some(path) = socket_addr.as_pathname() {
+                            environments
+                                .insert(PEER_ADDR.to_string(), ValueType::Path(path.to_path_buf()))
                         }
 
                         Some(Ok((AcceptedStream::Unix(accepted.0), environments)))

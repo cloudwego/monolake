@@ -40,12 +40,11 @@ where
         async move {
             let stream = self.acceptor.accept(stream).await?;
 
-            match stream.alpn_protocol() {
-                Some(alpn_protocol) => environments.insert(
+            if let Some(alpn_protocol) = stream.alpn_protocol() {
+                environments.insert(
                     ALPN_PROTOCOL.to_string(),
                     ValueType::Bytes(alpn_protocol.to_vec()),
-                ),
-                None => (),
+                );
             }
 
             self.inner

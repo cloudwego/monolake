@@ -194,7 +194,7 @@ impl<H> HttpCoreService<H> {
             .await;
         if connection.is_err() {
             error!("error: {:?}", connection.err());
-            return ();
+            return;
         }
 
         let mut connection = connection.unwrap();
