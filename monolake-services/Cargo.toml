@@ -16,7 +16,7 @@ openid = [
 proxy-protocol = ["dep:proxy-protocol"]
 
 [dependencies]
-monoio = { version = "0.1.4", features = ['splice'] }
+monoio = { version = "0.1.5", features = ['splice'] }
 monolake-core = { path = "../monolake-core" }
 monoio-http = "0.1.0"
 monoio-http-client = { version = "0.1.2", features = ["logging", "rustls"] }

@@ -8,7 +8,7 @@ openid = []
 proxy-protocol = []
 
 [dependencies]
-monoio = { version = "0.1.4", features = ['splice'] }
+monoio = { version = "0.1.5", features = ['splice'] }
 monoio-http = "0.1.1"
 
 service-async = "0.1"
