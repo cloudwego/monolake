@@ -1,5 +1,6 @@
 use std::{fmt::Display, future::Future, sync::Arc};
 
+use bytes::Bytes;
 use monoio::io::{AsyncReadRent, AsyncWriteRent};
 use monoio_rustls::{ServerTlsStream, TlsAcceptor};
 use monolake_core::{
@@ -41,9 +42,10 @@ where
             let stream = self.acceptor.accept(stream).await?;
 
             match stream.alpn_protocol() {
-                Some(alpn_protocol) => {
-                    environments.insert(ALPN_PROTOCOL.to_string(), ValueType::String(alpn_protocol))
-                }
+                Some(alpn_protocol) => environments.insert(
+                    ALPN_PROTOCOL.to_string(),
+                    ValueType::Bytes(Bytes::copy_from_slice(alpn_protocol)),
+                ),
                 None => (),
             }
 

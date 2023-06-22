@@ -281,7 +281,7 @@ where
         let (stream, environments) = incoming_stream;
         async move {
             match environments.get(&ALPN_PROTOCOL.to_string()) {
-                Some(ValueType::String(protocol)) if protocol.eq("h2") => {
+                Some(ValueType::Bytes(protocol)) if protocol.as_ref().eq(b"h2") => {
                     self.h2_svc(stream, environments).await
                 }
                 _ => self.h1_svc(stream, environments).await,

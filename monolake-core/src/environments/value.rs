@@ -1,5 +1,7 @@
 use std::{fmt::Debug, net::SocketAddr, path::PathBuf};
 
+use bytes::Bytes;
+
 #[derive(Debug, Clone)]
 pub enum ValueType {
     Usize(usize),
@@ -9,4 +11,5 @@ pub enum ValueType {
     SocketAddr(SocketAddr),
     Path(PathBuf),
     String(String),
+    Bytes(Bytes),
 }
