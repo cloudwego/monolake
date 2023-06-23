@@ -1,5 +1,5 @@
 use fnv::FnvHashMap;
-pub use known_keys::{ALPN_PROTOCOL, PEER_ADDR, REMOTE_ADDR};
+pub use known_keys::{ALPN_PROTOCOL, COUNTER, PEER_ADDR, REMOTE_ADDR, TIMER};
 
 pub use self::value::ValueType;
 

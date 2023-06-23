@@ -3,12 +3,13 @@ use std::future::Future;
 use http::{Request, Version};
 use monoio_http::h1::payload::Payload;
 use monolake_core::{
-    environments::Environments,
+    config::KeepaliveConfig,
+    environments::{Environments, ValueType, COUNTER, TIMER},
     http::{HttpHandler, ResponseWithContinue},
 };
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Service,
+    MakeService, Param, Service,
 };
 use tracing::debug;
 
@@ -19,6 +20,7 @@ use crate::http::{CLOSE, CLOSE_VALUE, KEEPALIVE, KEEPALIVE_VALUE};
 #[derive(Clone)]
 pub struct ConnReuseHandler<H> {
     inner: H,
+    keepalive_config: Option<KeepaliveConfig>,
 }
 
 impl<H> Service<(Request<Payload>, Environments)> for ConnReuseHandler<H>
@@ -37,6 +39,7 @@ where
     ) -> Self::Future<'_> {
         async move {
             let version = request.version();
+            let close_conn = self.should_close_conn(&environments);
             let keepalive = is_conn_keepalive(request.headers(), version);
             debug!("frontend keepalive {:?}", keepalive);
 
@@ -49,7 +52,7 @@ where
 
                     // send
                     let (mut response, mut cont) = self.inner.handle(request, environments).await?;
-                    cont &= keepalive;
+                    cont &= keepalive && !close_conn;
 
                     // modify back and make sure reply keepalive if client want it and server
                     // support it.
@@ -70,7 +73,7 @@ where
 
                     // send
                     let (mut response, mut cont) = self.inner.handle(request, environments).await?;
-                    cont &= keepalive;
+                    cont &= keepalive && !close_conn;
 
                     // modify back and make sure reply keepalive if client want it and server
                     // support it.
@@ -104,13 +107,48 @@ where
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(ConnReuseHandler {
             inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
+            keepalive_config: self.keepalive_config.clone(),
         })
     }
 }
 
 impl<F> ConnReuseHandler<F> {
-    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self> {
-        layer_fn(|_: &C, inner| Self { inner })
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
+    where
+        C: Param<Option<KeepaliveConfig>>,
+    {
+        layer_fn(move |c: &C, inner| Self {
+            inner: inner,
+            keepalive_config: c.param(),
+        })
+    }
+
+    fn should_close_conn(&self, environments: &Environments) -> bool {
+        match &self.keepalive_config {
+            Some(config) => {
+                match environments.get(&COUNTER.to_string()) {
+                    Some(ValueType::Usize(counter)) => {
+                        if *counter >= config.keepalive_requests {
+                            return true;
+                        }
+                    }
+                    _ => (),
+                }
+                match environments.get(&TIMER.to_string()) {
+                    Some(ValueType::Usize(timer)) => {
+                        if *timer >= config.keepalive_time as usize {
+                            return true;
+                        }
+                    }
+                    _ => (),
+                }
+
+                return false;
+            }
+            None => {
+                return true;
+            }
+        }
     }
 }
 

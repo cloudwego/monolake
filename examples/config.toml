@@ -7,6 +7,7 @@ entries = 8192
 [servers.server1]
 name = "gateway.monoio.rs"
 listener = { uds_path = "/tmp/monolake.sock" }
+keepalive_config = { keepalive_requests = 900000,  keepalive_timeout = 2 }
 
 [[servers.server1.routes]]
 upstreams = [
@@ -28,6 +29,7 @@ path = '/*p'
 tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.pkcs8" }
 name = "gateway.monoio.rs"
 listener = { socket_addr = "0.0.0.0:8081" }
+keepalive_config = { keepalive_requests = 900000,  keepalive_timeout = 2 }
 
 [[servers.server2.routes]]
 path = '/'
@@ -43,6 +45,7 @@ upstreams = [{ endpoint = { uri = "http://127.0.0.1:9080" } }]
 tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.pkcs8", stack = "rustls" }
 name = "gateway.monoio.rs"
 listener = { socket_addr = "0.0.0.0:8082" }
+keepalive_config = { keepalive_requests = 900000,  keepalive_timeout = 2 }
 
 [[servers.server3.routes]]
 path = '/'

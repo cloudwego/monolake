@@ -1,4 +1,9 @@
-use std::{convert::Infallible, future::Future, pin::Pin, time::Duration};
+use std::{
+    convert::Infallible,
+    future::Future,
+    pin::Pin,
+    time::{Duration, Instant},
+};
 
 use bytes::Bytes;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
@@ -17,7 +22,7 @@ use monoio_http::{
 };
 use monolake_core::{
     config::{KeepaliveConfig, DEFAULT_TIMEOUT},
-    environments::{Environments, ValueType, ALPN_PROTOCOL, PEER_ADDR},
+    environments::{Environments, ValueType, ALPN_PROTOCOL, COUNTER, PEER_ADDR, TIMER},
     http::{HttpError, HttpHandler},
 };
 use service_async::{
@@ -47,7 +52,7 @@ impl<H> HttpCoreService<H> {
         }
     }
 
-    async fn h1_svc<S>(&self, stream: S, environments: Environments)
+    async fn h1_svc<S>(&self, stream: S, mut environments: Environments)
     where
         S: Split + AsyncReadRent + AsyncWriteRent,
         H: HttpHandler,
@@ -56,6 +61,9 @@ impl<H> HttpCoreService<H> {
         let (reader, writer) = stream.into_split();
         let mut decoder = RequestDecoder::new(reader);
         let mut encoder = GenericEncoder::new(writer);
+
+        let mut counter: usize = 0;
+        let starting_time = Instant::now();
 
         loop {
             // decode request with keepalive timeout
@@ -85,6 +93,10 @@ impl<H> HttpCoreService<H> {
             };
 
             // Check if we should keepalive
+            counter += 1;
+            environments.insert(COUNTER.to_string(), ValueType::Usize(counter));
+            let elapsed_time: u64 = (Instant::now() - starting_time).as_secs();
+            environments.insert(TIMER.to_string(), ValueType::Usize(elapsed_time as usize));
 
             // handle request and reply response
             // 1. do these things simultaneously: read body and send + handle request
