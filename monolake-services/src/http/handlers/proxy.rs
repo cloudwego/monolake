@@ -24,14 +24,22 @@ impl ProxyHandler {
     pub fn factory() -> ProxyHandlerFactory {
         ProxyHandlerFactory
     }
+}
 
-    pub fn add_xff_header(
-        &self,
-        headers: &mut HeaderMap,
-        remote_addr: Option<&ValueType>,
-        peer_addr: Option<&ValueType>,
-    ) {
-        let header_value = match remote_addr {
+fn add_xff_header(
+    headers: &mut HeaderMap,
+    remote_addr: Option<&ValueType>,
+    peer_addr: Option<&ValueType>,
+) {
+    let header_value = match remote_addr {
+        Some(ValueType::SocketAddr(socket_addr)) => {
+            HeaderValue::from_maybe_shared(socket_addr.ip().to_string()).ok()
+        }
+        Some(ValueType::Path(path)) => match path.to_str() {
+            Some(path) => HeaderValue::from_str(path).ok(),
+            None => None,
+        },
+        _ => match peer_addr {
             Some(ValueType::SocketAddr(socket_addr)) => {
                 HeaderValue::from_maybe_shared(socket_addr.ip().to_string()).ok()
             }
@@ -39,20 +47,11 @@ impl ProxyHandler {
                 Some(path) => HeaderValue::from_str(path).ok(),
                 None => None,
             },
-            _ => match peer_addr {
-                Some(ValueType::SocketAddr(socket_addr)) => {
-                    HeaderValue::from_maybe_shared(socket_addr.ip().to_string()).ok()
-                }
-                Some(ValueType::Path(path)) => match path.to_str() {
-                    Some(path) => HeaderValue::from_str(path).ok(),
-                    None => None,
-                },
-                _ => None,
-            },
-        };
-        if let Some(value) = header_value {
-            headers.insert(header::FORWARDED, value);
-        }
+            _ => None,
+        },
+    };
+    if let Some(value) = header_value {
+        headers.insert(header::FORWARDED, value);
     }
 }
 
@@ -65,7 +64,7 @@ impl Service<(Request<Payload>, Environments)> for ProxyHandler {
 
     fn call(&self, (mut req, environments): (Request<Payload>, Environments)) -> Self::Future<'_> {
         async move {
-            self.add_xff_header(
+            add_xff_header(
                 req.headers_mut(),
                 environments.get(&REMOTE_ADDR.to_string()),
                 environments.get(&PEER_ADDR.to_string()),
