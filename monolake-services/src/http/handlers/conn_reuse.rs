@@ -2,10 +2,7 @@ use std::future::Future;
 
 use http::{Request, Version};
 use monoio_http::h1::payload::Payload;
-use monolake_core::{
-    environments::Environments,
-    http::{HttpHandler, ResponseWithContinue},
-};
+use monolake_core::http::{HttpHandler, ResponseWithContinue};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
     MakeService, Service,
@@ -21,20 +18,17 @@ pub struct ConnReuseHandler<H> {
     inner: H,
 }
 
-impl<H> Service<(Request<Payload>, Environments)> for ConnReuseHandler<H>
+impl<H, CX> Service<(Request<Payload>, CX)> for ConnReuseHandler<H>
 where
-    H: HttpHandler,
+    H: HttpHandler<CX>,
 {
     type Response = ResponseWithContinue;
     type Error = H::Error;
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a, Request<Payload>: 'a;
+        Self: 'a, Request<Payload>: 'a, CX: 'a;
 
-    fn call(
-        &self,
-        (mut request, environments): (Request<Payload>, Environments),
-    ) -> Self::Future<'_> {
+    fn call(&self, (mut request, ctx): (Request<Payload>, CX)) -> Self::Future<'_> {
         async move {
             let version = request.version();
             let keepalive = is_conn_keepalive(request.headers(), version);
@@ -48,7 +42,7 @@ where
                     let _ = request.headers_mut().remove(http::header::CONNECTION);
 
                     // send
-                    let (mut response, mut cont) = self.inner.handle(request, environments).await?;
+                    let (mut response, mut cont) = self.inner.handle(request, ctx).await?;
                     cont &= keepalive;
 
                     // modify back and make sure reply keepalive if client want it and server
@@ -69,7 +63,7 @@ where
                     let _ = request.headers_mut().remove(http::header::CONNECTION);
 
                     // send
-                    let (mut response, mut cont) = self.inner.handle(request, environments).await?;
+                    let (mut response, mut cont) = self.inner.handle(request, ctx).await?;
                     cont &= keepalive;
 
                     // modify back and make sure reply keepalive if client want it and server
@@ -85,7 +79,7 @@ where
                 }
                 // for http 0.9 and other versions, just relay it
                 _ => {
-                    let (response, _) = self.inner.handle(request, environments).await?;
+                    let (response, _) = self.inner.handle(request, ctx).await?;
                     Ok((response, false))
                 }
             }

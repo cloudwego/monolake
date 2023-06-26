@@ -2,10 +2,7 @@ use std::{fmt::Display, future::Future, sync::Arc};
 
 use monoio::io::{AsyncReadRent, AsyncWriteRent};
 use monoio_rustls::{ServerTlsStream, TlsAcceptor};
-use monolake_core::{
-    environments::{Environments, ValueType, ALPN_PROTOCOL},
-    AnyError,
-};
+use monolake_core::AnyError;
 use rustls::ServerConfig;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
@@ -14,16 +11,16 @@ use service_async::{
 
 use crate::common::Accept;
 
-type RustlsAccept<Stream, Environments> = (ServerTlsStream<Stream>, Environments);
+type RustlsAccept<Stream, SocketAddr> = (ServerTlsStream<Stream>, SocketAddr);
 
 pub struct RustlsService<T> {
     acceptor: TlsAcceptor,
     inner: T,
 }
 
-impl<T, S> Service<Accept<S, Environments>> for RustlsService<T>
+impl<T, S, A> Service<Accept<S, A>> for RustlsService<T>
 where
-    T: Service<RustlsAccept<S, Environments>>,
+    T: Service<RustlsAccept<S, A>>,
     T::Error: Into<AnyError> + Display,
     S: AsyncReadRent + AsyncWriteRent,
 {
@@ -34,23 +31,12 @@ where
     type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
     where
         Self: 'cx,
-        Accept<S, Environments>: 'cx;
+        Accept<S, A>: 'cx;
 
-    fn call(&self, (stream, mut environments): Accept<S, Environments>) -> Self::Future<'_> {
+    fn call(&self, (stream, addr): Accept<S, A>) -> Self::Future<'_> {
         async move {
             let stream = self.acceptor.accept(stream).await?;
-
-            if let Some(alpn_protocol) = stream.alpn_protocol() {
-                environments.insert(
-                    ALPN_PROTOCOL.to_string(),
-                    ValueType::Bytes(alpn_protocol.to_vec()),
-                );
-            }
-
-            self.inner
-                .call((stream, environments))
-                .await
-                .map_err(Into::into)
+            self.inner.call((stream, addr)).await.map_err(Into::into)
         }
     }
 }

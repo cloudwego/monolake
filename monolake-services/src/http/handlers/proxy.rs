@@ -1,17 +1,19 @@
 use std::{convert::Infallible, future::Future};
 
+use bytes::Bytes;
 use http::{header, HeaderMap, HeaderValue, Request, StatusCode, Version};
 use monoio_http::h1::payload::Payload;
 use monoio_http_client::Client;
 use monolake_core::{
-    environments::{Environments, ValueType, PEER_ADDR, REMOTE_ADDR},
+    context::keys::{PeerAddr, RemoteAddr},
     http::ResponseWithContinue,
+    listener::AcceptedAddr,
 };
-use service_async::{MakeService, Service};
+use service_async::{MakeService, ParamMaybeRef, ParamRef, Service};
 
 use crate::http::generate_response;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ProxyHandler {
     client: Client,
 }
@@ -24,52 +26,21 @@ impl ProxyHandler {
     pub fn factory() -> ProxyHandlerFactory {
         ProxyHandlerFactory
     }
-
-    pub fn add_xff_header(
-        &self,
-        headers: &mut HeaderMap,
-        remote_addr: Option<&ValueType>,
-        peer_addr: Option<&ValueType>,
-    ) {
-        let header_value = match remote_addr {
-            Some(ValueType::SocketAddr(socket_addr)) => {
-                HeaderValue::from_maybe_shared(socket_addr.ip().to_string()).ok()
-            }
-            Some(ValueType::Path(path)) => match path.to_str() {
-                Some(path) => HeaderValue::from_str(path).ok(),
-                None => None,
-            },
-            _ => match peer_addr {
-                Some(ValueType::SocketAddr(socket_addr)) => {
-                    HeaderValue::from_maybe_shared(socket_addr.ip().to_string()).ok()
-                }
-                Some(ValueType::Path(path)) => match path.to_str() {
-                    Some(path) => HeaderValue::from_str(path).ok(),
-                    None => None,
-                },
-                _ => None,
-            },
-        };
-        if let Some(value) = header_value {
-            headers.insert(header::FORWARDED, value);
-        }
-    }
 }
 
-impl Service<(Request<Payload>, Environments)> for ProxyHandler {
+impl<CX> Service<(Request<Payload>, CX)> for ProxyHandler
+where
+    CX: ParamRef<PeerAddr> + ParamMaybeRef<Option<RemoteAddr>>,
+{
     type Response = ResponseWithContinue;
     type Error = Infallible;
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a;
+        Self: 'a, CX: 'a;
 
-    fn call(&self, (mut req, environments): (Request<Payload>, Environments)) -> Self::Future<'_> {
+    fn call(&self, (mut req, ctx): (Request<Payload>, CX)) -> Self::Future<'_> {
+        add_xff_header(req.headers_mut(), &ctx);
         async move {
-            self.add_xff_header(
-                req.headers_mut(),
-                environments.get(&REMOTE_ADDR.to_string()),
-                environments.get(&PEER_ADDR.to_string()),
-            );
             // hard code upstream http request to http/1.1 since we only support http/1.1
             *req.version_mut() = Version::HTTP_11;
             match self.client.send(req).await {
@@ -90,8 +61,32 @@ impl MakeService for ProxyHandlerFactory {
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        Ok(ProxyHandler {
-            client: Default::default(),
-        })
+        Ok(ProxyHandler::default())
+    }
+}
+
+fn add_xff_header<CX>(headers: &mut HeaderMap, ctx: &CX)
+where
+    CX: ParamRef<PeerAddr> + ParamMaybeRef<Option<RemoteAddr>>,
+{
+    let peer_addr = ParamRef::<PeerAddr>::param_ref(ctx);
+    let remote_addr = ParamMaybeRef::<Option<RemoteAddr>>::param_maybe_ref(ctx);
+    let addr = remote_addr
+        .and_then(|addr| addr.as_ref().map(|x| &x.0))
+        .unwrap_or(&peer_addr.0);
+
+    match addr {
+        AcceptedAddr::Tcp(addr) => {
+            if let Ok(value) = HeaderValue::from_maybe_shared(Bytes::from(addr.ip().to_string())) {
+                headers.insert(header::FORWARDED, value);
+            }
+        }
+        AcceptedAddr::Unix(addr) => {
+            if let Some(path) = addr.as_pathname().and_then(|s| s.to_str()) {
+                if let Ok(value) = HeaderValue::from_str(path) {
+                    headers.insert(header::FORWARDED, value);
+                }
+            }
+        }
     }
 }

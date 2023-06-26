@@ -1,3 +1,4 @@
+pub use detect::HttpVersionDetect;
 use http::{HeaderValue, Response, StatusCode};
 use monoio_http::h1::payload::Payload;
 
@@ -5,6 +6,7 @@ pub use self::core::HttpCoreService;
 pub mod handlers;
 
 mod core;
+mod detect;
 mod util;
 
 pub const CLOSE: &str = "close";

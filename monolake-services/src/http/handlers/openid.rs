@@ -13,7 +13,6 @@ use monoio_http::h1::payload::{FixedPayload, Payload};
 use monoio_http_client::Client;
 use monolake_core::{
     config::OpenIdConfig,
-    environments::Environments,
     http::{HttpHandler, ResponseWithContinue},
 };
 #[allow(unused)]
@@ -93,7 +92,7 @@ pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Err
         Payload::Fixed(payload) => payload,
         Payload::Stream(mut stream_payload) => {
             let data = stream_payload.next().await.unwrap().unwrap();
-            FixedPayload::new(Bytes::from(data))
+            FixedPayload::new(data)
         }
         monoio_http::h1::payload::Payload::H2BodyStream(_) => todo!(),
         Payload::None => panic!("unexpected payload type"),
@@ -102,8 +101,8 @@ pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Err
 
     Ok(HttpResponse {
         status_code: status,
-        headers: headers,
-        body: body,
+        headers,
+        body,
     })
 }
 
@@ -134,7 +133,7 @@ impl<F> OpenIdHandler<F> {
         C: Param<Option<OpenIdConfig>>,
     {
         layer_fn(move |c: &C, inner| Self {
-            inner: inner,
+            inner,
             openid_config: c.param(),
         })
     }
@@ -155,20 +154,20 @@ lazy_static! {
 }
 
 // impl<H> HttpHandler for OpenIdHandler<H>
-impl<H> Service<(Request<Payload>, Environments)> for OpenIdHandler<H>
+impl<H, CX> Service<(Request<Payload>, CX)> for OpenIdHandler<H>
 where
-    H: HttpHandler,
+    H: HttpHandler<CX>,
 {
     type Response = ResponseWithContinue;
     type Error = H::Error;
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a, Request<Payload>: 'a;
-    // fn handle(&self, request: http::Request<Self::Body>) -> Self::Future<'_> {
-    fn call(&self, (request, environments): (Request<Payload>, Environments)) -> Self::Future<'_> {
+        Self: 'a, Request<Payload>: 'a, CX: 'a;
+
+    fn call(&self, (request, ctx): (Request<Payload>, CX)) -> Self::Future<'_> {
         async move {
             if self.openid_config.is_none() {
-                return self.inner.handle(request, environments).await;
+                return self.inner.handle(request, ctx).await;
             }
 
             let headers = request.headers();
@@ -181,33 +180,26 @@ where
                 );
                 for cookie in cookies {
                     let cookie = cookie.unwrap();
-                    match cookie.name() {
-                        "session-id" => {
-                            let session_store = SESSION_STORE.read().unwrap();
-                            match session_store.get(cookie.value()) {
-                                Some(state) => {
-                                    if !state.access_token.is_none() {
-                                        auth_cookie = Some(cookie.value().to_string());
-                                    }
-                                }
-                                None => (),
-                            }
-                            break;
+                    if cookie.name() == "session-id" {
+                        let session_store = SESSION_STORE.read().unwrap();
+                        if let Some(state) = session_store.get(cookie.value()) && state.access_token.is_some() {
+                            auth_cookie = Some(cookie.value().to_string());
                         }
-                        _ => (),
+                        break;
                     }
                 }
             }
 
-            if !auth_cookie.is_none() {
+            let mut authed = false;
+            if let Some(auth) = auth_cookie {
                 // authorized
                 let session_store = SESSION_STORE.read().unwrap();
-                if session_store.contains_key(&auth_cookie.clone().unwrap()) {
-                    let access = session_store.get(&auth_cookie.unwrap());
-                    if !access.is_none() {
-                        return self.inner.handle(request, environments).await;
-                    }
+                if let Some(access) = session_store.get(&auth) {
+                    authed = access.access_token.is_some()
                 }
+            }
+            if authed {
+                return self.inner.handle(request, ctx).await;
             }
 
             let openid_config = self.openid_config.clone().unwrap();
@@ -250,14 +242,8 @@ where
             let uri = request.uri().to_string();
             let url = Url::parse(&("http://localhost".to_string() + &uri)).unwrap();
 
-            let code_pair = url.query_pairs().find(|pair| {
-                let &(ref key, _) = pair;
-                key == "code"
-            });
-            let state_pair = url.query_pairs().find(|pair| {
-                let &(ref key, _) = pair;
-                key == "state"
-            });
+            let code_pair = url.query_pairs().find(|pair| pair.0 == "code");
+            let state_pair = url.query_pairs().find(|pair| pair.0 == "state");
 
             let code;
             let state;
@@ -265,7 +251,7 @@ where
                 if code_pair.is_none() || state_pair.is_none() {
                     let mut redirect_response: Response<Payload> = Response::builder()
                         .status(StatusCode::from_u16(301).unwrap())
-                        .body(Payload::from(Payload::None))
+                        .body(Payload::None)
                         .unwrap();
                     redirect_response
                         .headers_mut()
@@ -275,7 +261,7 @@ where
                     SESSION_STORE.write().unwrap().insert(
                         csrf_state.secret().clone(),
                         SessionState {
-                            nonce: nonce,
+                            nonce,
                             access_token: None,
                         },
                     );
@@ -289,7 +275,7 @@ where
                 if !session_store.contains_key(&state_val.to_string()) {
                     let mut redirect_response: Response<Payload> = Response::builder()
                         .status(StatusCode::from_u16(301).unwrap())
-                        .body(Payload::from(Payload::None))
+                        .body(Payload::None)
                         .unwrap();
                     redirect_response
                         .headers_mut()
@@ -300,7 +286,7 @@ where
                     session_store.insert(
                         state_val.to_string(),
                         SessionState {
-                            nonce: nonce,
+                            nonce,
                             access_token: None,
                         },
                     );
@@ -359,7 +345,7 @@ where
                     Some(token_response.access_token().clone());
             }
 
-            match self.inner.handle(request, environments).await {
+            match self.inner.handle(request, ctx).await {
                 Ok((mut response, cont)) => {
                     let headers = response.headers_mut();
                     // Use the state number (csrf) as the session-id for future auth. Need to add

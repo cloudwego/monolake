@@ -8,11 +8,6 @@ use monoio::{
 };
 use service_async::MakeService;
 
-use crate::{
-    config::ENVIRONMENTS_DEFAULT_CAPACITY,
-    environments::{Environments, ValueType, PEER_ADDR},
-};
-
 pub enum ListenerBuilder {
     Tcp(SocketAddr, ListenerOpts),
     #[cfg(unix)]
@@ -63,7 +58,7 @@ pub enum Listener {
 }
 
 impl Stream for Listener {
-    type Item = io::Result<(AcceptedStream, Environments)>;
+    type Item = io::Result<(AcceptedStream, AcceptedAddr)>;
 
     type NextFuture<'a> = impl std::future::Future<Output = Option<Self::Item>> + 'a
     where
@@ -73,27 +68,19 @@ impl Stream for Listener {
         async move {
             match self {
                 Listener::Tcp(l) => match l.next().await {
-                    Some(Ok(accepted)) => {
-                        let mut environments = Environments::new(ENVIRONMENTS_DEFAULT_CAPACITY);
-                        environments
-                            .insert(PEER_ADDR.to_string(), ValueType::SocketAddr(accepted.1));
-                        Some(Ok((AcceptedStream::Tcp(accepted.0), environments)))
-                    }
+                    Some(Ok(accepted)) => Some(Ok((
+                        AcceptedStream::Tcp(accepted.0),
+                        AcceptedAddr::Tcp(accepted.1),
+                    ))),
                     Some(Err(e)) => Some(Err(e)),
                     None => None,
                 },
                 #[cfg(unix)]
                 Listener::Unix(l) => match l.next().await {
-                    Some(Ok(accepted)) => {
-                        let mut environments = Environments::new(ENVIRONMENTS_DEFAULT_CAPACITY);
-                        let socket_addr: monoio::net::unix::SocketAddr = accepted.1;
-                        if let Some(path) = socket_addr.as_pathname() {
-                            environments
-                                .insert(PEER_ADDR.to_string(), ValueType::Path(path.to_path_buf()))
-                        }
-
-                        Some(Ok((AcceptedStream::Unix(accepted.0), environments)))
-                    }
+                    Some(Ok(accepted)) => Some(Ok((
+                        AcceptedStream::Unix(accepted.0),
+                        AcceptedAddr::Unix(accepted.1),
+                    ))),
                     Some(Err(e)) => Some(Err(e)),
                     None => None,
                 },
@@ -115,6 +102,19 @@ pub enum AcceptedAddr {
     Tcp(SocketAddr),
     #[cfg(unix)]
     Unix(monoio::net::unix::SocketAddr),
+}
+
+impl From<SocketAddr> for AcceptedAddr {
+    fn from(value: SocketAddr) -> Self {
+        Self::Tcp(value)
+    }
+}
+
+#[cfg(unix)]
+impl From<monoio::net::unix::SocketAddr> for AcceptedAddr {
+    fn from(value: monoio::net::unix::SocketAddr) -> Self {
+        Self::Unix(value)
+    }
 }
 
 impl AsyncReadRent for AcceptedStream {

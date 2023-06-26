@@ -17,12 +17,12 @@ use monoio_http::{
 };
 use monolake_core::{
     config::{KeepaliveConfig, DEFAULT_TIMEOUT},
-    environments::{Environments, ValueType, ALPN_PROTOCOL, PEER_ADDR},
-    http::{HttpError, HttpHandler},
+    context::keys::PeerAddr,
+    http::{HttpAccept, HttpError, HttpHandler},
 };
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Param, Service,
+    MakeService, Param, ParamRef, Service,
 };
 use tracing::{error, info, warn};
 
@@ -47,11 +47,12 @@ impl<H> HttpCoreService<H> {
         }
     }
 
-    async fn h1_svc<S>(&self, stream: S, environments: Environments)
+    async fn h1_svc<S, CX>(&self, stream: S, ctx: CX)
     where
         S: Split + AsyncReadRent + AsyncWriteRent,
-        H: HttpHandler,
+        H: HttpHandler<CX>,
         H::Error: Into<HttpError>,
+        CX: ParamRef<PeerAddr> + Clone,
     {
         let (reader, writer) = stream.into_split();
         let mut decoder = RequestDecoder::new(reader);
@@ -70,7 +71,7 @@ impl<H> HttpCoreService<H> {
                     // EOF
                     info!(
                         "Connection {:?} closed",
-                        environments.get(&PEER_ADDR.to_string())
+                        ParamRef::<PeerAddr>::param_ref(&ctx),
                     );
                     break;
                 }
@@ -78,7 +79,7 @@ impl<H> HttpCoreService<H> {
                     // timeout
                     info!(
                         "Connection {:?} keepalive timed out",
-                        environments.get(&PEER_ADDR.to_string())
+                        ParamRef::<PeerAddr>::param_ref(&ctx),
                     );
                     break;
                 }
@@ -89,7 +90,7 @@ impl<H> HttpCoreService<H> {
             // handle request and reply response
             // 1. do these things simultaneously: read body and send + handle request
             let mut acc_fut = AccompanyPair::new(
-                self.handler_chain.handle(req, environments.clone()),
+                self.handler_chain.handle(req, ctx.clone()),
                 decoder.fill_payload(),
             );
             let res = unsafe { Pin::new_unchecked(&mut acc_fut) }.await;
@@ -150,7 +151,7 @@ impl<H> HttpCoreService<H> {
                     }
 
                     Err(e) => {
-                        error!("Error processing H1 fixed body {:?}", e);
+                        error!("Error processing H1 fixed body {e:?}");
                     }
                 }
             }
@@ -168,7 +169,7 @@ impl<H> HttpCoreService<H> {
                             let _ = send_stream.send_data(data, false);
                         }
                         Err(e) => {
-                            error!("Error processing H1 chunked body {:?}", e);
+                            error!("Error processing H1 chunked body {e:?}");
                         }
                     }
                 }
@@ -181,28 +182,31 @@ impl<H> HttpCoreService<H> {
         }
     }
 
-    async fn h2_svc<S>(&self, stream: S, environments: Environments)
+    async fn h2_svc<S, CX>(&self, stream: S, ctx: CX)
     where
         S: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
-        H: HttpHandler,
+        H: HttpHandler<CX>,
         H::Error: Into<HttpError>,
+        CX: ParamRef<PeerAddr> + Clone,
     {
-        let connection = monoio_http::h2::server::Builder::new()
+        let mut connection = match monoio_http::h2::server::Builder::new()
             .initial_window_size(1_000_000)
             .max_concurrent_streams(1000)
             .handshake::<S, Bytes>(stream)
-            .await;
-        if connection.is_err() {
-            error!("error: {:?}", connection.err());
-            return;
-        }
-
-        let mut connection = connection.unwrap();
-
-        info!(
-            "H2 handshake complete for {:?}",
-            environments.get(&PEER_ADDR.to_string())
-        );
+            .await
+        {
+            Ok(c) => {
+                info!(
+                    "H2 handshake complete for {:?}",
+                    ParamRef::<PeerAddr>::param_ref(&ctx),
+                );
+                c
+            }
+            Err(e) => {
+                error!("h2 server build failed: {e:?}");
+                return;
+            }
+        };
 
         let (tx, mut rx) = local_sync::mpsc::unbounded::channel();
         let mut backend_resp_stream = FuturesUnordered::new();
@@ -214,7 +218,7 @@ impl<H> HttpCoreService<H> {
                 match tx.send(result) {
                     Ok(_) => {}
                     Err(e) => {
-                        error!("Frontend Req send failed {:?}", e);
+                        error!("Frontend Req send failed {e:?}");
                         break;
                     }
                 }
@@ -222,7 +226,7 @@ impl<H> HttpCoreService<H> {
         });
 
         loop {
-            let environments = environments.clone();
+            let ctx = ctx.clone();
             futures::select! {
                 result = rx.recv().fuse() => {
                     match result {
@@ -234,7 +238,7 @@ impl<H> HttpCoreService<H> {
                             );
 
                             backend_resp_stream.push( async move {
-                                (self.handler_chain.handle(request, environments).await, response_handle)
+                                (self.handler_chain.handle(request, ctx).await, response_handle)
                             });
                         },
                         Some(Err(e)) => {
@@ -265,26 +269,26 @@ impl<H> HttpCoreService<H> {
     }
 }
 
-impl<H, Stream> Service<Accept<Stream, Environments>> for HttpCoreService<H>
+impl<H, Stream, CX> Service<HttpAccept<Stream, CX>> for HttpCoreService<H>
 where
     Stream: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
-    H: HttpHandler,
+    H: HttpHandler<CX>,
     H::Error: Into<HttpError>,
+    CX: ParamRef<PeerAddr> + Clone,
 {
     type Response = ();
     type Error = Infallible;
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a, Accept<Stream, Environments>: 'a;
+        Self: 'a, Accept<Stream, CX>: 'a;
 
-    fn call(&self, incoming_stream: Accept<Stream, Environments>) -> Self::Future<'_> {
-        let (stream, environments) = incoming_stream;
+    fn call(&self, incoming_stream: HttpAccept<Stream, CX>) -> Self::Future<'_> {
         async move {
-            match environments.get(&ALPN_PROTOCOL.to_string()) {
-                Some(ValueType::Bytes(protocol)) if protocol.eq(b"h2") => {
-                    self.h2_svc(stream, environments).await
-                }
-                _ => self.h1_svc(stream, environments).await,
+            let (use_h2, stream, ctx) = incoming_stream;
+            if use_h2 {
+                self.h2_svc(stream, ctx).await
+            } else {
+                self.h1_svc(stream, ctx).await
             }
             Ok(())
         }

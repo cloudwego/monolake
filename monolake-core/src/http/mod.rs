@@ -6,7 +6,7 @@ use monoio_http::h1::payload::Payload;
 pub use rewrite::Rewrite;
 use service_async::Service;
 
-use crate::{environments::Environments, sealed::Sealed};
+use crate::sealed::SealedT;
 
 pub type HttpError = anyhow::Error;
 
@@ -14,26 +14,34 @@ pub type HttpError = anyhow::Error;
 // Service does not need to add `Connection: close` itself.
 pub type ResponseWithContinue = (Response<Payload>, bool);
 
-pub trait HttpHandler: Sealed {
+// use_h2, io, addr
+pub type HttpAccept<Stream, Addr> = (bool, Stream, Addr);
+
+pub trait HttpHandler<CX>: SealedT<CX> {
     type Error;
     type Future<'a>: Future<Output = Result<ResponseWithContinue, Self::Error>>
     where
-        Self: 'a;
+        Self: 'a,
+        CX: 'a;
 
-    fn handle(&self, request: Request<Payload>, environments: Environments) -> Self::Future<'_>;
+    fn handle(&self, request: Request<Payload>, ctx: CX) -> Self::Future<'_>;
 }
 
-impl<T: Service<(Request<Payload>, Environments), Response = ResponseWithContinue>> Sealed for T {}
+impl<T, CX> SealedT<CX> for T where
+    T: Service<(Request<Payload>, CX), Response = ResponseWithContinue>
+{
+}
 
-impl<T: Service<(Request<Payload>, Environments), Response = ResponseWithContinue>> HttpHandler
-    for T
+impl<T, CX> HttpHandler<CX> for T
+where
+    T: Service<(Request<Payload>, CX), Response = ResponseWithContinue>,
 {
     type Error = T::Error;
     type Future<'a> = impl Future<Output = Result<ResponseWithContinue, Self::Error>> + 'a
     where
-        Self: 'a;
+        Self: 'a, CX: 'a;
 
-    fn handle(&self, req: Request<Payload>, environments: Environments) -> Self::Future<'_> {
-        async move { self.call((req, environments)).await }
+    fn handle(&self, req: Request<Payload>, ctx: CX) -> Self::Future<'_> {
+        self.call((req, ctx))
     }
 }

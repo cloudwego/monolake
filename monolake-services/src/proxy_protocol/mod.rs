@@ -1,15 +1,12 @@
-use std::{fmt::Display, future::Future, path::PathBuf};
+use std::{fmt::Display, future::Future, net::SocketAddr};
 
 use bytes::BytesMut;
 use monoio::io::{AsyncReadRent, AsyncWriteRent, PrefixedReadIo};
-use monolake_core::{
-    environments::{Environments, ValueType, REMOTE_ADDR},
-    AnyError,
-};
+use monolake_core::{context::keys::RemoteAddr, listener::AcceptedAddr, AnyError};
 use proxy_protocol::{parse, version1, version2, ParseError, ProxyHeader};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Service,
+    MakeService, ParamSet, Service,
 };
 
 use crate::common::Accept;
@@ -18,78 +15,51 @@ pub struct ProxyProtocolService<T> {
     inner: T,
 }
 
-impl<S, T> Service<(S, Environments)> for ProxyProtocolService<T>
+impl<S, T, CX> Service<(S, CX)> for ProxyProtocolService<T>
 where
     S: AsyncReadRent + AsyncWriteRent,
-    T: Service<Accept<PrefixedReadIo<S, std::io::Cursor<BytesMut>>, Environments>>,
+    T: Service<Accept<PrefixedReadIo<S, std::io::Cursor<BytesMut>>, CX::Transformed>>,
     T::Error: Into<AnyError> + Display,
+    CX: ParamSet<Option<RemoteAddr>>,
 {
     type Response = T::Response;
-
     type Error = AnyError;
-
     type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
     where
         Self: 'cx,
-        Accept<S, Environments>: 'cx;
+        Accept<S, CX>: 'cx;
 
-    fn call(&self, (stream, environments): Accept<S, Environments>) -> Self::Future<'_> {
+    fn call(&self, (mut stream, ctx): Accept<S, CX>) -> Self::Future<'_> {
         async move {
             tracing::debug!("proxy protocol service!!!!");
             let buf = BytesMut::with_capacity(216);
-            let (mut stream, mut environments): (S, Environments) = (stream, environments);
+            // TODO: we must check if io success
             let (_, mut buf) = stream.read(buf).await;
+            let mut remote_addr = None;
+            // TODO: This is a definitely wrong parsing.
             match parse(&mut buf) {
                 Ok(header) => {
-                    tracing::warn!("header: {:?}", header);
-                    // environments.insert(REMOTE_ADDR, ValueType::String(header.));
-                    match header {
-                        ProxyHeader::Version1 { addresses } => match addresses {
-                            version1::ProxyAddresses::Ipv4 { source, .. } => environments.insert(
-                                REMOTE_ADDR.to_string(),
-                                ValueType::SocketAddr(source.into()),
-                            ),
-                            version1::ProxyAddresses::Ipv6 { source, .. } => environments.insert(
-                                REMOTE_ADDR.to_string(),
-                                ValueType::SocketAddr(source.into()),
-                            ),
-                            version1::ProxyAddresses::Unknown => {
-                                tracing::warn!(
-                                    "Unknown remote address from proxy protocol v1 header"
-                                );
-                            }
-                        },
-                        ProxyHeader::Version2 { addresses, .. } => match addresses {
-                            version2::ProxyAddresses::Ipv4 { source, .. } => environments.insert(
-                                REMOTE_ADDR.to_string(),
-                                ValueType::SocketAddr(source.into()),
-                            ),
-                            version2::ProxyAddresses::Ipv6 { source, .. } => environments.insert(
-                                REMOTE_ADDR.to_string(),
-                                ValueType::SocketAddr(source.into()),
-                            ),
-                            version2::ProxyAddresses::Unix { source, .. } => {
-                                let remote_addr = String::from_utf8(source.to_vec());
-                                match remote_addr {
-                                    Ok(remote_addr) => environments.insert(
-                                        REMOTE_ADDR.to_string(),
-                                        ValueType::Path(PathBuf::from(remote_addr)),
-                                    ),
-                                    Err(e) => {
-                                        tracing::error!("Parse unix remote address error: {:?}", e)
-                                    }
-                                }
-                            }
-                            version2::ProxyAddresses::Unspec => {
-                                tracing::warn!(
-                                    "Unknown remote address from proxy protocol v2 header"
-                                );
-                            }
-                        },
-                        _ => {
-                            tracing::warn!("Unknown version of proxy protocol header");
+                    tracing::warn!("proxy-protocol header: {:?}", header);
+                    remote_addr = match header {
+                        ProxyHeader::Version1 {
+                            addresses: version1::ProxyAddresses::Ipv4 { source, .. },
                         }
-                    }
+                        | ProxyHeader::Version2 {
+                            addresses: version2::ProxyAddresses::Ipv4 { source, .. },
+                            ..
+                        } => Some(RemoteAddr(AcceptedAddr::from(SocketAddr::from(source)))),
+                        ProxyHeader::Version1 {
+                            addresses: version1::ProxyAddresses::Ipv6 { source, .. },
+                        }
+                        | ProxyHeader::Version2 {
+                            addresses: version2::ProxyAddresses::Ipv6 { source, .. },
+                            ..
+                        } => Some(RemoteAddr(AcceptedAddr::from(SocketAddr::from(source)))),
+                        _ => {
+                            tracing::warn!("proxy protocol get source failed");
+                            None
+                        }
+                    };
                 }
                 Err(ParseError::NotProxyHeader) => tracing::debug!("Not proxy protocol."),
                 Err(ParseError::InvalidVersion { version }) => {
@@ -98,11 +68,12 @@ where
                 Err(e) => tracing::error!("Proxy protocol process error: {:?}", e),
             }
 
+            let ctx = ctx.param_set(remote_addr);
             let cursor = std::io::Cursor::new(buf);
             let prefix_io = PrefixedReadIo::new(stream, cursor);
 
             self.inner
-                .call((prefix_io, environments))
+                .call((prefix_io, ctx))
                 .await
                 .map_err(|e| e.into())
         }

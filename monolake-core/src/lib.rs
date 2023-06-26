@@ -6,7 +6,7 @@ mod error;
 pub use error::{AnyError, AnyResult};
 
 pub mod config;
-pub mod environments;
+pub mod context;
 pub mod http;
 pub mod listener;
 pub mod tls;
@@ -23,4 +23,5 @@ pub fn print_logo() {
 
 pub(crate) mod sealed {
     pub trait Sealed {}
+    pub trait SealedT<T> {}
 }
