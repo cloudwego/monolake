@@ -3,15 +3,6 @@
 version = 3
 
 [[package]]
-name = "aho-corasick"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43f6cb1bf222025340178f382c426f13757b2960e89779dfcb319c32542a5a41"
-dependencies = [
- "memchr",
-]
-
-[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -904,7 +895,6 @@ checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
  "hashbrown",
- "serde",
 ]
 
 [[package]]
@@ -1244,16 +1234,12 @@ name = "monolake-core"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "bytes",
  "certain-map",
  "derive_more",
  "figlet-rs",
- "fnv",
- "futures",
  "hex",
  "http",
  "http-serde",
- "lazy_static",
  "monoio",
  "monoio-http",
  "native-tls",
@@ -1262,13 +1248,11 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serde_valid",
  "service-async",
  "sha2",
- "thiserror",
  "toml",
  "tracing",
- "webpki-roots 0.22.6",
+ "webpki-roots 0.23.1",
 ]
 
 [[package]]
@@ -1301,7 +1285,6 @@ dependencies = [
  "serde",
  "service-async",
  "thiserror",
- "tower-layer",
  "tracing",
  "url",
  "webpki-roots 0.23.1",
@@ -1555,12 +1538,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "paste"
-version = "1.0.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f746c4065a8fa3fe23974dd82f15431cc8d40779821001404d10d2e79ca7d79"
-
-[[package]]
 name = "pem-rfc7468"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1651,30 +1628,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 
 [[package]]
-name = "proc-macro-error"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
-dependencies = [
- "proc-macro-error-attr",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "version_check",
-]
-
-[[package]]
-name = "proc-macro-error-attr"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
-dependencies = [
- "proc-macro2",
- "quote",
- "version_check",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1747,8 +1700,6 @@ version = "1.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0ab3ca65655bb1e41f2a8c8cd662eb4fb035e67c3f78da1d61dffe89d07300f"
 dependencies = [
- "aho-corasick",
- "memchr",
  "regex-syntax 0.7.2",
 ]
 
@@ -2071,50 +2022,6 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "serde_valid"
-version = "0.16.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19d6b27b09510aaccb2dde1bd79da72b876716952816f9d0fb5225f4c50cb3e4"
-dependencies = [
- "indexmap",
- "itertools",
- "num-traits",
- "once_cell",
- "paste",
- "regex",
- "serde",
- "serde_json",
- "serde_valid_derive",
- "serde_valid_literal",
- "thiserror",
- "unicode-segmentation",
-]
-
-[[package]]
-name = "serde_valid_derive"
-version = "0.16.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f98992e3b0c75f94fe365adc8d15a9fd967a5a090b905ad3f0c3227eee374e92"
-dependencies = [
- "paste",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "strsim",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "serde_valid_literal"
-version = "0.16.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fde706306a112c8b26b85c64e891706c7f1fa49d2da0fae4df0b45dae4dec99d"
-dependencies = [
- "paste",
- "regex",
 ]
 
 [[package]]
@@ -2475,12 +2382,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tower-layer"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c20c8dbed6283a09604c3e69b4b7eeb54e298b8a600d4d5ecb5ad39de609f1d0"
-
-[[package]]
 name = "tower-service"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2580,12 +2481,6 @@ checksum = "5c5713f0fc4b5db668a2ac63cdb7bb4469d8c9fed047b1d0292cc7b0ce2ba921"
 dependencies = [
  "tinyvec",
 ]
-
-[[package]]
-name = "unicode-segmentation"
-version = "1.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1dd624098567895118886609431a7c3b8f516e41d30e0643f03d94592a147e36"
 
 [[package]]
 name = "untrusted"

@@ -10,32 +10,27 @@ proxy-protocol = []
 [dependencies]
 monoio = { version = "0.1.5", features = ['splice'] }
 monoio-http = "0.1.1"
-
+certain-map = "0.2.2"
 service-async = "0.1"
-thiserror = "1"
+
 anyhow = "1"
+tracing = "0.1"
+
 http = "0.2"
 http-serde = "1"
-bytes = "1"
-futures = "0.3"
 
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
 toml = "0"
-serde_valid = "0"
-
-tracing = "0.1"
 
 figlet-rs = "0.1"
-lazy_static = "1"
+sha2 = "0"
+hex = "0"
+derive_more = "0.99.0"
 
+# tls
 rustls = { version = "0" }
 rustls-pemfile = "1"
 native-tls = "0"
-webpki-roots = "0.22"
-sha2 = "0"
-hex = "0"
-fnv = "1"
-certain-map = "0.2.2"
-derive_more = "0.99.0"
+webpki-roots = "0.23"
