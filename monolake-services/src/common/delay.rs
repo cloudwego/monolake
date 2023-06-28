@@ -5,9 +5,6 @@ use service_async::{
     MakeService, Param, Service,
 };
 
-#[derive(Debug, Clone, Copy)]
-pub struct Delay(pub Duration);
-
 #[derive(Clone)]
 pub struct DelayService<T> {
     delay: Duration,
@@ -34,6 +31,9 @@ where
         }
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct Delay(pub Duration);
 
 impl<F> DelayService<F> {
     pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>

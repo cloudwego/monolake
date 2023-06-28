@@ -1,12 +1,12 @@
-use service_async::Param;
-
+use certain_map::Param;
 #[cfg(feature = "openid")]
-use super::OpenIdConfig;
-use super::{KeepaliveConfig, RouteConfig, ServerConfig};
-use crate::tls::TlsConfig;
+use monolake_services::http::handlers::openid::OpenIdConfig;
+use monolake_services::{http::Keepalive, tls::TlsConfig};
 
-impl Param<Option<KeepaliveConfig>> for ServerConfig {
-    fn param(&self) -> Option<KeepaliveConfig> {
+use super::{RouteConfig, ServerConfig};
+
+impl Param<Keepalive> for ServerConfig {
+    fn param(&self) -> Keepalive {
         self.keepalive_config
     }
 }
@@ -27,15 +27,7 @@ impl Param<Vec<RouteConfig>> for ServerConfig {
 }
 
 impl Param<TlsConfig> for ServerConfig {
-    // TODO: add a `build` for ServerConfig to finish the io and convertion
     fn param(&self) -> TlsConfig {
-        match &self.tls {
-            Some(tls) => tls.try_into().expect("load cert and key failed"),
-            None => TlsConfig::None,
-        }
+        self.tls.clone()
     }
-}
-
-impl Param<()> for ServerConfig {
-    fn param(&self) {}
 }

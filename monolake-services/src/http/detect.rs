@@ -10,7 +10,7 @@ use service_async::{
     MakeService, Service,
 };
 
-use crate::common::Accept;
+use crate::tcp::Accept;
 
 const PREFACE: &[u8; 24] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 

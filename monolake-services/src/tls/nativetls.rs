@@ -9,7 +9,7 @@ use service_async::{
     MakeService, Param, Service,
 };
 
-use crate::common::Accept;
+use crate::tcp::Accept;
 
 type NativeTlsAccept<Stream, SocketAddr> = (TlsStream<Stream>, SocketAddr);
 

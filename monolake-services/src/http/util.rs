@@ -1,5 +1,8 @@
 use std::{future::Future, task::Poll};
 
+use http::{HeaderValue, Response, StatusCode};
+use monoio_http::h1::payload::Payload;
+
 pin_project_lite::pin_project! {
     /// AccompanyPair for http decoder and processor.
     /// We have to fill payload when process request
@@ -79,4 +82,15 @@ impl<FMAIN, FACC, T> AccompanyPair<FMAIN, FACC, T> {
             accompany_slot: self.accompany_slot,
         }
     }
+}
+
+pub(crate) fn generate_response(status_code: StatusCode, close: bool) -> Response<Payload> {
+    let mut resp = Response::builder();
+    resp = resp.status(status_code);
+    let headers = resp.headers_mut().unwrap();
+    if close {
+        headers.insert(http::header::CONNECTION, super::CLOSE_VALUE);
+    }
+    headers.insert(http::header::CONTENT_LENGTH, HeaderValue::from_static("0"));
+    resp.body(Payload::None).unwrap()
 }

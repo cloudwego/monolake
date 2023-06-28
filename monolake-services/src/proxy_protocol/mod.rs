@@ -4,14 +4,14 @@ use monoio::{
     buf::IoBufMut,
     io::{AsyncReadRent, AsyncWriteRent, PrefixedReadIo},
 };
-use monolake_core::{context::keys::RemoteAddr, listener::AcceptedAddr, AnyError};
+use monolake_core::{context::RemoteAddr, listener::AcceptedAddr, AnyError};
 use proxy_protocol::{parse, version1, version2, ParseError, ProxyHeader};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
     MakeService, ParamSet, Service,
 };
 
-use crate::common::Accept;
+use crate::tcp::Accept;
 
 // Ref: https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 // V1 max length is 107-byte.

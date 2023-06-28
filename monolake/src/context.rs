@@ -1,8 +1,5 @@
-use keys::{PeerAddr, RemoteAddr};
+use monolake_core::context::{PeerAddr, RemoteAddr};
 
-pub mod keys;
-
-// TODO(ihciah): Move this mod to app crate.
 // This struct should be a app-defined struct.
 // Framework should not bind it.
 certain_map::certain_map! {
@@ -21,10 +18,10 @@ mod test {
     use std::net::SocketAddr;
 
     use certain_map::ParamSet;
+    use monolake_core::listener::AcceptedAddr;
     use service_async::ParamRef;
 
-    use super::{keys::*, Context};
-    use crate::listener::AcceptedAddr;
+    use super::*;
 
     #[test]
     pub fn test_add_entries_to_context() {

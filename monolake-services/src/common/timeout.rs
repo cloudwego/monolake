@@ -7,9 +7,6 @@ use service_async::{
     MakeService, Param, Service,
 };
 
-#[derive(Debug, Clone, Copy)]
-pub struct Timeout(pub Duration);
-
 #[derive(Clone)]
 pub struct TimeoutService<T> {
     timeout: Duration,
@@ -40,6 +37,9 @@ where
         }
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct Timeout(pub Duration);
 
 impl<F> TimeoutService<F> {
     pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>

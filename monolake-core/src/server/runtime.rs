@@ -7,7 +7,8 @@ use monoio::IoUringDriver;
 const MIN_SQPOLL_IDLE_TIME: u32 = 1000;
 
 use monoio::{time::TimeDriver, LegacyDriver, Runtime, RuntimeBuilder};
-use monolake_core::config::{RuntimeConfig, RuntimeType};
+
+use crate::config::{RuntimeConfig, RuntimeType};
 
 pub enum RuntimeWrapper {
     #[cfg(target_os = "linux")]

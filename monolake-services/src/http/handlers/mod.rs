@@ -1,8 +1,8 @@
 mod conn_reuse;
 #[cfg(feature = "openid")]
-mod openid;
+pub mod openid;
 mod proxy;
-mod rewrite;
+pub mod rewrite;
 
 pub use conn_reuse::ConnReuseHandler;
 #[cfg(feature = "openid")]

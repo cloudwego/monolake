@@ -6,11 +6,6 @@ use service_async::{
     MakeService, Param, Service,
 };
 
-#[derive(Debug, Clone)]
-pub struct EchoConfig {
-    pub buffer_size: usize,
-}
-
 pub struct EchoService {
     buffer_size: usize,
 }
@@ -54,6 +49,17 @@ impl MakeService for EchoService {
         Ok(EchoService {
             buffer_size: self.buffer_size,
         })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct EchoConfig {
+    pub buffer_size: usize,
+}
+
+impl Default for EchoConfig {
+    fn default() -> Self {
+        Self { buffer_size: 4096 }
     }
 }
 

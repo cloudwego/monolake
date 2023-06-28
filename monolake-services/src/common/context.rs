@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use monolake_core::{context::keys::PeerAddr, listener::AcceptedAddr};
+use monolake_core::{context::PeerAddr, listener::AcceptedAddr};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
     MakeService, ParamSet, Service,

@@ -16,8 +16,7 @@ use monoio_http::{
     h2::server::SendResponse,
 };
 use monolake_core::{
-    config::{KeepaliveConfig, DEFAULT_TIMEOUT},
-    context::keys::PeerAddr,
+    context::PeerAddr,
     http::{HttpAccept, HttpError, HttpHandler},
 };
 use service_async::{
@@ -27,7 +26,7 @@ use service_async::{
 use tracing::{error, info, warn};
 
 use super::{generate_response, util::AccompanyPair};
-use crate::common::Accept;
+use crate::tcp::Accept;
 
 #[derive(Clone)]
 pub struct HttpCoreService<H> {
@@ -36,14 +35,10 @@ pub struct HttpCoreService<H> {
 }
 
 impl<H> HttpCoreService<H> {
-    pub fn new(handler_chain: H, keepalive_config: Option<KeepaliveConfig>) -> Self {
-        let timeout = match keepalive_config {
-            Some(config) => Duration::from_secs(config.keepalive_timeout as u64),
-            None => Duration::from_secs(DEFAULT_TIMEOUT as u64),
-        };
+    pub fn new(handler_chain: H, keepalive_config: Keepalive) -> Self {
         HttpCoreService {
             handler_chain,
-            keepalive_timeout: timeout,
+            keepalive_timeout: keepalive_config.0,
         }
     }
 
@@ -313,10 +308,20 @@ where
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct Keepalive(pub Duration);
+
+impl Default for Keepalive {
+    fn default() -> Self {
+        const DEFAULT_KEEPALIVE_SEC: u64 = 75;
+        Self(Duration::from_secs(DEFAULT_KEEPALIVE_SEC))
+    }
+}
+
 impl<F> HttpCoreService<F> {
     pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
     where
-        C: Param<Option<KeepaliveConfig>>,
+        C: Param<Keepalive>,
     {
         layer_fn(|c: &C, inner| Self::new(inner, c.param()))
     }

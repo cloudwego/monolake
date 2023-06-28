@@ -5,7 +5,7 @@ use http::{header, HeaderMap, HeaderValue, Request, StatusCode, Version};
 use monoio_http::h1::payload::Payload;
 use monoio_http_client::Client;
 use monolake_core::{
-    context::keys::{PeerAddr, RemoteAddr},
+    context::{PeerAddr, RemoteAddr},
     http::ResponseWithContinue,
     listener::AcceptedAddr,
 };

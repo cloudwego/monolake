@@ -1,19 +1,20 @@
-mod rustls;
-use std::future::Future;
+use std::{future::Future, io::Cursor};
 
-use monolake_core::{tls::TlsConfig, AnyError};
+use monolake_core::AnyError;
 use native_tls::Identity;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
     MakeService, Param, Service,
 };
 
-pub use self::rustls::RustlsService;
-use crate::common::Accept;
+pub use self::{nativetls::NativeTlsService, rustls::RustlsService};
+use self::{nativetls::NativeTlsServiceFactory, rustls::RustlsServiceFactory};
+use crate::tcp::Accept;
 
 mod nativetls;
-pub use self::nativetls::NativeTlsService;
-use self::{nativetls::NativeTlsServiceFactory, rustls::RustlsServiceFactory};
+mod rustls;
+
+pub const APLN_PROTOCOLS: [&[u8]; 2] = [b"h2", b"http/1.1"];
 
 pub enum UnifiedTlsService<T> {
     Rustls(RustlsService<T>),
@@ -143,6 +144,23 @@ where
     }
 }
 
+#[derive(Clone)]
+pub enum TlsConfig<A = ::rustls::ServerConfig, B = ::native_tls::Identity> {
+    Rustls(A),
+    Native(B),
+    None,
+}
+
+impl<A, B> std::fmt::Debug for TlsConfig<A, B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Rustls(_) => write!(f, "Rustls"),
+            Self::Native(_) => write!(f, "NativeTls"),
+            Self::None => write!(f, "None"),
+        }
+    }
+}
+
 impl<F> UnifiedTlsFactory<F> {
     pub fn layer<C, A, B>() -> impl FactoryLayer<C, F, Factory = Self>
     where
@@ -155,5 +173,39 @@ impl<F> UnifiedTlsFactory<F> {
             TlsConfig::Native(i) => Self::Native(NativeTlsServiceFactory::layer().layer(i, inner)),
             TlsConfig::None => Self::None(inner),
         })
+    }
+}
+
+impl TryFrom<TlsConfig<(Vec<u8>, Vec<u8>), (Vec<u8>, Vec<u8>)>> for TlsConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        value: TlsConfig<(Vec<u8>, Vec<u8>), (Vec<u8>, Vec<u8>)>,
+    ) -> Result<Self, Self::Error> {
+        match value {
+            TlsConfig::Rustls((chain, key)) => {
+                let chain = rustls_pemfile::certs(&mut Cursor::new(&chain))?
+                    .into_iter()
+                    .map(::rustls::Certificate)
+                    .collect::<Vec<_>>();
+                if chain.is_empty() {
+                    anyhow::bail!("empty cert file");
+                }
+                let key = rustls_pemfile::pkcs8_private_keys(&mut Cursor::new(&key))?
+                    .pop()
+                    .map(::rustls::PrivateKey)
+                    .ok_or_else(|| anyhow::anyhow!("empty key file"))?;
+                let mut scfg = ::rustls::ServerConfig::builder()
+                    .with_safe_defaults()
+                    .with_no_client_auth()
+                    .with_single_cert(chain, key)?;
+                scfg.alpn_protocols = APLN_PROTOCOLS.map(|proto| proto.to_vec()).to_vec();
+                Ok(TlsConfig::Rustls(scfg))
+            }
+            TlsConfig::Native((chain, key)) => Ok(TlsConfig::Native(
+                native_tls::Identity::from_pkcs8(&chain, &key)?,
+            )),
+            TlsConfig::None => Ok(TlsConfig::None),
+        }
     }
 }

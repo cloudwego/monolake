@@ -6,20 +6,20 @@ entries = 8192
 # server1
 [servers.server1]
 name = "gateway.monoio.rs"
-listener = { uds_path = "/tmp/monolake.sock" }
+listener = { type = "unix", value = "/tmp/monolake.sock" }
 
 [[servers.server1.routes]]
 upstreams = [
-    { endpoint = { uri = "http://127.0.0.1:9080" } },
-    { endpoint = { uri = "http://127.0.0.1:10080" } },
+    { endpoint = { type = "uri", value = "http://127.0.0.1:9080" } },
+    { endpoint = { type = "uri", value = "http://127.0.0.1:10080" } },
 ]
 path = '/'
 
 
 [[servers.server1.routes]]
 upstreams = [
-    { endpoint = { uri = "http://127.0.0.1:9080" } },
-    { endpoint = { uri = "http://127.0.0.1:10080" } },
+    { endpoint = { type = "uri", value = "http://127.0.0.1:9080" } },
+    { endpoint = { type = "uri", value = "http://127.0.0.1:10080" } },
 ]
 path = '/*p'
 
@@ -27,32 +27,32 @@ path = '/*p'
 [servers.server2]
 tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.pkcs8" }
 name = "gateway.monoio.rs"
-listener = { socket_addr = "0.0.0.0:8081" }
+listener = { type = "socket", value = "0.0.0.0:8081" }
 
 [[servers.server2.routes]]
 path = '/'
-upstreams = [{ endpoint = { uri = "http://127.0.0.1:9080" } }]
+upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:9080" } }]
 
 [[servers.server2.routes]]
 path = '/*p'
-upstreams = [{ endpoint = { uri = "http://127.0.0.1:9080" } }]
+upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:9080" } }]
 
 
 # server3
 [servers.server3]
 tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.pkcs8", stack = "rustls" }
 name = "gateway.monoio.rs"
-listener = { socket_addr = "0.0.0.0:8082" }
+listener = { type = "socket", value = "0.0.0.0:8082" }
 
 [[servers.server3.routes]]
 path = '/'
-upstreams = [{ endpoint = { uri = "https://rsproxy.cn" } }]
+upstreams = [{ endpoint = { type = "uri", value = "https://rsproxy.cn" } }]
 
 # server4
 [servers.server4]
 name = "gateway.monoio.rs"
-listener = { socket_addr = "0.0.0.0:8083" }
+listener = { type = "socket", value = "0.0.0.0:8083" }
 
 [[servers.server4.routes]]
-upstreams = [{ endpoint = { uri = "https://rsproxy.cn" } }]
+upstreams = [{ endpoint = { type = "uri", value = "https://rsproxy.cn" } }]
 path = '/'

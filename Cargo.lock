@@ -165,12 +165,12 @@ checksum = "50d30906286121d95be3d479533b458f87493b30a4b5f79a607db8f5d11aa91f"
 
 [[package]]
 name = "certain-map"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d6a4fdef100c0e8663c97783cc075fa99503d87d5b29bb5e242bb9dd4a7971d"
+checksum = "7db4793eb9eb649db222df2d756b3b794a9968480f2dae51130b3f17da87461d"
 dependencies = [
  "certain-map-macros",
- "service-async",
+ "param",
 ]
 
 [[package]]
@@ -205,9 +205,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.3.5"
+version = "4.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2686c4115cb0810d9a984776e197823d08ec94f176549a89a9efded477c456dc"
+checksum = "d9394150f5b4273a1763355bd1c2ec54cc5a2593f790587bcd6b2c947cfa9211"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -216,9 +216,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.3.5"
+version = "4.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e53afce1efce6ed1f633cf0e57612fe51db54a1ee4fd8f8503d078fe02d69ae"
+checksum = "9a78fbdd3cc2914ddf37ba444114bc7765bbdcb55ec9cbe6fa054f0137400717"
 dependencies = [
  "anstream",
  "anstyle",
@@ -515,12 +515,6 @@ dependencies = [
  "rand_core",
  "subtle",
 ]
-
-[[package]]
-name = "figlet-rs"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4742a071cd9694fc86f9fa1a08fa3e53d40cc899d7ee532295da2d085639fbc5"
 
 [[package]]
 name = "flume"
@@ -1211,20 +1205,16 @@ name = "monolake"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "certain-map",
  "clap",
- "futures-channel",
- "futures-util",
- "http",
- "io-uring",
  "monoio",
  "monoio-native-tls",
  "monolake-core",
  "monolake-services",
  "serde",
- "serde_derive",
  "serde_json",
  "service-async",
- "thiserror",
+ "toml",
  "tracing",
  "tracing-subscriber",
 ]
@@ -1234,25 +1224,19 @@ name = "monolake-core"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "certain-map",
  "derive_more",
- "figlet-rs",
+ "futures-channel",
+ "futures-util",
  "hex",
  "http",
  "http-serde",
+ "io-uring",
  "monoio",
  "monoio-http",
- "native-tls",
- "rustls",
- "rustls-pemfile",
  "serde",
- "serde_derive",
- "serde_json",
  "service-async",
  "sha2",
- "toml",
  "tracing",
- "webpki-roots 0.23.1",
 ]
 
 [[package]]
@@ -1265,6 +1249,7 @@ dependencies = [
  "cookie",
  "futures",
  "http",
+ "http-serde",
  "lazy_static",
  "local-sync",
  "matchit",
@@ -1277,7 +1262,6 @@ dependencies = [
  "native-tls",
  "openidconnect",
  "pin-project-lite",
- "ppp",
  "proxy-protocol",
  "rand",
  "rustls",
@@ -1538,6 +1522,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "param"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddfcf46a6407c2c74f3399f666e54d71960d3a6e7891ee595f39959463a64039"
+
+[[package]]
 name = "pem-rfc7468"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1611,15 +1601,6 @@ name = "pkg-config"
 version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
-
-[[package]]
-name = "ppp"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82d901d7dd743c478e14af9518bdbc33e53e50be56429233f812537f29dbf0d1"
-dependencies = [
- "thiserror",
-]
 
 [[package]]
 name = "ppv-lite86"
@@ -2048,9 +2029,12 @@ dependencies = [
 
 [[package]]
 name = "service-async"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f0f815f3aee87334deb9d3a94f007245e70989c4bf574404af2b30313f71d05"
+checksum = "6c6e1358e04d16c7eaee73a7002231c32316b3de85b669b34709031b2ec60589"
+dependencies = [
+ "param",
+]
 
 [[package]]
 name = "sha2"

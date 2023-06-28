@@ -2,24 +2,23 @@
 
 use std::fmt::Debug;
 
-use monolake_core::{
-    config::ServerConfig,
-    context::EmptyContext,
-    listener::{AcceptedAddr, AcceptedStream},
-};
+use monolake_core::listener::{AcceptedAddr, AcceptedStream};
 #[cfg(feature = "openid")]
 use monolake_services::http::handlers::OpenIdHandler;
 #[cfg(feature = "proxy-protocol")]
 use monolake_services::proxy_protocol::ProxyProtocolServiceFactory;
 use monolake_services::{
-    common::{Accept, ContextService},
+    common::ContextService,
     http::{
         handlers::{ConnReuseHandler, ProxyHandler, RewriteHandler},
         HttpCoreService, HttpVersionDetect,
     },
+    tcp::Accept,
     tls::UnifiedTlsFactory,
 };
 use service_async::{stack::FactoryStack, MakeService, Service};
+
+use crate::{config::ServerConfig, context::EmptyContext};
 
 /// Create a new factory for l7 proxy.
 // Here we use a fixed generic type `Accept<AcceptedStream, AcceptedAddr>`

@@ -11,10 +11,7 @@ use lazy_static::lazy_static;
 use monoio::io::stream::Stream;
 use monoio_http::h1::payload::{FixedPayload, Payload};
 use monoio_http_client::Client;
-use monolake_core::{
-    config::OpenIdConfig,
-    http::{HttpHandler, ResponseWithContinue},
-};
+use monolake_core::http::{HttpHandler, ResponseWithContinue};
 #[allow(unused)]
 use openidconnect::core::{
     CoreAuthDisplay, CoreClaimName, CoreClaimType, CoreClient, CoreClientAuthMethod,
@@ -125,6 +122,15 @@ where
             openid_config: self.openid_config.clone(),
         })
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct OpenIdConfig {
+    // TODO: Need to add openid scopes etc.
+    pub client_id: String,
+    pub client_secret: String,
+    pub issuer_url: String,
+    pub redirect_url: String,
 }
 
 impl<F> OpenIdHandler<F> {

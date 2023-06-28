@@ -1,9 +1,7 @@
-mod rewrite;
 use std::future::Future;
 
 use http::{Request, Response};
 use monoio_http::h1::payload::Payload;
-pub use rewrite::Rewrite;
 use service_async::Service;
 
 use crate::sealed::SealedT;

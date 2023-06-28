@@ -7,11 +7,11 @@ use futures_channel::{
 };
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use monoio::{io::stream::Stream, utils::bind_to_cpu_set};
-use monolake_core::{bail_into, config::RuntimeConfig, AnyError};
 use service_async::{MakeService, Service};
 use tracing::{error, info, warn};
 
 use self::runtime::RuntimeWrapper;
+use crate::{bail_into, config::RuntimeConfig, AnyError};
 
 mod runtime;
 

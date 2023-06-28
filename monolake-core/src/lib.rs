@@ -9,17 +9,8 @@ pub mod config;
 pub mod context;
 pub mod http;
 pub mod listener;
-pub mod tls;
+pub mod server;
 pub mod util;
-
-use figlet_rs::FIGfont;
-
-pub fn print_logo() {
-    let standard_font = FIGfont::standard().unwrap();
-    if let Some(figure) = standard_font.convert("Monolake") {
-        println!("{}", figure);
-    }
-}
 
 pub(crate) mod sealed {
     pub trait Sealed {}

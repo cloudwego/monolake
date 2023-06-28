@@ -6,20 +6,18 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 use monolake_core::{
-    config::{Config, ServerConfigWithListener},
+    config::ServiceConfig,
     listener::ListenerBuilder,
-    print_logo,
-    tls::TlsConfig,
+    server::{Command, Manager},
 };
-use monolake_services::tcp::toy_echo::EchoReplaceConfig;
-use server::Manager;
-use service_async::Param;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
-use crate::factory::l7_factory;
+use crate::{config::Config, factory::l7_factory, util::print_logo};
 
+mod config;
+mod context;
 mod factory;
-mod server;
+mod util;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -58,12 +56,12 @@ async fn main() -> Result<()> {
     );
 
     // Construct Service Factory and Listener Factory
-    for (name, ServerConfigWithListener { listener, server }) in config.servers.into_iter() {
+    for (name, ServiceConfig { listener, server }) in config.servers.into_iter() {
         let lis_fac = ListenerBuilder::try_from(listener).expect("build listener failed");
         let svc_fac = l7_factory(server);
 
         manager
-            .apply(server::Command::Add(
+            .apply(Command::Add(
                 Arc::new(name),
                 Arc::new(svc_fac),
                 Arc::new(lis_fac),
@@ -80,32 +78,4 @@ async fn main() -> Result<()> {
         h.join().unwrap();
     });
     Ok(())
-}
-
-pub struct DemoConfig {
-    echo_replace: u8,
-    tls: TlsConfig,
-}
-
-impl Default for DemoConfig {
-    fn default() -> Self {
-        Self {
-            echo_replace: b'A',
-            tls: TlsConfig::None,
-        }
-    }
-}
-
-impl Param<EchoReplaceConfig> for DemoConfig {
-    fn param(&self) -> EchoReplaceConfig {
-        EchoReplaceConfig {
-            replace: self.echo_replace,
-        }
-    }
-}
-
-impl Param<TlsConfig> for DemoConfig {
-    fn param(&self) -> TlsConfig {
-        self.tls.clone()
-    }
 }

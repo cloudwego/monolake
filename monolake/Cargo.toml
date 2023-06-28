@@ -17,12 +17,13 @@ proxy-protocol = [
 monoio = { version = "0.1.5", features = ["sync", "async-cancel"] }
 monolake-core = { path = "../monolake-core" }
 monolake-services = { path = "../monolake-services" }
-service-async = "0.1"
+service-async = "0.1.5"
+certain-map = "0.2.3"
 
 # tls: needed for native-tls init
 monoio-native-tls = "0.1.0"
+
 # error
-thiserror = "1"
 anyhow = "1"
 
 # log
@@ -33,12 +34,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4", features = ['derive'] }
 serde = "1"
 serde_json = "1"
-serde_derive = "1"
-http = "0.2"
-
-# futures
-futures-util = { version = "0.3", features = ["sink"] }
-futures-channel = { version = "0.3", features = ["sink"] }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-io-uring = "0.6"
+toml = "0"
