@@ -1,4 +1,4 @@
-use std::{convert::Infallible, future::Future, pin::Pin, time::Duration};
+use std::{convert::Infallible, fmt::Debug, future::Future, pin::Pin, time::Duration};
 
 use bytes::Bytes;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
@@ -46,7 +46,7 @@ impl<H> HttpCoreService<H> {
     where
         S: Split + AsyncReadRent + AsyncWriteRent,
         H: HttpHandler<CX>,
-        H::Error: Into<HttpError>,
+        H::Error: Into<HttpError> + Debug,
         CX: ParamRef<PeerAddr> + Clone,
     {
         let (reader, writer) = stream.into_split();
@@ -107,7 +107,7 @@ impl<H> HttpCoreService<H> {
                 }
                 Err(e) => {
                     // something error when process request(not a biz error)
-                    error!("error when processing request: {}", e.into());
+                    error!("error when processing request: {e:?}");
                     if let Err(e) = encoder
                         .send_and_flush(generate_response(StatusCode::INTERNAL_SERVER_ERROR, true))
                         .await
@@ -181,7 +181,7 @@ impl<H> HttpCoreService<H> {
     where
         S: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
         H: HttpHandler<CX>,
-        H::Error: Into<HttpError>,
+        H::Error: Into<HttpError> + Debug,
         CX: ParamRef<PeerAddr> + Clone,
     {
         let mut connection = match monoio_http::h2::server::Builder::new()
@@ -237,7 +237,7 @@ impl<H> HttpCoreService<H> {
                             });
                         },
                         Some(Err(e)) => {
-                            error!("H2 connection error {:?}", e);
+                            error!("H2 connection error {e:?}");
                             break;
                         },
                         None => {}
@@ -249,7 +249,7 @@ impl<H> HttpCoreService<H> {
                             frontend_resp_stream.push(Self::h2_process_response(response, response_handle));
                         }
                         Some((Err(e), mut response_handle)) => {
-                            error!("Handler chain returned error : {}", e.into());
+                            error!("Handler chain returned error : {e:?}");
                             let (parts, _) = generate_response(StatusCode::INTERNAL_SERVER_ERROR, false).into_parts();
                             let response = http::Response::from_parts(parts, ());
                             let _ = response_handle.send_response(response, true);
@@ -268,7 +268,7 @@ impl<H, Stream, CX> Service<HttpAccept<Stream, CX>> for HttpCoreService<H>
 where
     Stream: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
     H: HttpHandler<CX>,
-    H::Error: Into<HttpError>,
+    H::Error: Into<HttpError> + Debug,
     CX: ParamRef<PeerAddr> + Clone,
 {
     type Response = ();

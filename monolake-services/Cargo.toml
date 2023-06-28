@@ -22,7 +22,7 @@ local-sync = "0.1"
 service-async = "0.1.5"
 
 # tls
-monoio-rustls = "0.1.4"
+monoio-rustls = "0.1.5"
 rustls = { version = "0.21" }
 rustls-pemfile = "1"
 webpki-roots = "0.23"
