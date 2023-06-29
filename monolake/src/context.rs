@@ -4,7 +4,8 @@ use monolake_core::context::{PeerAddr, RemoteAddr};
 // Framework should not bind it.
 certain_map::certain_map! {
     #[derive(Debug, Clone)]
-    #[default(EmptyContext)]
+    #[empty(EmptyContext)]
+    #[full(FullContext)]
     pub struct Context {
         // Set by ContextService
         peer_addr: PeerAddr,

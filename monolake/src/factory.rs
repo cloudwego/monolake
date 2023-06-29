@@ -2,6 +2,7 @@
 
 use std::fmt::Debug;
 
+use monoio::net::TcpStream;
 use monolake_core::listener::{AcceptedAddr, AcceptedStream};
 #[cfg(feature = "openid")]
 use monolake_services::http::handlers::OpenIdHandler;
@@ -18,7 +19,10 @@ use monolake_services::{
 };
 use service_async::{stack::FactoryStack, MakeService, Service};
 
-use crate::{config::ServerConfig, context::EmptyContext};
+use crate::{
+    config::ServerConfig,
+    context::{EmptyContext, FullContext},
+};
 
 /// Create a new factory for l7 proxy.
 // Here we use a fixed generic type `Accept<AcceptedStream, AcceptedAddr>`
@@ -40,12 +44,14 @@ pub fn l7_factory(
         .push(ConnReuseHandler::layer())
         .push(HttpCoreService::layer())
         .push(HttpVersionDetect::layer())
-        .push(UnifiedTlsFactory::layer());
+        .push(UnifiedTlsFactory::layer())
+        .check_make_svc::<(TcpStream, FullContext)>();
 
     #[cfg(feature = "proxy-protocol")]
     let stacks = stacks.push(ProxyProtocolServiceFactory::layer());
 
     stacks
         .push(ContextService::<EmptyContext, _>::layer())
+        .check_make_svc::<(TcpStream, AcceptedAddr)>()
         .into_inner()
 }

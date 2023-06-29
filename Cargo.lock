@@ -165,9 +165,9 @@ checksum = "50d30906286121d95be3d479533b458f87493b30a4b5f79a607db8f5d11aa91f"
 
 [[package]]
 name = "certain-map"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7db4793eb9eb649db222df2d756b3b794a9968480f2dae51130b3f17da87461d"
+checksum = "eef8cfdce330246c0d5ae6a910ed263951f2fe43e0abaed7d5744d3ddb771ef6"
 dependencies = [
  "certain-map-macros",
  "param",
@@ -175,9 +175,9 @@ dependencies = [
 
 [[package]]
 name = "certain-map-macros"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6d7958c0839887dde5a899f1c7d488ab0ffe826af8d69c34328ba31f84567e8"
+checksum = "87e8e7991daf33cd9aae128c7a1eaff7678d20b310f0f19ae19a1e407b1be02c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1523,9 +1523,9 @@ dependencies = [
 
 [[package]]
 name = "param"
-version = "0.1.0"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddfcf46a6407c2c74f3399f666e54d71960d3a6e7891ee595f39959463a64039"
+checksum = "2da24af13fd75465e54b0040b7303173dc90d5f53a82ead2041f8ad453678247"
 
 [[package]]
 name = "pem-rfc7468"
@@ -2029,10 +2029,11 @@ dependencies = [
 
 [[package]]
 name = "service-async"
-version = "0.1.5"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c6e1358e04d16c7eaee73a7002231c32316b3de85b669b34709031b2ec60589"
+checksum = "3ba879f493921e9939b0b7039af6fdc9c80178956adb05355654f3dabbf7e631"
 dependencies = [
+ "futures-util",
  "param",
 ]
 

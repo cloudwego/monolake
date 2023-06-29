@@ -19,7 +19,7 @@ monolake-core = { path = "../monolake-core" }
 monoio-http = "0.1.0"
 monoio-http-client = { version = "0.1.2", features = ["logging", "rustls"] }
 local-sync = "0.1"
-service-async = "0.1.5"
+service-async = "0.1.9"
 
 # tls
 monoio-rustls = "0.1.5"
