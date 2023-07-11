@@ -19,9 +19,9 @@ pub struct NativeTlsService<T> {
     inner: T,
 }
 
-impl<T, S, A> Service<Accept<S, A>> for NativeTlsService<T>
+impl<T, S, CX> Service<Accept<S, CX>> for NativeTlsService<T>
 where
-    T: Service<NativeTlsAccept<S, A>>,
+    T: Service<NativeTlsAccept<S, CX>>,
     T::Error: Into<AnyError> + Display,
     S: AsyncReadRent + AsyncWriteRent,
 {
@@ -32,9 +32,9 @@ where
     type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
     where
         Self: 'cx,
-        Accept<S, A>: 'cx;
+        Accept<S, CX>: 'cx;
 
-    fn call(&self, (stream, addr): Accept<S, A>) -> Self::Future<'_> {
+    fn call(&self, (stream, addr): Accept<S, CX>) -> Self::Future<'_> {
         async move {
             let stream = self.acceptor.accept(stream).await?;
             self.inner.call((stream, addr)).await.map_err(Into::into)

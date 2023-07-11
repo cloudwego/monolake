@@ -1,8 +1,8 @@
 use std::future::Future;
 
-use http::{uri::Scheme, HeaderValue, Request, StatusCode};
+use http::{uri::Scheme, HeaderValue, Request, StatusCode, Version};
 use matchit::Router;
-use monoio_http::h1::payload::Payload;
+use monoio_http::common::body::HttpBody;
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ pub struct RewriteHandler<H> {
     router: Router<RouteConfig>,
 }
 
-impl<H, CX> Service<(Request<Payload>, CX)> for RewriteHandler<H>
+impl<H, CX> Service<(Request<HttpBody>, CX)> for RewriteHandler<H>
 where
     H: HttpHandler<CX>,
 {
@@ -30,7 +30,7 @@ where
     where
         Self: 'a, CX: 'a;
 
-    fn call(&self, (mut request, ctx): (Request<Payload>, CX)) -> Self::Future<'_> {
+    fn call(&self, (mut request, ctx): (Request<HttpBody>, CX)) -> Self::Future<'_> {
         async move {
             let req_path = request.uri().path();
             tracing::info!("request path: {req_path}");
@@ -44,7 +44,7 @@ where
                     let next = rng.next_u32() as usize % upstreams.len();
                     let upstream: &Upstream = &upstreams[next];
 
-                    rewrite_request(&mut request, &upstream.endpoint);
+                    rewrite_request(&mut request, upstream);
 
                     self.inner.handle(request, ctx).await
                 }
@@ -78,6 +78,24 @@ const fn default_weight() -> u16 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+#[derive(Default)]
+pub enum HttpVersion {
+    #[default]
+    HTTP1_1,
+    HTTP2,
+}
+
+impl HttpVersion {
+    pub fn convert_to_http_version(&self) -> http::Version {
+        match self {
+            HttpVersion::HTTP1_1 => http::Version::HTTP_11,
+            HttpVersion::HTTP2 => http::Version::HTTP_2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RouteConfig {
     #[serde(skip)]
     pub id: String,
@@ -90,6 +108,8 @@ pub struct Upstream {
     pub endpoint: Endpoint,
     #[serde(default = "default_weight")]
     pub weight: u16,
+    #[serde(default = "HttpVersion::default")]
+    pub version: HttpVersion,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -117,11 +137,15 @@ impl<F> RewriteHandler<F> {
     }
 }
 
-fn rewrite_request(request: &mut Request<Payload>, endpoint: &Endpoint) {
-    let remote = match endpoint {
+fn rewrite_request(request: &mut Request<HttpBody>, upstream: &Upstream) {
+    let remote = match &upstream.endpoint {
         Endpoint::Uri(uri) => uri,
         _ => unimplemented!("not implement"),
     };
+
+    let endpoint_version = upstream.version.convert_to_http_version();
+    *request.version_mut() = endpoint_version;
+
     if let Some(authority) = remote.authority() {
         let header_value =
             HeaderValue::from_str(authority.as_str()).unwrap_or(HeaderValue::from_static(""));
@@ -130,9 +154,20 @@ fn rewrite_request(request: &mut Request<Payload>, endpoint: &Endpoint) {
             request.headers().get(http::header::HOST),
             header_value
         );
-        request
-            .headers_mut()
-            .insert(http::header::HOST, header_value);
+
+        match endpoint_version {
+            Version::HTTP_11 => request.headers_mut().remove(http::header::HOST),
+            Version::HTTP_2 => request.headers_mut().remove(http::header::HOST),
+            _ => unimplemented!(),
+        };
+
+        if upstream.version.convert_to_http_version() == Version::HTTP_2 {
+            request.headers_mut().remove(http::header::HOST);
+        } else {
+            request
+                .headers_mut()
+                .insert(http::header::HOST, header_value);
+        }
 
         let scheme = match remote.scheme() {
             Some(scheme) => scheme.to_owned(),
@@ -183,6 +218,7 @@ mod tests {
             upstreams: Vec::from([Upstream {
                 endpoint: Endpoint::Uri(format!("http://test{n}.endpoint").parse().unwrap()),
                 weight: Default::default(),
+                version: HttpVersion::HTTP1_1,
             }]),
         })
     }

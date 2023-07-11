@@ -5,13 +5,13 @@ use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use http::StatusCode;
 use monoio::io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent, Split, Splitable};
 use monoio_http::{
-    common::response::Response,
-    h1::{
-        codec::{
-            decoder::{FillPayload, RequestDecoder},
-            encoder::GenericEncoder,
-        },
-        payload::Payload,
+    common::{
+        body::{Body, HttpBody, StreamHint},
+        response::Response,
+    },
+    h1::codec::{
+        decoder::{FillPayload, RequestDecoder},
+        encoder::GenericEncoder,
     },
     h2::server::SendResponse,
 };
@@ -56,7 +56,7 @@ impl<H> HttpCoreService<H> {
         loop {
             // decode request with keepalive timeout
             let req = match monoio::time::timeout(self.keepalive_timeout, decoder.next()).await {
-                Ok(Some(Ok(req))) => req,
+                Ok(Some(Ok(req))) => HttpBody::request(req),
                 Ok(Some(Err(err))) => {
                     // decode error
                     warn!("decode request header failed: {err}");
@@ -121,58 +121,46 @@ impl<H> HttpCoreService<H> {
     }
 
     async fn h2_process_response(
-        response: Response<Payload>,
+        response: Response<HttpBody>,
         mut response_handle: SendResponse<Bytes>,
     ) {
-        let (mut parts, payload) = response.into_parts();
+        let (mut parts, mut body) = response.into_parts();
         parts.headers.remove("connection");
         let response = http::Response::from_parts(parts, ());
 
-        match payload {
-            Payload::None => {
-                let _ = response_handle.send_response(response, true);
+        match body.stream_hint() {
+            StreamHint::None => {
+                if let Err(e) = response_handle.send_response(response, true) {
+                    error!("H2 frontend response send fail {:?}", e);
+                }
             }
-            Payload::Fixed(p) => {
+            StreamHint::Fixed => {
                 let mut send_stream = match response_handle.send_response(response, false) {
-                    Ok(send_stream) => send_stream,
-                    Err(_) => {
-                        return;
-                    }
-                };
-
-                match p.get().await {
-                    Ok(data) => {
-                        let _ = send_stream.send_data(data, true);
-                    }
-
+                    Ok(s) => s,
                     Err(e) => {
-                        error!("Error processing H1 fixed body {e:?}");
-                    }
-                }
-            }
-            Payload::Stream(mut p) => {
-                let mut send_stream = match response_handle.send_response(response, false) {
-                    Ok(send_stream) => send_stream,
-                    Err(_) => {
+                        error!("H2 frontend response send fail {:?}", e);
                         return;
                     }
                 };
 
-                while let Some(data_result) = p.next().await {
-                    match data_result {
-                        Ok(data) => {
-                            let _ = send_stream.send_data(data, false);
-                        }
-                        Err(e) => {
-                            error!("Error processing H1 chunked body {e:?}");
-                        }
-                    }
+                if let Some(Ok(data)) = body.next_data().await {
+                    let _ = send_stream.send_data(data, true);
                 }
-                let _ = send_stream.send_data(Bytes::new(), true);
             }
-            Payload::H2BodyStream(_) => {
-                // H2 client to be implemented
-                unreachable!()
+            StreamHint::Stream => {
+                let mut send_stream = match response_handle.send_response(response, false) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        error!("H2 frontend response send fail {:?}", e);
+                        return;
+                    }
+                };
+
+                while let Some(Ok(data)) = body.next_data().await {
+                    let _ = send_stream.send_data(data, false);
+                }
+
+                let _ = send_stream.send_data(Bytes::new(), true);
             }
         }
     }
@@ -226,12 +214,7 @@ impl<H> HttpCoreService<H> {
                 result = rx.recv().fuse() => {
                     match result {
                         Some(Ok((request, response_handle)))  => {
-                            let (parts, body_stream) = request.into_parts();
-                            let request = http::Request::from_parts(
-                                parts,
-                                monoio_http::h1::payload::Payload::H2BodyStream(body_stream),
-                            );
-
+                            let request = HttpBody::request(request);
                             backend_resp_stream.push( async move {
                                 (self.handler_chain.handle(request, ctx).await, response_handle)
                             });

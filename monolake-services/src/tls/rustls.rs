@@ -18,9 +18,9 @@ pub struct RustlsService<T> {
     inner: T,
 }
 
-impl<T, S, A> Service<Accept<S, A>> for RustlsService<T>
+impl<T, S, CX> Service<Accept<S, CX>> for RustlsService<T>
 where
-    T: Service<RustlsAccept<S, A>>,
+    T: Service<RustlsAccept<S, CX>>,
     T::Error: Into<AnyError> + Display,
     S: AsyncReadRent + AsyncWriteRent,
 {
@@ -31,12 +31,12 @@ where
     type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
     where
         Self: 'cx,
-        Accept<S, A>: 'cx;
+        Accept<S, CX>: 'cx;
 
-    fn call(&self, (stream, addr): Accept<S, A>) -> Self::Future<'_> {
+    fn call(&self, (stream, cx): Accept<S, CX>) -> Self::Future<'_> {
         async move {
             let stream = self.acceptor.accept(stream).await?;
-            self.inner.call((stream, addr)).await.map_err(Into::into)
+            self.inner.call((stream, cx)).await.map_err(Into::into)
         }
     }
 }

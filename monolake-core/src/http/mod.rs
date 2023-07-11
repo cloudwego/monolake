@@ -1,7 +1,7 @@
 use std::future::Future;
 
 use http::{Request, Response};
-use monoio_http::h1::payload::Payload;
+use monoio_http::common::body::HttpBody;
 use service_async::Service;
 
 use crate::sealed::SealedT;
@@ -10,10 +10,10 @@ pub type HttpError = anyhow::Error;
 
 // Response and a bool indicating should continue processing the connection.
 // Service does not need to add `Connection: close` itself.
-pub type ResponseWithContinue = (Response<Payload>, bool);
+pub type ResponseWithContinue = (Response<HttpBody>, bool);
 
 // use_h2, io, addr
-pub type HttpAccept<Stream, Addr> = (bool, Stream, Addr);
+pub type HttpAccept<Stream, CX> = (bool, Stream, CX);
 
 pub trait HttpHandler<CX>: SealedT<CX> {
     type Error;
@@ -22,24 +22,24 @@ pub trait HttpHandler<CX>: SealedT<CX> {
         Self: 'a,
         CX: 'a;
 
-    fn handle(&self, request: Request<Payload>, ctx: CX) -> Self::Future<'_>;
+    fn handle(&self, request: Request<HttpBody>, ctx: CX) -> Self::Future<'_>;
 }
 
 impl<T, CX> SealedT<CX> for T where
-    T: Service<(Request<Payload>, CX), Response = ResponseWithContinue>
+    T: Service<(Request<HttpBody>, CX), Response = ResponseWithContinue>
 {
 }
 
 impl<T, CX> HttpHandler<CX> for T
 where
-    T: Service<(Request<Payload>, CX), Response = ResponseWithContinue>,
+    T: Service<(Request<HttpBody>, CX), Response = ResponseWithContinue>,
 {
     type Error = T::Error;
     type Future<'a> = impl Future<Output = Result<ResponseWithContinue, Self::Error>> + 'a
     where
         Self: 'a, CX: 'a;
 
-    fn handle(&self, req: Request<Payload>, ctx: CX) -> Self::Future<'_> {
+    fn handle(&self, req: Request<HttpBody>, ctx: CX) -> Self::Future<'_> {
         self.call((req, ctx))
     }
 }

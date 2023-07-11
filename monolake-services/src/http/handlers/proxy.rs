@@ -1,8 +1,8 @@
 use std::{convert::Infallible, future::Future};
 
 use bytes::Bytes;
-use http::{header, HeaderMap, HeaderValue, Request, StatusCode, Version};
-use monoio_http::h1::payload::Payload;
+use http::{header, HeaderMap, HeaderValue, Request, StatusCode};
+use monoio_http::common::body::HttpBody;
 use monoio_http_client::Client;
 use monolake_core::{
     context::{PeerAddr, RemoteAddr},
@@ -28,7 +28,7 @@ impl ProxyHandler {
     }
 }
 
-impl<CX> Service<(Request<Payload>, CX)> for ProxyHandler
+impl<CX> Service<(Request<HttpBody>, CX)> for ProxyHandler
 where
     CX: ParamRef<PeerAddr> + ParamMaybeRef<Option<RemoteAddr>>,
 {
@@ -38,12 +38,10 @@ where
     where
         Self: 'a, CX: 'a;
 
-    fn call(&self, (mut req, ctx): (Request<Payload>, CX)) -> Self::Future<'_> {
+    fn call(&self, (mut req, ctx): (Request<HttpBody>, CX)) -> Self::Future<'_> {
         add_xff_header(req.headers_mut(), &ctx);
         async move {
-            // hard code upstream http request to http/1.1 since we only support http/1.1
-            *req.version_mut() = Version::HTTP_11;
-            match self.client.send(req).await {
+            match self.client.send_request(req).await {
                 Ok(resp) => Ok((resp, true)),
                 // Bad gateway should not affect inbound connection.
                 // It should still be keepalive.

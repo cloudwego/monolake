@@ -61,18 +61,18 @@ impl<A> UnifiedResponse<A, A, A> {
     }
 }
 
-impl<T, S, A> Service<Accept<S, A>> for UnifiedTlsService<T>
+impl<T, S, CX> Service<Accept<S, CX>> for UnifiedTlsService<T>
 where
-    RustlsService<T>: Service<Accept<S, A>>,
-    NativeTlsService<T>: Service<Accept<S, A>>,
-    <RustlsService<T> as Service<Accept<S, A>>>::Error: Into<AnyError>,
-    <NativeTlsService<T> as Service<Accept<S, A>>>::Error: Into<AnyError>,
-    T: Service<Accept<S, A>>,
+    RustlsService<T>: Service<Accept<S, CX>>,
+    NativeTlsService<T>: Service<Accept<S, CX>>,
+    <RustlsService<T> as Service<Accept<S, CX>>>::Error: Into<AnyError>,
+    <NativeTlsService<T> as Service<Accept<S, CX>>>::Error: Into<AnyError>,
+    T: Service<Accept<S, CX>>,
     T::Error: Into<AnyError>,
 {
     type Response = UnifiedResponse<
-        <RustlsService<T> as Service<Accept<S, A>>>::Response,
-        <NativeTlsService<T> as Service<Accept<S, A>>>::Response,
+        <RustlsService<T> as Service<Accept<S, CX>>>::Response,
+        <NativeTlsService<T> as Service<Accept<S, CX>>>::Response,
         T::Response,
     >;
 
@@ -82,9 +82,9 @@ where
     where
         Self: 'cx,
         S: 'cx,
-        A: 'cx;
+        CX: 'cx;
 
-    fn call(&self, req: Accept<S, A>) -> Self::Future<'_> {
+    fn call(&self, req: Accept<S, CX>) -> Self::Future<'_> {
         async move {
             match self {
                 UnifiedTlsService::Rustls(inner) => inner
