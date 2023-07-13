@@ -3,7 +3,7 @@ title: "Overview"
 linkTitle: "Overview"
 weight: 1
 keywords: ["Proxy", "Rust", "io-uring"]
-description: "This doc covers architecture design, features and performance of Kitex."
+description: "This doc covers architecture design, features and performance of Monolake."
 ---
 
 ## Monolake

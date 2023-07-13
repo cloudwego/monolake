@@ -10,7 +10,7 @@ description: "Monolake Frequently Asked Questions and Answers."
 ## Monolake 
 
 **Q1: Can you run monolake on Mac OS？**
-* Yes, monolake will default to epoll instead of io-uring on Mac OS.
+* Yes, monolake will default to kqueue instead of io-uring on MacOS.
 
 **Q2: Does Monolake support HTTP2？**
 * Yes, monolake suppports HTTP2 on the downstream(client to proxy) connection 
