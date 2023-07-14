@@ -41,8 +41,7 @@ impl<F> HttpVersionDetect<F> {
 
 impl<T, Stream, CX> Service<Accept<Stream, CX>> for HttpVersionDetect<T>
 where
-    Stream: AsyncReadRent + AsyncWriteRent + 'static,
-    CX: 'static,
+    Stream: AsyncReadRent + AsyncWriteRent,
     T: Service<HttpAccept<PrefixedReadIo<Stream, Cursor<Vec<u8>>>, CX>>,
     T::Error: Into<AnyError>,
 {
@@ -50,7 +49,8 @@ where
     type Error = AnyError;
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a;
+        Self: 'a,
+        Accept<Stream, CX>: 'a;
 
     fn call(&self, incoming_stream: Accept<Stream, CX>) -> Self::Future<'_> {
         async move {

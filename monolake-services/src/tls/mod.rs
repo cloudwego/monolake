@@ -81,8 +81,7 @@ where
     type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
     where
         Self: 'cx,
-        S: 'cx,
-        CX: 'cx;
+        Accept<S, CX>: 'cx;
 
     fn call(&self, req: Accept<S, CX>) -> Self::Future<'_> {
         async move {

@@ -8,7 +8,6 @@ use bytes::{Bytes, BytesMut};
 use cookie::Cookie;
 use http::{HeaderMap, HeaderValue, Request, Response, StatusCode};
 use lazy_static::lazy_static;
-use monoio::io::stream::Stream;
 use monoio_http::common::body::{Body, FixedBody, HttpBody, StreamHint};
 use monoio_http_client::Client;
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
