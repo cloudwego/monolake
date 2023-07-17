@@ -1,4 +1,4 @@
-use std::{future::Future, io, net::SocketAddr, path::Path};
+use std::{future::Future, io, net::SocketAddr};
 
 use monoio::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
@@ -10,13 +10,13 @@ use service_async::MakeService;
 
 pub enum ListenerBuilder {
     Tcp(SocketAddr, ListenerOpts),
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     Unix(std::os::unix::net::UnixListener),
 }
 
 impl ListenerBuilder {
-    #[cfg(unix)]
-    pub fn bind_unix<P: AsRef<Path>>(path: P) -> io::Result<ListenerBuilder> {
+    #[cfg(target_os = "linux")]
+    pub fn bind_unix<P: AsRef<std::path::Path>>(path: P) -> io::Result<ListenerBuilder> {
         // Try remove file first
         let _ = std::fs::remove_file(path.as_ref());
         let listener = std::os::unix::net::UnixListener::bind(path)?;
@@ -32,7 +32,7 @@ impl ListenerBuilder {
             ListenerBuilder::Tcp(addr, opts) => {
                 TcpListener::bind_with_config(addr, opts).map(Listener::Tcp)
             }
-            #[cfg(unix)]
+            #[cfg(target_os = "linux")]
             ListenerBuilder::Unix(listener) => {
                 let sys_listener = listener.try_clone()?;
                 monoio::net::UnixListener::from_std(sys_listener).map(Listener::Unix)
@@ -53,7 +53,7 @@ impl MakeService for ListenerBuilder {
 /// Unified listener.
 pub enum Listener {
     Tcp(TcpListener),
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     Unix(monoio::net::UnixListener),
 }
 
@@ -75,7 +75,7 @@ impl Stream for Listener {
                     Some(Err(e)) => Some(Err(e)),
                     None => None,
                 },
-                #[cfg(unix)]
+                #[cfg(target_os = "linux")]
                 Listener::Unix(l) => match l.next().await {
                     Some(Ok(accepted)) => Some(Ok((
                         AcceptedStream::Unix(accepted.0),
@@ -91,7 +91,7 @@ impl Stream for Listener {
 
 pub enum AcceptedStream {
     Tcp(TcpStream),
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     Unix(monoio::net::UnixStream),
 }
 
@@ -100,7 +100,7 @@ unsafe impl Split for AcceptedStream {}
 #[derive(Debug, Clone)]
 pub enum AcceptedAddr {
     Tcp(SocketAddr),
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     Unix(monoio::net::unix::SocketAddr),
 }
 
@@ -110,7 +110,7 @@ impl From<SocketAddr> for AcceptedAddr {
     }
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 impl From<monoio::net::unix::SocketAddr> for AcceptedAddr {
     fn from(value: monoio::net::unix::SocketAddr) -> Self {
         Self::Unix(value)
@@ -129,6 +129,7 @@ impl AsyncReadRent for AcceptedStream {
         async move {
             match self {
                 AcceptedStream::Tcp(inner) => inner.read(buf).await,
+                #[cfg(target_os = "linux")]
                 AcceptedStream::Unix(inner) => inner.read(buf).await,
             }
         }
@@ -138,6 +139,7 @@ impl AsyncReadRent for AcceptedStream {
         async move {
             match self {
                 AcceptedStream::Tcp(inner) => inner.readv(buf).await,
+                #[cfg(target_os = "linux")]
                 AcceptedStream::Unix(inner) => inner.readv(buf).await,
             }
         }
@@ -161,6 +163,7 @@ impl AsyncWriteRent for AcceptedStream {
         async move {
             match self {
                 AcceptedStream::Tcp(inner) => inner.write(buf).await,
+                #[cfg(target_os = "linux")]
                 AcceptedStream::Unix(inner) => inner.write(buf).await,
             }
         }
@@ -171,6 +174,7 @@ impl AsyncWriteRent for AcceptedStream {
         async move {
             match self {
                 AcceptedStream::Tcp(inner) => inner.writev(buf_vec).await,
+                #[cfg(target_os = "linux")]
                 AcceptedStream::Unix(inner) => inner.writev(buf_vec).await,
             }
         }
@@ -181,6 +185,7 @@ impl AsyncWriteRent for AcceptedStream {
         async move {
             match self {
                 AcceptedStream::Tcp(inner) => inner.flush().await,
+                #[cfg(target_os = "linux")]
                 AcceptedStream::Unix(inner) => inner.flush().await,
             }
         }
@@ -191,6 +196,7 @@ impl AsyncWriteRent for AcceptedStream {
         async move {
             match self {
                 AcceptedStream::Tcp(inner) => inner.shutdown().await,
+                #[cfg(target_os = "linux")]
                 AcceptedStream::Unix(inner) => inner.shutdown().await,
             }
         }

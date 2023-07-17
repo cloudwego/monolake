@@ -63,6 +63,7 @@ pub enum AuthConfig {
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum ListenerConfig {
     Socket(std::net::SocketAddr),
+    #[cfg(target_os = "linux")]
     Unix(std::path::PathBuf),
 }
 
@@ -72,6 +73,7 @@ impl TryFrom<ListenerConfig> for ListenerBuilder {
     fn try_from(value: ListenerConfig) -> Result<Self, Self::Error> {
         match value {
             ListenerConfig::Socket(addr) => ListenerBuilder::bind_tcp(addr, Default::default()),
+            #[cfg(target_os = "linux")]
             ListenerConfig::Unix(addr) => ListenerBuilder::bind_unix(addr),
         }
     }
