@@ -79,6 +79,7 @@ where
                 headers.insert(header::FORWARDED, value);
             }
         }
+        #[cfg(target_os = "linux")]
         AcceptedAddr::Unix(addr) => {
             if let Some(path) = addr.as_pathname().and_then(|s| s.to_str()) {
                 if let Ok(value) = HeaderValue::from_str(path) {
