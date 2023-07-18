@@ -23,7 +23,7 @@ impl ProxyHandler {
         ProxyHandler { client }
     }
 
-    pub fn factory() -> ProxyHandlerFactory {
+    pub const fn factory() -> ProxyHandlerFactory {
         ProxyHandlerFactory
     }
 }

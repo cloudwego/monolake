@@ -17,7 +17,7 @@ use monolake_services::{
     tcp::Accept,
     tls::UnifiedTlsFactory,
 };
-use service_async::{stack::FactoryStack, MakeService, Service};
+use service_async::{stack::FactoryStack, ArcMakeService, Service};
 
 use crate::{
     config::ServerConfig,
@@ -29,9 +29,9 @@ use crate::{
 // for simplification and make return impl work.
 pub fn l7_factory(
     config: ServerConfig,
-) -> impl MakeService<
-    Service = impl Service<Accept<AcceptedStream, AcceptedAddr>, Error = impl Debug>,
-    Error = impl Debug,
+) -> ArcMakeService<
+    impl Service<Accept<AcceptedStream, AcceptedAddr>, Error = impl Debug>,
+    impl Debug,
 > {
     let stacks = FactoryStack::new(config)
         .replace(ProxyHandler::factory())
@@ -53,5 +53,6 @@ pub fn l7_factory(
     stacks
         .push(ContextService::<EmptyContext, _>::layer())
         .check_make_svc::<(TcpStream, AcceptedAddr)>()
+        .push_arc_factory()
         .into_inner()
 }

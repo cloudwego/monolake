@@ -14,19 +14,19 @@ openid = [
 proxy-protocol = ["dep:proxy-protocol"]
 
 [dependencies]
-monoio = { version = "0.1.5", features = ['splice'] }
+monoio = { workspace = true, features = ['splice'] }
 monolake-core = { path = "../monolake-core" }
-monoio-http = { version = "0.2.2" }
-monoio-http-client = { version = "0.2.2", features = ["logging", "rustls"] }
-local-sync = "0.1"
-service-async = "0.1.9"
+monoio-http = { workspace = true }
+monoio-http-client = { workspace = true, features = ["logging", "rustls"] }
+local-sync = {workspace = true}
+service-async = {workspace = true}
 
 # tls
-monoio-rustls = "0.1.5"
+monoio-rustls = {workspace = true}
 rustls = { version = "0.21" }
 rustls-pemfile = "1"
 webpki-roots = "0.23"
-monoio-native-tls = "0.1.0"
+monoio-native-tls = {workspace = true}
 native-tls = "0.2"
 
 # common

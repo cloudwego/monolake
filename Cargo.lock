@@ -2052,9 +2052,9 @@ dependencies = [
 
 [[package]]
 name = "service-async"
-version = "0.1.9"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ba879f493921e9939b0b7039af6fdc9c80178956adb05355654f3dabbf7e631"
+checksum = "fbef7f6e6da968ca53e8da538bf74dc1fb923778fc1976176fab39c1fc78da79"
 dependencies = [
  "futures-util",
  "param",
