@@ -12,7 +12,7 @@ pub mod listener;
 pub mod server;
 pub mod util;
 
-pub(crate) mod sealed {
+pub mod sealed {
     pub trait Sealed {}
     pub trait SealedT<T> {}
 }
