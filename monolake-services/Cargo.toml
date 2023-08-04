@@ -35,7 +35,7 @@ rustls = { version = "0.21", optional = true }
 rustls-pemfile = { version = "1", optional = true }
 webpki-roots = { version = "0.23", optional = true }
 monoio-native-tls = { workspace = true, optional = true }
-native-tls = { version = "0.2", optional = true }
+native-tls = { workspace = true, optional = true }
 
 # common
 anyhow = "1"

@@ -12,7 +12,7 @@ proxy-protocol = [
     "monolake-core/proxy-protocol",
     "monolake-services/proxy-protocol",
 ]
-tls = ["dep:monoio-native-tls", "monolake-services/tls"]
+tls = ["dep:monoio-native-tls", "monolake-services/tls", "native-tls/vendored"]
 
 [dependencies]
 monoio = { workspace = true, features = ["sync", "async-cancel"] }
@@ -23,6 +23,7 @@ monolake-core = { path = "../monolake-core" }
 monolake-services = { path = "../monolake-services" }
 
 # tls: needed for native-tls init
+native-tls = { workspace = true, optional = true }
 monoio-native-tls = { workspace = true, optional = true }
 
 # error
