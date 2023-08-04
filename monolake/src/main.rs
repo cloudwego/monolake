@@ -37,6 +37,7 @@ async fn main() -> Result<()> {
                 .from_env_lossy(),
         )
         .init();
+    #[cfg(feature = "tls")]
     monoio_native_tls::init();
     print_logo();
 

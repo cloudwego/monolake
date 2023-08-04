@@ -15,7 +15,6 @@ use monolake_services::{
         HttpCoreService, HttpVersionDetect,
     },
     tcp::Accept,
-    tls::UnifiedTlsFactory,
 };
 use service_async::{stack::FactoryStack, ArcMakeService, Service};
 
@@ -43,14 +42,16 @@ pub fn l7_factory(
     let stacks = stacks
         .push(ConnReuseHandler::layer())
         .push(HttpCoreService::layer())
-        .push(HttpVersionDetect::layer())
-        .push(UnifiedTlsFactory::layer())
-        .check_make_svc::<(TcpStream, FullContext)>();
+        .push(HttpVersionDetect::layer());
+
+    #[cfg(feature = "tls")]
+    let stacks = stacks.push(monolake_services::tls::UnifiedTlsFactory::layer());
 
     #[cfg(feature = "proxy-protocol")]
     let stacks = stacks.push(ProxyProtocolServiceFactory::layer());
 
     stacks
+        .check_make_svc::<(TcpStream, FullContext)>()
         .push(ContextService::<EmptyContext, _>::layer())
         .check_make_svc::<(TcpStream, AcceptedAddr)>()
         .push_arc_factory()

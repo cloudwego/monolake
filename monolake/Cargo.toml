@@ -6,12 +6,13 @@ keywords = ["monoio", "http", "async"]
 description = "High Performance Proxy base on Monoio"
 
 [features]
-default = []
+default = ["tls"]
 openid = ["monolake-core/openid", "monolake-services/openid"]
 proxy-protocol = [
     "monolake-core/proxy-protocol",
     "monolake-services/proxy-protocol",
 ]
+tls = ["dep:monoio-native-tls", "monolake-services/tls"]
 
 [dependencies]
 monoio = { workspace = true, features = ["sync", "async-cancel"] }
@@ -22,7 +23,7 @@ monolake-core = { path = "../monolake-core" }
 monolake-services = { path = "../monolake-services" }
 
 # tls: needed for native-tls init
-monoio-native-tls = { workspace = true }
+monoio-native-tls = { workspace = true, optional = true }
 
 # error
 anyhow = "1"
