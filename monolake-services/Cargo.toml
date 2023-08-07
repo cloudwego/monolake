@@ -20,6 +20,7 @@ tls = [
     "dep:monoio-native-tls",
     "dep:native-tls",
 ]
+vendored = ["native-tls?/vendored"]
 
 [dependencies]
 monoio = { workspace = true, features = ['splice'] }

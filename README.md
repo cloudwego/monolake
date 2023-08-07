@@ -75,3 +75,8 @@ upstreams = [
 ]
 path = '/'
 ```
+
+## Static Compilation
+To compile statically, you have to enable `vendored` feature. Then you can compile with glibc or musl:
+1. `RUSTFLAGS="-C target-feature=+crt-static" cargo build --target x86_64-unknown-linux-gnu`
+2. `cargo build --target=x86_64-unknown-linux-musl`

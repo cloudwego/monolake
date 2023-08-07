@@ -12,7 +12,8 @@ proxy-protocol = [
     "monolake-core/proxy-protocol",
     "monolake-services/proxy-protocol",
 ]
-tls = ["dep:monoio-native-tls", "monolake-services/tls", "native-tls/vendored"]
+tls = ["dep:monoio-native-tls", "monolake-services/tls"]
+vendored = ["monolake-services/vendored"]
 
 [dependencies]
 monoio = { workspace = true, features = ["sync", "async-cancel"] }
