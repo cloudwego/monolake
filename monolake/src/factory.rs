@@ -11,7 +11,7 @@ use monolake_services::proxy_protocol::ProxyProtocolServiceFactory;
 use monolake_services::{
     common::ContextService,
     http::{
-        handlers::{ConnReuseHandler, ProxyHandler, RewriteHandler},
+        handlers::{ConnReuseHandler, ContentHandler, ProxyHandler, RewriteHandler},
         HttpCoreService, HttpVersionDetect,
     },
     tcp::Accept,
@@ -34,6 +34,7 @@ pub fn l7_factory(
 > {
     let stacks = FactoryStack::new(config)
         .replace(ProxyHandler::factory())
+        .push(ContentHandler::layer())
         .push(RewriteHandler::layer());
 
     #[cfg(feature = "openid")]
