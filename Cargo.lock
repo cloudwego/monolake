@@ -84,6 +84,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-stream"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd56dd203fef61ac097dd65721a419ddccb106b2d2b70ba60a6b529f03961a51"
+dependencies = [
+ "async-stream-impl",
+ "futures-core",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "async-stream-impl"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16e62a023e7c117e27523144c5d2459f4397fcc3cab0085af8e2224f643a0193"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.18",
+]
+
+[[package]]
 name = "auto-const-array"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1067,9 +1089,9 @@ dependencies = [
 
 [[package]]
 name = "monoio"
-version = "0.1.5"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71c44369e9367c62f9c7dc3e1e854313a2d04c5a04655af97b57aed713da7b6e"
+checksum = "15c9e45ed8959dfe0d8c29057fd42312d8bd31237b55ab819ab9e7b32452d67c"
 dependencies = [
  "auto-const-array",
  "bytes",
@@ -1088,9 +1110,9 @@ dependencies = [
 
 [[package]]
 name = "monoio-codec"
-version = "0.0.5"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cbcf155d1b96a2a47895b0068b7acdc8b8b6b8deba68bafa5de7e3083570768"
+checksum = "5e926de38a488d3867f3702a82b9820c9a99bf60e92183105686409389ab7111"
 dependencies = [
  "bytes",
  "monoio",
@@ -1110,33 +1132,34 @@ dependencies = [
 
 [[package]]
 name = "monoio-http"
-version = "0.1.2"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff2b18cf7fc28bbbd8a1fd1d6c1f6034e61ac0ad3f43da1884a741364d9cf7cd"
+checksum = "aecf612d8bf1b91a94a38aaa4fbcb68c9f6c577166e671759852fa0c4dde40c5"
 dependencies = [
+ "async-stream",
  "bytes",
  "fnv",
  "futures-core",
- "futures-sink",
- "futures-util",
  "http",
  "httparse",
  "indexmap",
+ "local-sync",
+ "memchr",
  "monoio",
  "monoio-codec",
  "monoio-compat",
+ "service-async",
  "slab",
+ "smallvec",
  "thiserror",
- "tokio",
- "tokio-util",
  "tracing",
 ]
 
 [[package]]
 name = "monoio-http-client"
-version = "0.1.2"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e68938bba6653330758e9b0340cf177327d48e02a5097bb7468a5645580bdbb"
+checksum = "a6bed769c5a983564a14e768726bc53e8d00c11daa3d53053a557cb419555a75"
 dependencies = [
  "bytes",
  "http",
@@ -1165,13 +1188,13 @@ dependencies = [
 
 [[package]]
 name = "monoio-macros"
-version = "0.0.3"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c85c9d2114c190b1ec18da29bfbe399a95d81657633b0d2333d4084515aa9f95"
+checksum = "176a5f5e69613d9e88337cf2a65e11135332b4efbcc628404a7c555e4452084c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.18",
 ]
 
 [[package]]
@@ -1211,6 +1234,7 @@ dependencies = [
  "monoio-native-tls",
  "monolake-core",
  "monolake-services",
+ "native-tls",
  "serde",
  "serde_json",
  "service-async",
@@ -1473,6 +1497,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
+name = "openssl-src"
+version = "111.26.0+1.1.1u"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efc62c9f12b22b8f5208c23a7200a442b2e5999f8bdf80233852122b5a4f6f37"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1480,6 +1513,7 @@ checksum = "374533b0e45f3a7ced10fcaeccca020e66656bc03dac384f852e4e5a7a8104a6"
 dependencies = [
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -2029,9 +2063,9 @@ dependencies = [
 
 [[package]]
 name = "service-async"
-version = "0.1.9"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ba879f493921e9939b0b7039af6fdc9c80178956adb05355654f3dabbf7e631"
+checksum = "fbef7f6e6da968ca53e8da538bf74dc1fb923778fc1976176fab39c1fc78da79"
 dependencies = [
  "futures-util",
  "param",

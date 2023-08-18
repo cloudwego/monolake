@@ -1,7 +1,7 @@
 use certain_map::Param;
 #[cfg(feature = "openid")]
 use monolake_services::http::handlers::openid::OpenIdConfig;
-use monolake_services::{http::Keepalive, tls::TlsConfig};
+use monolake_services::http::Keepalive;
 
 use super::{RouteConfig, ServerConfig};
 
@@ -26,8 +26,9 @@ impl Param<Vec<RouteConfig>> for ServerConfig {
     }
 }
 
-impl Param<TlsConfig> for ServerConfig {
-    fn param(&self) -> TlsConfig {
+#[cfg(feature = "tls")]
+impl Param<monolake_services::tls::TlsConfig> for ServerConfig {
+    fn param(&self) -> monolake_services::tls::TlsConfig {
         self.tls.clone()
     }
 }

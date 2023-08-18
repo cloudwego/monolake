@@ -39,20 +39,20 @@ impl<F> HttpVersionDetect<F> {
     }
 }
 
-impl<T, Stream, Addr> Service<Accept<Stream, Addr>> for HttpVersionDetect<T>
+impl<T, Stream, CX> Service<Accept<Stream, CX>> for HttpVersionDetect<T>
 where
-    Stream: AsyncReadRent + AsyncWriteRent + 'static,
-    Addr: 'static,
-    T: Service<HttpAccept<PrefixedReadIo<Stream, Cursor<Vec<u8>>>, Addr>>,
+    Stream: AsyncReadRent + AsyncWriteRent,
+    T: Service<HttpAccept<PrefixedReadIo<Stream, Cursor<Vec<u8>>>, CX>>,
     T::Error: Into<AnyError>,
 {
     type Response = T::Response;
     type Error = AnyError;
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a;
+        Self: 'a,
+        Accept<Stream, CX>: 'a;
 
-    fn call(&self, incoming_stream: Accept<Stream, Addr>) -> Self::Future<'_> {
+    fn call(&self, incoming_stream: Accept<Stream, CX>) -> Self::Future<'_> {
         async move {
             let (mut stream, addr) = incoming_stream;
             let mut buf = vec![0; PREFACE.len()];

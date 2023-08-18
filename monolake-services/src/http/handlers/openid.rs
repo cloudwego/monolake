@@ -4,12 +4,11 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use cookie::Cookie;
 use http::{HeaderMap, HeaderValue, Request, Response, StatusCode};
 use lazy_static::lazy_static;
-use monoio::io::stream::Stream;
-use monoio_http::h1::payload::{FixedPayload, Payload};
+use monoio_http::common::body::{Body, FixedBody, HttpBody, StreamHint};
 use monoio_http_client::Client;
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
 #[allow(unused)]
@@ -76,26 +75,30 @@ pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Err
     });
 
     let request_payload: Bytes = request.body.into();
-    let req: http::Request<Payload> = req
-        .body(Payload::Fixed(FixedPayload::new(request_payload)))
+    let req: http::Request<HttpBody> = req
+        .body(HttpBody::fixed_body(Some(request_payload)))
         .unwrap();
 
     let client = Client::default();
-    let response = client.send(req).await.unwrap();
+    let response = client.send_request(req).await.unwrap();
 
     let status: StatusCode = response.status();
     let headers: HeaderMap = response.headers().clone();
-    let payload = match response.into_body() {
-        Payload::Fixed(payload) => payload,
-        Payload::Stream(mut stream_payload) => {
-            let data = stream_payload.next().await.unwrap().unwrap();
-            FixedPayload::new(data)
-        }
-        monoio_http::h1::payload::Payload::H2BodyStream(_) => todo!(),
-        Payload::None => panic!("unexpected payload type"),
-    };
-    let body: Vec<u8> = payload.get().await.unwrap().to_vec();
+    let mut body = response.into_body();
 
+    let payload = match body.stream_hint() {
+        StreamHint::None => Bytes::new(),
+        StreamHint::Fixed => body.next_data().await.unwrap().unwrap(),
+        StreamHint::Stream => {
+            let mut bytes = BytesMut::new();
+            while let Some(Ok(data)) = body.next_data().await {
+                bytes.extend_from_slice(&data[..]);
+            }
+            bytes.freeze()
+        }
+    };
+
+    let body: Vec<u8> = payload.to_vec();
     Ok(HttpResponse {
         status_code: status,
         headers,
@@ -160,7 +163,7 @@ lazy_static! {
 }
 
 // impl<H> HttpHandler for OpenIdHandler<H>
-impl<H, CX> Service<(Request<Payload>, CX)> for OpenIdHandler<H>
+impl<H, CX> Service<(Request<HttpBody>, CX)> for OpenIdHandler<H>
 where
     H: HttpHandler<CX>,
 {
@@ -168,9 +171,9 @@ where
     type Error = H::Error;
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a, Request<Payload>: 'a, CX: 'a;
+        Self: 'a, Request<HttpBody>: 'a, CX: 'a;
 
-    fn call(&self, (request, ctx): (Request<Payload>, CX)) -> Self::Future<'_> {
+    fn call(&self, (request, ctx): (Request<HttpBody>, CX)) -> Self::Future<'_> {
         async move {
             if self.openid_config.is_none() {
                 return self.inner.handle(request, ctx).await;
@@ -255,9 +258,9 @@ where
             let state;
             {
                 if code_pair.is_none() || state_pair.is_none() {
-                    let mut redirect_response: Response<Payload> = Response::builder()
+                    let mut redirect_response = Response::builder()
                         .status(StatusCode::from_u16(301).unwrap())
-                        .body(Payload::None)
+                        .body(HttpBody::fixed_body(None))
                         .unwrap();
                     redirect_response
                         .headers_mut()
@@ -279,9 +282,9 @@ where
                 let (_, state_val) = state_pair.clone().unwrap();
                 state = CsrfToken::new(state_val.clone().into_owned());
                 if !session_store.contains_key(&state_val.to_string()) {
-                    let mut redirect_response: Response<Payload> = Response::builder()
+                    let mut redirect_response: Response<HttpBody> = Response::builder()
                         .status(StatusCode::from_u16(301).unwrap())
-                        .body(Payload::None)
+                        .body(HttpBody::fixed_body(None))
                         .unwrap();
                     redirect_response
                         .headers_mut()

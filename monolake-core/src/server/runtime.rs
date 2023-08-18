@@ -17,10 +17,10 @@ pub enum RuntimeWrapper {
 }
 
 impl From<&RuntimeConfig> for RuntimeWrapper {
-    fn from(config: &RuntimeConfig) -> Self {
+    fn from(_config: &RuntimeConfig) -> Self {
         #[cfg(target_os = "linux")]
         let runtime_type =
-            if config.runtime_type == RuntimeType::IoUring && monoio::utils::detect_uring() {
+            if _config.runtime_type == RuntimeType::IoUring && monoio::utils::detect_uring() {
                 RuntimeType::IoUring
             } else {
                 RuntimeType::Legacy
@@ -31,7 +31,7 @@ impl From<&RuntimeConfig> for RuntimeWrapper {
         match runtime_type {
             #[cfg(target_os = "linux")]
             RuntimeType::IoUring => {
-                let builder = match config.sqpoll_idle {
+                let builder = match _config.sqpoll_idle {
                     Some(idle) => {
                         let builder = RuntimeBuilder::<monoio::IoUringDriver>::new();
                         let idle = MIN_SQPOLL_IDLE_TIME.max(idle);
@@ -43,7 +43,7 @@ impl From<&RuntimeConfig> for RuntimeWrapper {
                 };
                 let runtime = builder
                     .enable_timer()
-                    .with_entries(config.entries)
+                    .with_entries(_config.entries)
                     .build()
                     .unwrap();
                 RuntimeWrapper::IoUring(runtime)

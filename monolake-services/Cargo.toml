@@ -12,22 +12,31 @@ openid = [
     "dep:lazy_static",
 ]
 proxy-protocol = ["dep:proxy-protocol"]
+tls = [
+    "dep:monoio-rustls",
+    "dep:rustls",
+    "dep:rustls-pemfile",
+    "dep:webpki-roots",
+    "dep:monoio-native-tls",
+    "dep:native-tls",
+]
+vendored = ["native-tls?/vendored"]
 
 [dependencies]
-monoio = { version = "0.1.5", features = ['splice'] }
+monoio = { workspace = true, features = ['splice'] }
 monolake-core = { path = "../monolake-core" }
-monoio-http = "0.1.0"
-monoio-http-client = { version = "0.1.2", features = ["logging", "rustls"] }
-local-sync = "0.1"
-service-async = "0.1.9"
+monoio-http = { workspace = true }
+monoio-http-client = { workspace = true, features = ["logging", "rustls"] }
+local-sync = { workspace = true }
+service-async = { workspace = true }
 
 # tls
-monoio-rustls = "0.1.5"
-rustls = { version = "0.21" }
-rustls-pemfile = "1"
-webpki-roots = "0.23"
-monoio-native-tls = "0.1.0"
-native-tls = "0.2"
+monoio-rustls = { workspace = true, optional = true }
+rustls = { version = "0.21", optional = true }
+rustls-pemfile = { version = "1", optional = true }
+webpki-roots = { version = "0.23", optional = true }
+monoio-native-tls = { workspace = true, optional = true }
+native-tls = { workspace = true, optional = true }
 
 # common
 anyhow = "1"

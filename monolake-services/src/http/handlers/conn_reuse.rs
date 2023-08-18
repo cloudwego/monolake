@@ -1,7 +1,7 @@
 use std::future::Future;
 
 use http::{Request, Version};
-use monoio_http::h1::payload::Payload;
+use monoio_http::common::body::HttpBody;
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
@@ -18,7 +18,7 @@ pub struct ConnReuseHandler<H> {
     inner: H,
 }
 
-impl<H, CX> Service<(Request<Payload>, CX)> for ConnReuseHandler<H>
+impl<H, CX> Service<(Request<HttpBody>, CX)> for ConnReuseHandler<H>
 where
     H: HttpHandler<CX>,
 {
@@ -26,9 +26,9 @@ where
     type Error = H::Error;
     type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
     where
-        Self: 'a, Request<Payload>: 'a, CX: 'a;
+        Self: 'a, Request<HttpBody>: 'a, CX: 'a;
 
-    fn call(&self, (mut request, ctx): (Request<Payload>, CX)) -> Self::Future<'_> {
+    fn call(&self, (mut request, ctx): (Request<HttpBody>, CX)) -> Self::Future<'_> {
         async move {
             let version = request.version();
             let keepalive = is_conn_keepalive(request.headers(), version);
@@ -76,6 +76,10 @@ where
                             .insert(http::header::CONNECTION, CLOSE_VALUE);
                     }
                     Ok((response, cont))
+                }
+                Version::HTTP_2 => {
+                    let (response, _) = self.inner.handle(request, ctx).await?;
+                    Ok((response, true))
                 }
                 // for http 0.9 and other versions, just relay it
                 _ => {

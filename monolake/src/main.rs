@@ -37,6 +37,7 @@ async fn main() -> Result<()> {
                 .from_env_lossy(),
         )
         .init();
+    #[cfg(feature = "tls")]
     monoio_native_tls::init();
     print_logo();
 
@@ -61,11 +62,7 @@ async fn main() -> Result<()> {
         let svc_fac = l7_factory(server);
 
         manager
-            .apply(Command::Add(
-                Arc::new(name),
-                Arc::new(svc_fac),
-                Arc::new(lis_fac),
-            ))
+            .apply(Command::Add(Arc::new(name), svc_fac, Arc::new(lis_fac)))
             .await
             .err()
             .expect("apply init config failed");

@@ -4,10 +4,7 @@ use monolake_core::{
     config::{RuntimeConfig, ServiceConfig},
     listener::ListenerBuilder,
 };
-use monolake_services::{
-    http::{handlers::rewrite::RouteConfig, Keepalive},
-    tls::TlsConfig as TlsServiceConfig,
-};
+use monolake_services::http::{handlers::rewrite::RouteConfig, Keepalive};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 mod extractor;
@@ -21,7 +18,8 @@ pub struct Config {
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
     pub name: String,
-    pub tls: TlsServiceConfig,
+    #[cfg(feature = "tls")]
+    pub tls: monolake_services::tls::TlsConfig,
     pub routes: Vec<RouteConfig>,
     pub keepalive_config: Keepalive,
     pub auth_config: Option<AuthConfig>,
@@ -94,16 +92,21 @@ impl Config {
         let mut servers_new = HashMap::with_capacity(servers.len());
         for (key, server) in servers.into_iter() {
             let ServiceConfig { listener, server } = server;
-            let tls: TlsServiceConfig = match server.tls {
+            #[cfg(feature = "tls")]
+            let tls = match server.tls {
                 Some(inner) => {
                     let chain = monolake_core::util::file_read(&inner.chain).await?;
                     let key = monolake_core::util::file_read(&inner.key).await?;
                     match inner.stack {
-                        TlsStack::Rustls => TlsServiceConfig::Rustls((chain, key)).try_into()?,
-                        TlsStack::NativeTls => TlsServiceConfig::Native((chain, key)).try_into()?,
+                        TlsStack::Rustls => {
+                            monolake_services::tls::TlsConfig::Rustls((chain, key)).try_into()?
+                        }
+                        TlsStack::NativeTls => {
+                            monolake_services::tls::TlsConfig::Native((chain, key)).try_into()?
+                        }
                     }
                 }
-                None => TlsServiceConfig::None,
+                None => monolake_services::tls::TlsConfig::None,
             };
             let keepalive_config: Keepalive = match server.keepalive_sec {
                 Some(sec) => Keepalive(Duration::from_secs(sec)),
@@ -114,6 +117,7 @@ impl Config {
                 ServiceConfig {
                     server: ServerConfig {
                         name: server.name,
+                        #[cfg(feature = "tls")]
                         tls,
                         routes: server.routes,
                         keepalive_config,

@@ -10,7 +10,7 @@ listener = { type = "socket", value = "0.0.0.0:9081" }
 
 [[servers.server_basic.routes]]
 path = '/'
-upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:8080" } }]
+upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:8080" }, version = "HTTP2" }]
 
 [[servers.server_basic.routes]]
 path = '/*p'

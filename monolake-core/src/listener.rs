@@ -20,6 +20,9 @@ impl ListenerBuilder {
         // Try remove file first
         let _ = std::fs::remove_file(path.as_ref());
         let listener = std::os::unix::net::UnixListener::bind(path)?;
+        // Because we use std and build async UnixStream form raw fd, we
+        // have to make sure it is non_blocking.
+        listener.set_nonblocking(true)?;
         Ok(Self::Unix(listener))
     }
 
