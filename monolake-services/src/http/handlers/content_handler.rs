@@ -33,7 +33,7 @@ where
             let content_encoding = request
                 .headers()
                 .get(http::header::CONTENT_ENCODING)
-                .and_then(|value| value.to_str().ok())
+                .and_then(|value: &http::HeaderValue| value.to_str().ok())
                 .unwrap_or("identity")
                 .to_string();
 
@@ -64,9 +64,14 @@ where
                     if accept_encoding != "identity" {
                         let (parts, body) = response.into_parts();
                         match body.encode_content(accept_encoding).await {
-                            Ok(encoded_data) => response = Response::from_parts(parts, HttpBody::fixed_body(Some(encoded_data))),
+                            Ok(encoded_data) => {
+                                response = Response::from_parts(
+                                    parts,
+                                    HttpBody::fixed_body(Some(encoded_data)),
+                                )
+                            }
                             Err(e) => {
-                                tracing::error!("Content encoding faileddecompress failed {}", e);
+                                tracing::error!("Response content encoding failed {}", e);
                                 return Ok((
                                     generate_response(StatusCode::INTERNAL_SERVER_ERROR, false),
                                     true,
@@ -77,7 +82,7 @@ where
                     Ok((response, true))
                 }
                 Err(e) => {
-                    tracing::error!("Content decompress failed {}", e);
+                    tracing::error!("Request content decode failed {}", e);
                     Ok((generate_response(StatusCode::BAD_REQUEST, false), true))
                 }
             }
