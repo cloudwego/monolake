@@ -1,3 +1,7 @@
+# Monolake
+
+Introducing Monolake: a Rust-based proxy with a focus on performance and scale. Leveraging the Monoio runtime and harnessing io-uring, Monolake capitalizes on Rust's efficiency and memory safety.
+
 # Generating Wiki
 
 The docs folder will eventually move to [cloudwego.io](https://www.cloudwego.io/). You'll have to generate them locally for now.
