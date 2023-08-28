@@ -3,7 +3,7 @@ members = ["monolake", "monolake-core", "monolake-services"]
 resolver = "2"
 
 [workspace.dependencies]
-monoio = "0.1.7"
+monoio = "0.1.8"
 monoio-http = "0.2.3"
 monoio-http-client = "0.2.3"
 monoio-native-tls = "0.1.0"

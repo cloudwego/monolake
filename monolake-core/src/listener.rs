@@ -22,7 +22,9 @@ impl ListenerBuilder {
         let listener = std::os::unix::net::UnixListener::bind(path)?;
         // Because we use std and build async UnixStream form raw fd, we
         // have to make sure it is non_blocking.
-        listener.set_nonblocking(true)?;
+        if monoio::utils::is_legacy() {
+            listener.set_nonblocking(true)?;
+        }
         Ok(Self::Unix(listener))
     }
 
