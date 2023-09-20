@@ -6,8 +6,6 @@ use service_async::Service;
 
 use crate::sealed::SealedT;
 
-pub type HttpError = anyhow::Error;
-
 // Response and a bool indicating should continue processing the connection.
 // Service does not need to add `Connection: close` itself.
 pub type ResponseWithContinue = (Response<HttpBody>, bool);

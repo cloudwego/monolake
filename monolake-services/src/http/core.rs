@@ -17,7 +17,8 @@ use monoio_http::{
 };
 use monolake_core::{
     context::PeerAddr,
-    http::{HttpAccept, HttpError, HttpHandler},
+    http::{HttpAccept, HttpHandler},
+    AnyError,
 };
 use service_async::{
     layer::{layer_fn, FactoryLayer},
@@ -46,7 +47,7 @@ impl<H> HttpCoreService<H> {
     where
         S: Split + AsyncReadRent + AsyncWriteRent,
         H: HttpHandler<CX>,
-        H::Error: Into<HttpError> + Debug,
+        H::Error: Into<AnyError> + Debug,
         CX: ParamRef<PeerAddr> + Clone,
     {
         let (reader, writer) = stream.into_split();
@@ -169,7 +170,7 @@ impl<H> HttpCoreService<H> {
     where
         S: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
         H: HttpHandler<CX>,
-        H::Error: Into<HttpError> + Debug,
+        H::Error: Into<AnyError> + Debug,
         CX: ParamRef<PeerAddr> + Clone,
     {
         let mut connection = match monoio_http::h2::server::Builder::new()
@@ -251,7 +252,7 @@ impl<H, Stream, CX> Service<HttpAccept<Stream, CX>> for HttpCoreService<H>
 where
     Stream: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
     H: HttpHandler<CX>,
-    H::Error: Into<HttpError> + Debug,
+    H::Error: Into<AnyError> + Debug,
     CX: ParamRef<PeerAddr> + Clone,
 {
     type Response = ();

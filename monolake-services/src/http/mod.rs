@@ -4,8 +4,11 @@ use http::HeaderValue;
 pub use self::core::{HttpCoreService, Keepalive};
 pub mod handlers;
 
+pub use h2t::{H2THandlerFactory, H2THandler, H2TConfig};
+
 mod core;
 mod detect;
+mod h2t;
 mod util;
 
 pub(crate) const CLOSE: &str = "close";

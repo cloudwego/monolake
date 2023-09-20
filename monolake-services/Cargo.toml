@@ -26,7 +26,10 @@ vendored = ["native-tls?/vendored"]
 monoio = { workspace = true, features = ['splice'] }
 monolake-core = { path = "../monolake-core" }
 monoio-http = { workspace = true }
-monoio-http-client = { workspace = true, features = ["logging", "rustls-unsafe-io"] }
+monoio-http-client = { workspace = true, features = [
+    "logging",
+    "rustls-unsafe-io",
+] }
 local-sync = { workspace = true }
 service-async = { workspace = true }
 
@@ -62,3 +65,5 @@ lazy_static = { version = "1.4.0", optional = true }
 
 # for proxy protocol
 proxy-protocol = { version = "0.5.0", optional = true }
+
+dyn-thrift = { workspace = true }

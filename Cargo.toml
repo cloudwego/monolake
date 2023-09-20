@@ -12,6 +12,7 @@ native-tls = "0.2"
 service-async = "0.1.13"
 certain-map = "0.2.4"
 local-sync = "0.1"
+dyn-thrift = { git = "https://code.byted.org/rust-lang/dyn-thrift.git" }
 
 [profile.release-lto]
 inherits = "release"

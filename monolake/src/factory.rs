@@ -11,8 +11,8 @@ use monolake_services::proxy_protocol::ProxyProtocolServiceFactory;
 use monolake_services::{
     common::ContextService,
     http::{
-        handlers::{ConnReuseHandler, ContentHandler, ProxyHandler, RewriteHandler},
-        HttpCoreService, HttpVersionDetect,
+        handlers::{ConnReuseHandler, ProxyHandler, RewriteHandler},
+        HttpCoreService, HttpVersionDetect, H2THandler,
     },
     tcp::Accept,
 };
@@ -34,8 +34,10 @@ pub fn l7_factory(
 > {
     let stacks = FactoryStack::new(config)
         .replace(ProxyHandler::factory())
-        .push(ContentHandler::layer())
-        .push(RewriteHandler::layer());
+        // by default we don't decode http body
+        // .push(monolake_services::http::handlers::ContentHandler::layer())
+        .push(RewriteHandler::layer())
+        .push(H2THandler::layer());
 
     #[cfg(feature = "openid")]
     let stacks = stacks.push(OpenIdHandler::layer());
