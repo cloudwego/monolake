@@ -1,4 +1,4 @@
-use std::{future::Future, io, net::SocketAddr, path::Path};
+use std::{io, net::SocketAddr, path::Path};
 
 use monoio::{
     buf::{IoBuf, IoBufMut, IoVecBuf, IoVecBufMut},
@@ -65,31 +65,25 @@ pub enum Listener {
 impl Stream for Listener {
     type Item = io::Result<(AcceptedStream, AcceptedAddr)>;
 
-    type NextFuture<'a> = impl std::future::Future<Output = Option<Self::Item>> + 'a
-    where
-        Self: 'a;
-
-    fn next(&mut self) -> Self::NextFuture<'_> {
-        async move {
-            match self {
-                Listener::Tcp(l) => match l.next().await {
-                    Some(Ok(accepted)) => Some(Ok((
-                        AcceptedStream::Tcp(accepted.0),
-                        AcceptedAddr::Tcp(accepted.1),
-                    ))),
-                    Some(Err(e)) => Some(Err(e)),
-                    None => None,
-                },
-                #[cfg(unix)]
-                Listener::Unix(l) => match l.next().await {
-                    Some(Ok(accepted)) => Some(Ok((
-                        AcceptedStream::Unix(accepted.0),
-                        AcceptedAddr::Unix(accepted.1),
-                    ))),
-                    Some(Err(e)) => Some(Err(e)),
-                    None => None,
-                },
-            }
+    async fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Listener::Tcp(l) => match l.next().await {
+                Some(Ok(accepted)) => Some(Ok((
+                    AcceptedStream::Tcp(accepted.0),
+                    AcceptedAddr::Tcp(accepted.1),
+                ))),
+                Some(Err(e)) => Some(Err(e)),
+                None => None,
+            },
+            #[cfg(unix)]
+            Listener::Unix(l) => match l.next().await {
+                Some(Ok(accepted)) => Some(Ok((
+                    AcceptedStream::Unix(accepted.0),
+                    AcceptedAddr::Unix(accepted.1),
+                ))),
+                Some(Err(e)) => Some(Err(e)),
+                None => None,
+            },
         }
     }
 }
@@ -123,81 +117,51 @@ impl From<monoio::net::unix::SocketAddr> for AcceptedAddr {
 }
 
 impl AsyncReadRent for AcceptedStream {
-    type ReadFuture<'a, B> = impl Future<Output = BufResult<usize, B>> +'a
-    where
-        B: IoBufMut + 'a, Self: 'a;
-    type ReadvFuture<'a, B> = impl Future<Output = BufResult<usize, B>> + 'a
-    where
-        B: IoVecBufMut + 'a, Self: 'a;
-
-    fn read<T: IoBufMut>(&mut self, buf: T) -> Self::ReadFuture<'_, T> {
-        async move {
-            match self {
-                AcceptedStream::Tcp(inner) => inner.read(buf).await,
-                AcceptedStream::Unix(inner) => inner.read(buf).await,
-            }
+    async fn read<T: IoBufMut>(&mut self, buf: T) -> BufResult<usize, T> {
+        match self {
+            AcceptedStream::Tcp(inner) => inner.read(buf).await,
+            AcceptedStream::Unix(inner) => inner.read(buf).await,
         }
     }
 
-    fn readv<T: IoVecBufMut>(&mut self, buf: T) -> Self::ReadvFuture<'_, T> {
-        async move {
-            match self {
-                AcceptedStream::Tcp(inner) => inner.readv(buf).await,
-                AcceptedStream::Unix(inner) => inner.readv(buf).await,
-            }
+    async fn readv<T: IoVecBufMut>(&mut self, buf: T) -> BufResult<usize, T> {
+        match self {
+            AcceptedStream::Tcp(inner) => inner.readv(buf).await,
+            AcceptedStream::Unix(inner) => inner.readv(buf).await,
         }
     }
 }
 
 impl AsyncWriteRent for AcceptedStream {
-    type WriteFuture<'a, T> = impl Future<Output = BufResult<usize, T>> + 'a
-    where
-        T: IoBuf + 'a, Self: 'a;
-
-    type WritevFuture<'a, T>= impl Future<Output = BufResult<usize, T>> + 'a where
-        T: IoVecBuf + 'a, Self: 'a;
-
-    type FlushFuture<'a> = impl Future<Output = io::Result<()>> + 'a where Self: 'a;
-
-    type ShutdownFuture<'a> = impl Future<Output = io::Result<()>> + 'a where Self: 'a;
-
     #[inline]
-    fn write<T: IoBuf>(&mut self, buf: T) -> Self::WriteFuture<'_, T> {
-        async move {
-            match self {
-                AcceptedStream::Tcp(inner) => inner.write(buf).await,
-                AcceptedStream::Unix(inner) => inner.write(buf).await,
-            }
+    async fn write<T: IoBuf>(&mut self, buf: T) -> BufResult<usize, T> {
+        match self {
+            AcceptedStream::Tcp(inner) => inner.write(buf).await,
+            AcceptedStream::Unix(inner) => inner.write(buf).await,
         }
     }
 
     #[inline]
-    fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> Self::WritevFuture<'_, T> {
-        async move {
-            match self {
-                AcceptedStream::Tcp(inner) => inner.writev(buf_vec).await,
-                AcceptedStream::Unix(inner) => inner.writev(buf_vec).await,
-            }
+    async fn writev<T: IoVecBuf>(&mut self, buf_vec: T) -> BufResult<usize, T> {
+        match self {
+            AcceptedStream::Tcp(inner) => inner.writev(buf_vec).await,
+            AcceptedStream::Unix(inner) => inner.writev(buf_vec).await,
         }
     }
 
     #[inline]
-    fn flush(&mut self) -> Self::FlushFuture<'_> {
-        async move {
-            match self {
-                AcceptedStream::Tcp(inner) => inner.flush().await,
-                AcceptedStream::Unix(inner) => inner.flush().await,
-            }
+    async fn flush(&mut self) -> io::Result<()> {
+        match self {
+            AcceptedStream::Tcp(inner) => inner.flush().await,
+            AcceptedStream::Unix(inner) => inner.flush().await,
         }
     }
 
     #[inline]
-    fn shutdown(&mut self) -> Self::ShutdownFuture<'_> {
-        async move {
-            match self {
-                AcceptedStream::Tcp(inner) => inner.shutdown().await,
-                AcceptedStream::Unix(inner) => inner.shutdown().await,
-            }
+    async fn shutdown(&mut self) -> io::Result<()> {
+        match self {
+            AcceptedStream::Tcp(inner) => inner.shutdown().await,
+            AcceptedStream::Unix(inner) => inner.shutdown().await,
         }
     }
 }

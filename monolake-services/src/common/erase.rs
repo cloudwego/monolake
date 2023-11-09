@@ -1,4 +1,3 @@
-use futures::Future;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
     MakeService, Service,
@@ -26,17 +25,11 @@ impl<T: MakeService> MakeService for EraseResp<T> {
 
 impl<T: Service<Req>, Req> Service<Req> for EraseResp<T> {
     type Response = ();
-
     type Error = T::Error;
 
-    type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
-    where
-        Self: 'cx,
-        Req: 'cx;
-
     #[inline]
-    fn call(&self, req: Req) -> Self::Future<'_> {
-        async move { self.svc.call(req).await.map(|_| ()) }
+    async fn call(&self, req: Req) -> Result<Self::Response, Self::Error> {
+        self.svc.call(req).await.map(|_| ())
     }
 }
 

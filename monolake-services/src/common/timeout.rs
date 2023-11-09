@@ -1,4 +1,4 @@
-use std::{future::Future, time::Duration};
+use std::time::Duration;
 
 use monoio::time::timeout;
 use monolake_core::AnyError;
@@ -19,21 +19,13 @@ where
     T::Error: Into<AnyError>,
 {
     type Response = T::Response;
-
     type Error = AnyError;
 
-    type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
-    where
-        Self: 'cx,
-        R: 'cx;
-
-    fn call(&self, req: R) -> Self::Future<'_> {
-        async {
-            match timeout(self.timeout, self.inner.call(req)).await {
-                Ok(Ok(resp)) => Ok(resp),
-                Ok(Err(err)) => Err(err.into()),
-                Err(e) => Err(e.into()),
-            }
+    async fn call(&self, req: R) -> Result<Self::Response, Self::Error> {
+        match timeout(self.timeout, self.inner.call(req)).await {
+            Ok(Ok(resp)) => Ok(resp),
+            Ok(Err(err)) => Err(err.into()),
+            Err(e) => Err(e.into()),
         }
     }
 }

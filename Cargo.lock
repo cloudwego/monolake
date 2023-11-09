@@ -208,8 +208,6 @@ checksum = "50d30906286121d95be3d479533b458f87493b30a4b5f79a607db8f5d11aa91f"
 [[package]]
 name = "certain-map"
 version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eef8cfdce330246c0d5ae6a910ed263951f2fe43e0abaed7d5744d3ddb771ef6"
 dependencies = [
  "certain-map-macros",
  "param",
@@ -218,8 +216,6 @@ dependencies = [
 [[package]]
 name = "certain-map-macros"
 version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87e8e7991daf33cd9aae128c7a1eaff7678d20b310f0f19ae19a1e407b1be02c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1137,9 +1133,9 @@ dependencies = [
 
 [[package]]
 name = "monoio"
-version = "0.1.8"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68e0b5faffe5004c52893010eb3bd50a04b236efdebdfb27337a083487c64720"
+checksum = "c91a9bcc2622991bc92f3b6d7dc495329c4863e4dc530d1748529b009bb2170a"
 dependencies = [
  "auto-const-array",
  "bytes",
@@ -1158,20 +1154,17 @@ dependencies = [
 
 [[package]]
 name = "monoio-codec"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e926de38a488d3867f3702a82b9820c9a99bf60e92183105686409389ab7111"
+version = "0.3.0"
 dependencies = [
  "bytes",
  "monoio",
- "tokio-util",
 ]
 
 [[package]]
 name = "monoio-compat"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc7b456f37f985b3602e5263a011fa10f8e8df0004db21794e752c7ca61c30d1"
+checksum = "216043fca04ac7042ec501a9d32c625df6e4b50731ec2295367e70eab7699f33"
 dependencies = [
  "monoio",
  "reusable-box-future",
@@ -1180,9 +1173,7 @@ dependencies = [
 
 [[package]]
 name = "monoio-http"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5adcf99e4445c72e982e7aae54ecfa88df08ff1ff084bf4276de1cbda661d040"
+version = "0.3.0"
 dependencies = [
  "brotli",
  "bytes",
@@ -1197,6 +1188,7 @@ dependencies = [
  "monoio",
  "monoio-codec",
  "monoio-compat",
+ "monoio-rustls",
  "service-async",
  "slab",
  "smallvec",
@@ -1206,9 +1198,7 @@ dependencies = [
 
 [[package]]
 name = "monoio-http-client"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ee71ad3731c899398e735e042c7eb3a868b17988470623fa0f2858362a0b1e0"
+version = "0.3.0"
 dependencies = [
  "bytes",
  "http",
@@ -1223,14 +1213,12 @@ dependencies = [
  "smol_str",
  "thiserror",
  "tracing",
- "webpki-roots 0.23.1",
+ "webpki-roots 0.25.2",
 ]
 
 [[package]]
 name = "monoio-io-wrapper"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "553fa5f587e4dfcb661ef7b1a79750555c6eace117fa19351bfa904eed51eb05"
 dependencies = [
  "monoio",
 ]
@@ -1248,9 +1236,7 @@ dependencies = [
 
 [[package]]
 name = "monoio-native-tls"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "987b149f205ba60f16b725c65058abd400204fe1dae7b6f06464d2fa22490875"
+version = "0.3.0"
 dependencies = [
  "bytes",
  "monoio",
@@ -1261,9 +1247,7 @@ dependencies = [
 
 [[package]]
 name = "monoio-rustls"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4db41fb084cc1f69b8a77e696ed022f4b566e54873ae000c130f25c3f36b508d"
+version = "0.3.0"
 dependencies = [
  "bytes",
  "monoio",
@@ -1274,7 +1258,7 @@ dependencies = [
 
 [[package]]
 name = "monolake"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "certain-map",
@@ -1294,7 +1278,7 @@ dependencies = [
 
 [[package]]
 name = "monolake-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "derive_more",
@@ -1314,7 +1298,7 @@ dependencies = [
 
 [[package]]
 name = "monolake-services"
-version = "0.1.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -1344,7 +1328,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "url",
- "webpki-roots 0.23.1",
+ "webpki-roots 0.25.2",
 ]
 
 [[package]]
@@ -1607,8 +1591,6 @@ dependencies = [
 [[package]]
 name = "param"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2da24af13fd75465e54b0040b7303173dc90d5f53a82ead2041f8ad453678247"
 
 [[package]]
 name = "pem-rfc7468"
@@ -2112,11 +2094,8 @@ dependencies = [
 
 [[package]]
 name = "service-async"
-version = "0.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbef7f6e6da968ca53e8da538bf74dc1fb923778fc1976176fab39c1fc78da79"
+version = "0.2.0"
 dependencies = [
- "futures-util",
  "param",
 ]
 
@@ -2704,12 +2683,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "0.23.1"
+version = "0.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b03058f88386e5ff5310d9111d53f48b17d732b401aeb83a8d5190f2ac459338"
-dependencies = [
- "rustls-webpki",
-]
+checksum = "14247bb57be4f377dfb94c72830b8ce8fc6beac03cf4bf7b9732eadd414123fc"
 
 [[package]]
 name = "winapi"

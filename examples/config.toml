@@ -6,15 +6,17 @@ entries = 8192
 
 [servers.server_basic]
 name = "proxy.monolake.rs"
-listener = { type = "socket", value = "0.0.0.0:9081" }
+listener = { type = "socket", value = "0.0.0.0:8080" }
 
 [[servers.server_basic.routes]]
 path = '/'
-upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:8080" }, version = "HTTP2" }]
+upstreams = [
+    { endpoint = { type = "uri", value = "http://127.0.0.1:9080" }, version = "HTTP2" },
+]
 
 [[servers.server_basic.routes]]
 path = '/*p'
-upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:8080" } }]
+upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:9080" } }]
 
 
 [servers.server_tls]

@@ -1,6 +1,6 @@
 [package]
 name = "monolake"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 keywords = ["monoio", "http", "async"]
 description = "High Performance Proxy base on Monoio"

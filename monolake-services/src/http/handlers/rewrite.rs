@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use http::{uri::Scheme, HeaderValue, Request, StatusCode, Version};
 use matchit::Router;
 use monoio_http::common::body::HttpBody;
@@ -26,32 +24,30 @@ where
 {
     type Response = ResponseWithContinue;
     type Error = H::Error;
-    type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
-    where
-        Self: 'a, CX: 'a;
 
-    fn call(&self, (mut request, ctx): (Request<HttpBody>, CX)) -> Self::Future<'_> {
-        async move {
-            let req_path = request.uri().path();
-            tracing::info!("request path: {req_path}");
+    async fn call(
+        &self,
+        (mut request, ctx): (Request<HttpBody>, CX),
+    ) -> Result<Self::Response, Self::Error> {
+        let req_path = request.uri().path();
+        tracing::info!("request path: {req_path}");
 
-            match self.router.at(req_path) {
-                Ok(route) => {
-                    let route = route.value;
-                    tracing::info!("the route id: {}", route.id);
-                    let upstreams = &route.upstreams;
-                    let mut rng = rand::thread_rng();
-                    let next = rng.next_u32() as usize % upstreams.len();
-                    let upstream: &Upstream = &upstreams[next];
+        match self.router.at(req_path) {
+            Ok(route) => {
+                let route = route.value;
+                tracing::info!("the route id: {}", route.id);
+                let upstreams = &route.upstreams;
+                let mut rng = rand::thread_rng();
+                let next = rng.next_u32() as usize % upstreams.len();
+                let upstream: &Upstream = &upstreams[next];
 
-                    rewrite_request(&mut request, upstream);
+                rewrite_request(&mut request, upstream);
 
-                    self.inner.handle(request, ctx).await
-                }
-                Err(e) => {
-                    debug!("match request uri: {} with error: {e}", request.uri());
-                    Ok((generate_response(StatusCode::NOT_FOUND, false), true))
-                }
+                self.inner.handle(request, ctx).await
+            }
+            Err(e) => {
+                debug!("match request uri: {} with error: {e}", request.uri());
+                Ok((generate_response(StatusCode::NOT_FOUND, false), true))
             }
         }
     }
