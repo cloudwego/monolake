@@ -1,7 +1,7 @@
 [runtime]
 # runtime_type = "legacy"
 workers = 1
-entries = 8192
+entries = 1024
 
 
 [servers.server_basic]
@@ -60,7 +60,9 @@ listener = { type = "socket", value = "0.0.0.0:8082" }
 
 [[servers.server3.routes]]
 path = '/'
-upstreams = [{ endpoint = { type = "uri", value = "https://rsproxy.cn" } }]
+upstreams = [
+    { endpoint = { type = "uri", value = "https://www.wikipedia.org" } },
+]
 
 
 [servers.server4]

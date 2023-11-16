@@ -19,6 +19,9 @@ vendored = ["monolake-services/vendored"]
 monoio = { workspace = true, features = ["sync", "async-cancel"] }
 service-async = { workspace = true }
 certain-map = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
 
 monolake-core = { path = "../monolake-core" }
 monolake-services = { path = "../monolake-services" }
@@ -27,15 +30,10 @@ monolake-services = { path = "../monolake-services" }
 native-tls = { workspace = true, optional = true }
 monoio-native-tls = { workspace = true, optional = true }
 
-# error
-anyhow = "1"
-
 # log
-tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # parse
 clap = { version = "4", features = ['derive'] }
-serde = "1"
 serde_json = "1"
 toml = "0"

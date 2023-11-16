@@ -1,7 +1,10 @@
 use http::{uri::Scheme, HeaderValue, Request, StatusCode, Version};
 use matchit::Router;
 use monoio_http::common::body::HttpBody;
-use monolake_core::http::{HttpHandler, ResponseWithContinue};
+use monolake_core::{
+    http::{HttpHandler, ResponseWithContinue},
+    util::uri_serde,
+};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use service_async::{
@@ -111,7 +114,7 @@ pub struct Upstream {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum Endpoint {
-    #[serde(with = "http_serde::uri")]
+    #[serde(with = "uri_serde")]
     Uri(http::Uri),
     Socket(std::net::SocketAddr),
     Unix(std::path::PathBuf),
