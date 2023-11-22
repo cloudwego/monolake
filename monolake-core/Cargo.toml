@@ -1,6 +1,6 @@
 [package]
 name = "monolake-core"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 [features]
@@ -11,17 +11,14 @@ proxy-protocol = []
 monoio = { workspace = true, features = ["splice", "sync"] }
 monoio-http = { workspace = true }
 service-async = { workspace = true }
-
-anyhow = "1"
-tracing = "0.1"
+http = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+tracing = { workspace = true }
 
 # futures
 futures-util = { version = "0.3", features = ["sink"] }
 futures-channel = { version = "0.3", features = ["sink"] }
-
-http = "0.2"
-http-serde = "1"
-serde = "1"
 
 sha2 = "0"
 hex = "0"

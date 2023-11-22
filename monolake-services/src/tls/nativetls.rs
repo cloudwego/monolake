@@ -1,4 +1,4 @@
-use std::{fmt::Display, future::Future};
+use std::fmt::Display;
 
 use monoio::io::{AsyncReadRent, AsyncWriteRent};
 use monoio_native_tls::{TlsAcceptor, TlsStream};
@@ -26,19 +26,11 @@ where
     S: AsyncReadRent + AsyncWriteRent,
 {
     type Response = T::Response;
-
     type Error = AnyError;
 
-    type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
-    where
-        Self: 'cx,
-        Accept<S, CX>: 'cx;
-
-    fn call(&self, (stream, addr): Accept<S, CX>) -> Self::Future<'_> {
-        async move {
-            let stream = self.acceptor.accept(stream).await?;
-            self.inner.call((stream, addr)).await.map_err(Into::into)
-        }
+    async fn call(&self, (stream, addr): Accept<S, CX>) -> Result<Self::Response, Self::Error> {
+        let stream = self.acceptor.accept(stream).await?;
+        self.inner.call((stream, addr)).await.map_err(Into::into)
     }
 }
 

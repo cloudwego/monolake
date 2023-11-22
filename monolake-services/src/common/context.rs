@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use monolake_core::{context::PeerAddr, listener::AcceptedAddr};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
@@ -21,14 +19,10 @@ where
 {
     type Response = T::Response;
     type Error = T::Error;
-    type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
-    where
-        Self: 'cx,
-        R: 'cx;
 
-    fn call(&self, (req, addr): (R, AcceptedAddr)) -> Self::Future<'_> {
+    async fn call(&self, (req, addr): (R, AcceptedAddr)) -> Result<Self::Response, Self::Error> {
         let ctx = self.ctx.clone().param_set(PeerAddr(addr));
-        self.inner.call((req, ctx))
+        self.inner.call((req, ctx)).await
     }
 }
 

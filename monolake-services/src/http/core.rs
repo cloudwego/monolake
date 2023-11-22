@@ -1,4 +1,4 @@
-use std::{convert::Infallible, fmt::Debug, future::Future, pin::Pin, time::Duration};
+use std::{convert::Infallible, fmt::Debug, pin::Pin, time::Duration};
 
 use bytes::Bytes;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
@@ -27,7 +27,6 @@ use service_async::{
 use tracing::{error, info, warn};
 
 use super::{generate_response, util::AccompanyPair};
-use crate::tcp::Accept;
 
 #[derive(Clone)]
 pub struct HttpCoreService<H> {
@@ -257,20 +256,18 @@ where
 {
     type Response = ();
     type Error = Infallible;
-    type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
-    where
-        Self: 'a, Accept<Stream, CX>: 'a;
 
-    fn call(&self, incoming_stream: HttpAccept<Stream, CX>) -> Self::Future<'_> {
-        async move {
-            let (use_h2, stream, ctx) = incoming_stream;
-            if use_h2 {
-                self.h2_svc(stream, ctx).await
-            } else {
-                self.h1_svc(stream, ctx).await
-            }
-            Ok(())
+    async fn call(
+        &self,
+        incoming_stream: HttpAccept<Stream, CX>,
+    ) -> Result<Self::Response, Self::Error> {
+        let (use_h2, stream, ctx) = incoming_stream;
+        if use_h2 {
+            self.h2_svc(stream, ctx).await
+        } else {
+            self.h1_svc(stream, ctx).await
         }
+        Ok(())
     }
 }
 

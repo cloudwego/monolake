@@ -1,4 +1,4 @@
-use std::{future::Future, io::Cursor};
+use std::io::Cursor;
 
 use monoio::{
     buf::IoBufMut,
@@ -47,50 +47,47 @@ where
 {
     type Response = T::Response;
     type Error = AnyError;
-    type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
-    where
-        Self: 'a,
-        Accept<Stream, CX>: 'a;
 
-    fn call(&self, incoming_stream: Accept<Stream, CX>) -> Self::Future<'_> {
-        async move {
-            let (mut stream, addr) = incoming_stream;
-            let mut buf = vec![0; PREFACE.len()];
-            let mut pos = 0;
-            let mut h2_detect = false;
+    async fn call(
+        &self,
+        incoming_stream: Accept<Stream, CX>,
+    ) -> Result<Self::Response, Self::Error> {
+        let (mut stream, addr) = incoming_stream;
+        let mut buf = vec![0; PREFACE.len()];
+        let mut pos = 0;
+        let mut h2_detect = false;
 
-            loop {
-                let buf_slice = unsafe { buf.slice_mut_unchecked(pos..PREFACE.len()) };
-                let (result, buf_slice) = stream.read(buf_slice).await;
-                buf = buf_slice.into_inner();
-                match result {
-                    Ok(0) => {
+        loop {
+            let buf_slice = unsafe { buf.slice_mut_unchecked(pos..PREFACE.len()) };
+            let (result, buf_slice) = stream.read(buf_slice).await;
+            buf = buf_slice.into_inner();
+            match result {
+                Ok(0) => {
+                    break;
+                }
+                Ok(n) => {
+                    if PREFACE[pos..pos + n] != buf[pos..pos + n] {
                         break;
                     }
-                    Ok(n) => {
-                        if PREFACE[pos..pos + n] != buf[pos..pos + n] {
-                            break;
-                        }
-                        pos += n;
-                    }
-                    Err(e) => {
-                        return Err(e.into());
-                    }
+                    pos += n;
                 }
-
-                if pos == PREFACE.len() {
-                    h2_detect = true;
-                    break;
+                Err(e) => {
+                    return Err(e.into());
                 }
             }
 
-            let preface_buf = std::io::Cursor::new(buf);
-            let rewind_io = monoio::io::PrefixedReadIo::new(stream, preface_buf);
-
-            self.inner
-                .call((h2_detect, rewind_io, addr))
-                .await
-                .map_err(Into::into)
+            if pos == PREFACE.len() {
+                h2_detect = true;
+                break;
+            }
         }
+
+        let preface_buf = std::io::Cursor::new(buf);
+        let rewind_io = monoio::io::PrefixedReadIo::new(stream, preface_buf);
+
+        self.inner
+            .call((h2_detect, rewind_io, addr))
+            .await
+            .map_err(Into::into)
     }
 }

@@ -1,4 +1,4 @@
-use std::{future::Future, time::Duration};
+use std::time::Duration;
 
 use service_async::{
     layer::{layer_fn, FactoryLayer},
@@ -19,16 +19,9 @@ where
 
     type Error = T::Error;
 
-    type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
-    where
-        Self: 'cx,
-        R: 'cx;
-
-    fn call(&self, req: R) -> Self::Future<'_> {
-        async {
-            monoio::time::sleep(self.delay).await;
-            self.inner.call(req).await
-        }
+    async fn call(&self, req: R) -> Result<Self::Response, Self::Error> {
+        monoio::time::sleep(self.delay).await;
+        self.inner.call(req).await
     }
 }
 

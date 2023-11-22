@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use http::{Request, Version};
 use monoio_http::common::body::HttpBody;
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
@@ -24,68 +22,66 @@ where
 {
     type Response = ResponseWithContinue;
     type Error = H::Error;
-    type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
-    where
-        Self: 'a, Request<HttpBody>: 'a, CX: 'a;
 
-    fn call(&self, (mut request, ctx): (Request<HttpBody>, CX)) -> Self::Future<'_> {
-        async move {
-            let version = request.version();
-            let keepalive = is_conn_keepalive(request.headers(), version);
-            debug!("frontend keepalive {:?}", keepalive);
+    async fn call(
+        &self,
+        (mut request, ctx): (Request<HttpBody>, CX),
+    ) -> Result<Self::Response, Self::Error> {
+        let version = request.version();
+        let keepalive = is_conn_keepalive(request.headers(), version);
+        debug!("frontend keepalive {:?}", keepalive);
 
-            match version {
-                // for http 1.0, hack it to 1.1 like setting nginx `proxy_http_version` to 1.1
-                Version::HTTP_10 => {
-                    // modify to 1.1 and remove connection header
-                    *request.version_mut() = Version::HTTP_11;
-                    let _ = request.headers_mut().remove(http::header::CONNECTION);
+        match version {
+            // for http 1.0, hack it to 1.1 like setting nginx `proxy_http_version` to 1.1
+            Version::HTTP_10 => {
+                // modify to 1.1 and remove connection header
+                *request.version_mut() = Version::HTTP_11;
+                let _ = request.headers_mut().remove(http::header::CONNECTION);
 
-                    // send
-                    let (mut response, mut cont) = self.inner.handle(request, ctx).await?;
-                    cont &= keepalive;
+                // send
+                let (mut response, mut cont) = self.inner.handle(request, ctx).await?;
+                cont &= keepalive;
 
-                    // modify back and make sure reply keepalive if client want it and server
-                    // support it.
-                    let _ = response.headers_mut().remove(http::header::CONNECTION);
-                    if cont {
-                        // insert keepalive header
-                        response
-                            .headers_mut()
-                            .insert(http::header::CONNECTION, KEEPALIVE_VALUE);
-                    }
-                    *response.version_mut() = version;
-
-                    Ok((response, cont))
+                // modify back and make sure reply keepalive if client want it and server
+                // support it.
+                let _ = response.headers_mut().remove(http::header::CONNECTION);
+                if cont {
+                    // insert keepalive header
+                    response
+                        .headers_mut()
+                        .insert(http::header::CONNECTION, KEEPALIVE_VALUE);
                 }
-                Version::HTTP_11 => {
-                    // remove connection header
-                    let _ = request.headers_mut().remove(http::header::CONNECTION);
+                *response.version_mut() = version;
 
-                    // send
-                    let (mut response, mut cont) = self.inner.handle(request, ctx).await?;
-                    cont &= keepalive;
+                Ok((response, cont))
+            }
+            Version::HTTP_11 => {
+                // remove connection header
+                let _ = request.headers_mut().remove(http::header::CONNECTION);
 
-                    // modify back and make sure reply keepalive if client want it and server
-                    // support it.
-                    let _ = response.headers_mut().remove(http::header::CONNECTION);
-                    if !cont {
-                        // insert close header
-                        response
-                            .headers_mut()
-                            .insert(http::header::CONNECTION, CLOSE_VALUE);
-                    }
-                    Ok((response, cont))
+                // send
+                let (mut response, mut cont) = self.inner.handle(request, ctx).await?;
+                cont &= keepalive;
+
+                // modify back and make sure reply keepalive if client want it and server
+                // support it.
+                let _ = response.headers_mut().remove(http::header::CONNECTION);
+                if !cont {
+                    // insert close header
+                    response
+                        .headers_mut()
+                        .insert(http::header::CONNECTION, CLOSE_VALUE);
                 }
-                Version::HTTP_2 => {
-                    let (response, _) = self.inner.handle(request, ctx).await?;
-                    Ok((response, true))
-                }
-                // for http 0.9 and other versions, just relay it
-                _ => {
-                    let (response, _) = self.inner.handle(request, ctx).await?;
-                    Ok((response, false))
-                }
+                Ok((response, cont))
+            }
+            Version::HTTP_2 => {
+                let (response, _) = self.inner.handle(request, ctx).await?;
+                Ok((response, true))
+            }
+            // for http 0.9 and other versions, just relay it
+            _ => {
+                let (response, _) = self.inner.handle(request, ctx).await?;
+                Ok((response, false))
             }
         }
     }

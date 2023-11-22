@@ -1,4 +1,4 @@
-use std::{future::Future, io::Cursor};
+use std::io::Cursor;
 
 use monolake_core::AnyError;
 use native_tls::Identity;
@@ -78,30 +78,23 @@ where
 
     type Error = AnyError;
 
-    type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
-    where
-        Self: 'cx,
-        Accept<S, CX>: 'cx;
-
-    fn call(&self, req: Accept<S, CX>) -> Self::Future<'_> {
-        async move {
-            match self {
-                UnifiedTlsService::Rustls(inner) => inner
-                    .call(req)
-                    .await
-                    .map(UnifiedResponse::Rustls)
-                    .map_err(Into::into),
-                UnifiedTlsService::Native(inner) => inner
-                    .call(req)
-                    .await
-                    .map(UnifiedResponse::Native)
-                    .map_err(Into::into),
-                UnifiedTlsService::None(inner) => inner
-                    .call(req)
-                    .await
-                    .map(UnifiedResponse::None)
-                    .map_err(Into::into),
-            }
+    async fn call(&self, req: Accept<S, CX>) -> Result<Self::Response, Self::Error> {
+        match self {
+            UnifiedTlsService::Rustls(inner) => inner
+                .call(req)
+                .await
+                .map(UnifiedResponse::Rustls)
+                .map_err(Into::into),
+            UnifiedTlsService::Native(inner) => inner
+                .call(req)
+                .await
+                .map(UnifiedResponse::Native)
+                .map_err(Into::into),
+            UnifiedTlsService::None(inner) => inner
+                .call(req)
+                .await
+                .map(UnifiedResponse::None)
+                .map_err(Into::into),
         }
     }
 }

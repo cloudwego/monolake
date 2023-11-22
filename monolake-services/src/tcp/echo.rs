@@ -1,4 +1,4 @@
-use std::{convert::Infallible, future::Future, io};
+use std::{convert::Infallible, io};
 
 use monoio::io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt};
 use service_async::{
@@ -15,28 +15,20 @@ where
     S: AsyncReadRent + AsyncWriteRent,
 {
     type Response = ();
-
     type Error = io::Error;
 
-    type Future<'cx> = impl Future<Output = Result<Self::Response, Self::Error>> + 'cx
-    where
-        Self: 'cx,
-        S: 'cx;
-
-    fn call(&self, mut io: S) -> Self::Future<'_> {
-        async move {
-            let mut buffer = Vec::with_capacity(self.buffer_size);
-            loop {
-                let (mut r, buf) = io.read(buffer).await;
-                if r? == 0 {
-                    break;
-                }
-                (r, buffer) = io.write_all(buf).await;
-                r?;
+    async fn call(&self, mut io: S) -> Result<Self::Response, Self::Error> {
+        let mut buffer = Vec::with_capacity(self.buffer_size);
+        loop {
+            let (mut r, buf) = io.read(buffer).await;
+            if r? == 0 {
+                break;
             }
-            tracing::info!("tcp relay finished successfully");
-            Ok(())
+            (r, buffer) = io.write_all(buf).await;
+            r?;
         }
+        tracing::info!("tcp relay finished successfully");
+        Ok(())
     }
 }
 

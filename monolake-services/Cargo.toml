@@ -1,6 +1,6 @@
 [package]
 name = "monolake-services"
-version = "0.1.1"
+version = "0.3.0"
 edition = "2021"
 
 [features]
@@ -26,27 +26,28 @@ vendored = ["native-tls?/vendored"]
 monoio = { workspace = true, features = ['splice'] }
 monolake-core = { path = "../monolake-core" }
 monoio-http = { workspace = true }
-monoio-http-client = { workspace = true, features = ["logging", "rustls-unsafe-io"] }
+monoio-http-client = { workspace = true, features = [
+    "logging",
+    "rustls-unsafe-io",
+] }
 local-sync = { workspace = true }
 service-async = { workspace = true }
+http = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
 
 # tls
 monoio-rustls = { workspace = true, optional = true }
-rustls = { version = "0.21", optional = true }
-rustls-pemfile = { version = "1", optional = true }
-webpki-roots = { version = "0.23", optional = true }
 monoio-native-tls = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 
+rustls = { version = "0.21", optional = true, default-features = false }
+rustls-pemfile = { version = "1", optional = true }
+webpki-roots = { version = "0.25.2", optional = true }
+
 # common
-anyhow = "1"
-tracing = "0.1"
-http = "0.2"
 bytes = "1"
-
-http-serde = "1"
-serde = "1"
-
 async-channel = "1"
 rand = "0.8"
 matchit = "0.7"

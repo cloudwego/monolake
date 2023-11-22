@@ -15,12 +15,12 @@ pub type HttpAccept<Stream, CX> = (bool, Stream, CX);
 
 pub trait HttpHandler<CX>: SealedT<CX> {
     type Error;
-    type Future<'a>: Future<Output = Result<ResponseWithContinue, Self::Error>>
-    where
-        Self: 'a,
-        CX: 'a;
 
-    fn handle(&self, request: Request<HttpBody>, ctx: CX) -> Self::Future<'_>;
+    fn handle(
+        &self,
+        request: Request<HttpBody>,
+        ctx: CX,
+    ) -> impl Future<Output = Result<ResponseWithContinue, Self::Error>>;
 }
 
 impl<T, CX> SealedT<CX> for T where
@@ -33,11 +33,12 @@ where
     T: Service<(Request<HttpBody>, CX), Response = ResponseWithContinue>,
 {
     type Error = T::Error;
-    type Future<'a> = impl Future<Output = Result<ResponseWithContinue, Self::Error>> + 'a
-    where
-        Self: 'a, CX: 'a;
 
-    fn handle(&self, req: Request<HttpBody>, ctx: CX) -> Self::Future<'_> {
-        self.call((req, ctx))
+    async fn handle(
+        &self,
+        req: Request<HttpBody>,
+        ctx: CX,
+    ) -> Result<ResponseWithContinue, Self::Error> {
+        self.call((req, ctx)).await
     }
 }

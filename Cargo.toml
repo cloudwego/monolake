@@ -3,15 +3,19 @@ members = ["monolake", "monolake-core", "monolake-services"]
 resolver = "2"
 
 [workspace.dependencies]
-monoio = "0.1.8"
-monoio-http = "0.2.4"
-monoio-http-client = "0.2.5"
-monoio-native-tls = "0.1.0"
-monoio-rustls = "0.1.5"
+monoio = "0.2.0"
+monoio-http = "0.3.0"
+monoio-http-client = "0.3.0"
+monoio-native-tls = "0.3.0"
+monoio-rustls = "0.3.0"
 native-tls = "0.2"
-service-async = "0.1.13"
+service-async = "0.2.0"
 certain-map = "0.2.4"
 local-sync = "0.1"
+http = "1.0"
+anyhow = "1"
+serde = "1"
+tracing = "0.1"
 
 [profile.release-lto]
 inherits = "release"

@@ -1,4 +1,4 @@
-use std::{convert::Infallible, future::Future};
+use std::convert::Infallible;
 
 use bytes::Bytes;
 use http::{header, HeaderMap, HeaderValue, Request, StatusCode};
@@ -34,19 +34,18 @@ where
 {
     type Response = ResponseWithContinue;
     type Error = Infallible;
-    type Future<'a> = impl Future<Output = Result<Self::Response, Self::Error>> + 'a
-    where
-        Self: 'a, CX: 'a;
 
-    fn call(&self, (mut req, ctx): (Request<HttpBody>, CX)) -> Self::Future<'_> {
+    async fn call(
+        &self,
+        (mut req, ctx): (Request<HttpBody>, CX),
+    ) -> Result<Self::Response, Self::Error> {
         add_xff_header(req.headers_mut(), &ctx);
-        async move {
-            match self.client.send_request(req).await {
-                Ok(resp) => Ok((resp, true)),
-                // Bad gateway should not affect inbound connection.
-                // It should still be keepalive.
-                Err(_e) => Ok((generate_response(StatusCode::BAD_GATEWAY, false), true)),
-            }
+
+        match self.client.send_request(req).await {
+            Ok(resp) => Ok((resp, true)),
+            // Bad gateway should not affect inbound connection.
+            // It should still be keepalive.
+            Err(_e) => Ok((generate_response(StatusCode::BAD_GATEWAY, false), true)),
         }
     }
 }

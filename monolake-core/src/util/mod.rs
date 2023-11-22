@@ -3,6 +3,7 @@ use std::path::Path;
 use monoio::buf::IoBufMut;
 
 pub mod hash;
+pub mod uri_serde;
 
 pub async fn file_read(path: impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
     // since monoio has not support statx, we have to use std
