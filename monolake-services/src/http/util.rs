@@ -37,7 +37,9 @@ where
 
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        if this.accompany_slot.is_none() && let Poll::Ready(t) = this.accompany.poll(cx) {
+        if this.accompany_slot.is_none()
+            && let Poll::Ready(t) = this.accompany.poll(cx)
+        {
             *this.accompany_slot = Some(t);
         }
         this.main.poll(cx)

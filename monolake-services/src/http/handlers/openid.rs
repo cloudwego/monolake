@@ -191,7 +191,9 @@ where
                     let cookie = cookie.unwrap();
                     if cookie.name() == "session-id" {
                         let session_store = SESSION_STORE.read().unwrap();
-                        if let Some(state) = session_store.get(cookie.value()) && state.access_token.is_some() {
+                        if let Some(state) = session_store.get(cookie.value())
+                            && state.access_token.is_some()
+                        {
                             auth_cookie = Some(cookie.value().to_string());
                         }
                         break;
