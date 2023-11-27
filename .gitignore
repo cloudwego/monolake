@@ -5,3 +5,4 @@
 *.pem
 
 /examples/certs
+/docs/cloudwego.github.io

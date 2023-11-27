@@ -5,14 +5,12 @@ entries = 1024
 
 
 [servers.server_basic]
-name = "proxy.monolake.rs"
+name = "monolake.cloudwego.io"
 listener = { type = "socket", value = "0.0.0.0:8080" }
 
 [[servers.server_basic.routes]]
 path = '/'
-upstreams = [
-    { endpoint = { type = "uri", value = "http://127.0.0.1:9080" }, version = "HTTP2" },
-]
+upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:9080" } }]
 
 [[servers.server_basic.routes]]
 path = '/*p'
@@ -20,8 +18,8 @@ upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:9080" } }]
 
 
 [servers.server_tls]
-tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.pkcs8" }
-name = "proxy.monolake.rs"
+tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem" }
+name = "monolake.cloudwego.io"
 listener = { type = "socket", value = "0.0.0.0:8081" }
 
 [[servers.server_tls.routes]]
@@ -34,7 +32,7 @@ upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:8080" } }]
 
 
 [servers.server_uds]
-name = "proxy.monolake.rs"
+name = "monolake.cloudwego.io"
 listener = { type = "unix", value = "/tmp/monolake.sock" }
 
 [[servers.server_uds.routes]]
@@ -54,8 +52,8 @@ path = '/*p'
 
 
 [servers.server3]
-tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.pkcs8", stack = "rustls" }
-name = "proxy.monolake.rs"
+tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem", stack = "rustls" }
+name = "monolake.cloudwego.io"
 listener = { type = "socket", value = "0.0.0.0:8082" }
 
 [[servers.server3.routes]]
@@ -66,10 +64,10 @@ upstreams = [
 
 
 [servers.server4]
-tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.pkcs8", stack = "native_tls" }
-name = "proxy.monolake.rs"
+tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem", stack = "native_tls" }
+name = "monolake.cloudwego.io"
 listener = { type = "socket", value = "0.0.0.0:8083" }
 
 [[servers.server4.routes]]
-upstreams = [{ endpoint = { type = "uri", value = "https://rsproxy.cn" } }]
+upstreams = [{ endpoint = { type = "uri", value = "https://www.wikipedia.org" } }]
 path = '/'

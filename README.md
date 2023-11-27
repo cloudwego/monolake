@@ -1,27 +1,67 @@
 # Monolake
 
-Introducing Monolake: a Rust-based proxy with a focus on performance and scale. Leveraging the Monoio runtime and harnessing io-uring, Monolake capitalizes on Rust's efficiency and memory safety.
+Monolake is a Rust-based high performance Layer 7 proxy framework which is built on the [Monoio](https://github.com/bytedance/monoio) runtime.
 
-# Generating Wiki
+## Quick Start
 
-The docs folder will eventually move to [cloudwego.io](https://www.cloudwego.io/). You'll have to generate them locally for now.
+### Preparation
 
-## 1. Install Hugo
+```bash
+# install rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-- Install a recent release of the Hugo "extended" version. If you install from the [Hugo release page](https://github.com/gohugoio/hugo/releases), make sure you download the `_extended` version which supports SCSS.
+# clone repo
+git clone https://github.com/cloudwego/monolake.git
+cd monolake
 
-- If you have installed the latest version of Go, you can install directly by running the following command:
-  ```
-  go install -tags extended github.com/gohugoio/hugo@latest
-  ```
+# generate certs
+mkdir examples/certs && openssl req -x509 -newkey rsa:2048 -keyout examples/certs/key.pem -out examples/certs/cert.pem -sha256 -days 365 -nodes -subj "/CN=monolake.cloudwego.io"
+```
 
-- Alternatively, you can use the package manager to install Hugo:
-  - For Linux: `sudo apt install hugo`
-  - For macOS: `brew install hugo`
+### Build
 
-## 2. Run `wiki.sh`
+```bash
+# build dev binary
+cargo build
 
-- Execute the `wiki.sh` script, which performs the following tasks:
-  - Checks out the [cloudwego/cloudwego.github.io](https://github.com/cloudwego/cloudwego.github.io) repository.
-  - Copies the local `docs` folder to `content/en/docs/monolake/` within the cloned repository.
-  - Starts the Hugo server for preview.
+# build release binary
+cargo build --release
+
+# build lto release binary
+cargo build --profile=release-lto
+```
+
+### Run examples
+
+```bash
+# run example with debug version
+target/debug/monolake -c examples/config.toml
+
+# enable debug logging level
+RUST_LOG=debug target/debug/monolake -c examples/config.toml
+
+# send https request
+curl -kvvv https://localhost:8082/
+```
+
+## Limitations
+
+1. On Linux 5.6+, both uring and epoll are supported
+2. On Linux 2.6+, only epoll is supported
+3. On macOS, kqueue is used
+4. Other platforms are currently not supported
+
+## Community
+
+Monoio is a subproject of [CloudWeGo](https://www.cloudwego.io).
+
+## Dependencies
+
+- [monoio](https://github.com/bytedance/monoio), Rust runtime
+- [monoio-codec](https://github.com/monoio-rs/monoio-codec)
+- [monoio-tls](https://github.com/monoio-rs/monoio-tls), tls wrapper for monoio
+- [monoio-http](https://github.com/monoio-rs/monoio-http), http protocols implementation base monoio
+
+## License
+
+Monoio is licensed under the MIT license or Apache license.
