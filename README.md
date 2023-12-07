@@ -51,14 +51,16 @@ curl -kvvv https://localhost:8082/
 3. On macOS, kqueue is used
 4. Other platforms are currently not supported
 
-## Community
+# Call for help
 
 Monoio is a subproject of [CloudWeGo](https://www.cloudwego.io).
+
+Due to the limit resource, any help to make the monolake more mature, reporting issues or  requesting features are welcome. Refer the [Contributing](./CONTRIBUTING.md) documents for the guidelines.
 
 ## Dependencies
 
 - [monoio](https://github.com/bytedance/monoio), Rust runtime
-- [monoio-codec](https://github.com/monoio-rs/monoio-codec)
+- [monoio-codec](https://github.com/monoio-rs/monoio-codec), framed reader or writer
 - [monoio-tls](https://github.com/monoio-rs/monoio-tls), tls wrapper for monoio
 - [monoio-http](https://github.com/monoio-rs/monoio-http), http protocols implementation base monoio
 
