@@ -1,8 +1,10 @@
 # Monolake
 
-Monolake is a Rust-based high performance Layer 7 proxy framework which is built on the [Monoio](https://github.com/bytedance/monoio) runtime.
+Monolake is a Rust-based high performance Layer 4/7 proxy framework which is built on the [Monoio](https://github.com/bytedance/monoio) runtime.
 
 ## Quick Start
+
+The following guide is using to try monolake with the basic proxy features.
 
 ### Preparation
 
