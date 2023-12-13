@@ -4,7 +4,7 @@ Monolake is a Rust-based high performance Layer 4/7 proxy framework which is bui
 
 ## Quick Start
 
-The following guide is using to try monolake with the basic proxy features.
+The following guide is trying to use monolake with the basic proxy features.
 
 ### Preparation
 
@@ -57,7 +57,7 @@ curl -kvvv https://localhost:8082/
 
 Monoio is a subproject of [CloudWeGo](https://www.cloudwego.io).
 
-Due to the limit resource, any help to make the monolake more mature, reporting issues or  requesting features are welcome. Refer the [Contributing](./CONTRIBUTING.md) documents for the guidelines.
+Due to the limited resources, any help to make the monolake more mature, reporting issues or  requesting features are welcome. Refer the [Contributing](./CONTRIBUTING.md) documents for the guidelines.
 
 ## Dependencies
 
