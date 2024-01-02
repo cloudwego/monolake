@@ -242,10 +242,8 @@ where
     fn execute(self, controller: &WorkerController<S>) -> Result<(), AnyError> {
         match self {
             Command::Update(name, factory) => {
-                match {
-                    let sites = unsafe { &mut *controller.sites.get() };
-                    sites.get(&name).map(|sh| sh.handler_slot.clone())
-                } {
+                let sites = unsafe { &mut *controller.sites.get() };
+                match sites.get(&name).map(|sh| sh.handler_slot.clone()) {
                     Some(svc_slot) => {
                         let svc = factory
                             .make_via_ref(Some(&svc_slot.get_svc()))
