@@ -157,6 +157,7 @@ impl<S> Default for WorkerController<S> {
 
 pub struct SiteHandler<S> {
     handler_slot: HandlerSlot<S>,
+    two_stage_handler_slot: UnsafeCell<Option<S>>,
     _stop: OReceiver<()>,
 }
 
@@ -166,6 +167,7 @@ impl<S> SiteHandler<S> {
         (
             Self {
                 handler_slot,
+                two_stage_handler_slot: UnsafeCell::new(None),
                 _stop: rx,
             },
             tx,
@@ -210,6 +212,9 @@ pub enum Command<F, LF> {
     Add(Arc<String>, F, LF),
     Update(Arc<String>, F),
     Remove(Arc<String>),
+    TwoStageCreate(Arc<String>, F),
+    TwoStageApply(Arc<String>),
+    TwoStageAbort(Arc<String>),
 }
 
 pub struct Update<F, LF> {
@@ -253,6 +258,38 @@ where
                     }
                     None => bail_into!("site {name} not exist"),
                 }
+            }
+            Command::TwoStageCreate(name, factory) => {
+                let sites = unsafe { &mut *controller.sites.get() };
+                let Some(sh) = sites.get(&name) else {
+                    bail_into!("site {name} not exist");
+                };
+
+                let current_svc = sh.handler_slot.clone();
+                let svc = factory
+                    .make_via_ref(Some(&current_svc.get_svc()))
+                    .map_err(|e| anyhow!("build service fail {e:?}"))?;
+                unsafe { *sh.two_stage_handler_slot.get() = Some(svc) };
+                Ok(())
+            }
+            Command::TwoStageApply(name) => {
+                let sites = unsafe { &mut *controller.sites.get() };
+                let Some(sh) = sites.get(&name) else {
+                    bail_into!("site {name} not exist");
+                };
+
+                let svc = unsafe { (*sh.two_stage_handler_slot.get()).take() }
+                    .ok_or_else(|| anyhow!("two stage service not exist"))?;
+                sh.handler_slot.update_svc(Rc::new(svc));
+                Ok(())
+            }
+            Command::TwoStageAbort(name) => {
+                let sites = unsafe { &mut *controller.sites.get() };
+                let Some(sh) = sites.get(&name) else {
+                    bail_into!("site {name} not exist");
+                };
+                unsafe { (*sh.two_stage_handler_slot.get()) = None };
+                Ok(())
             }
             Command::Add(name, factory, listener_factory) => {
                 // TODO: make sure the named service has not been started
