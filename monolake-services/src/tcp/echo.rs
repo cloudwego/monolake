@@ -3,7 +3,7 @@ use std::{convert::Infallible, io};
 use monoio::io::{AsyncReadRent, AsyncWriteRent, AsyncWriteRentExt};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Param, Service,
+    AsyncMakeService, MakeService, Param, Service,
 };
 
 pub struct EchoService {
@@ -34,10 +34,23 @@ where
 
 impl MakeService for EchoService {
     type Service = Self;
-
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
+        Ok(EchoService {
+            buffer_size: self.buffer_size,
+        })
+    }
+}
+
+impl AsyncMakeService for EchoService {
+    type Service = Self;
+    type Error = Infallible;
+
+    async fn make_via_ref(
+        &self,
+        _old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
         Ok(EchoService {
             buffer_size: self.buffer_size,
         })

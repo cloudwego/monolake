@@ -4,7 +4,7 @@ use monoio::time::timeout;
 use monolake_core::AnyError;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Param, Service,
+    AsyncMakeService, MakeService, Param, Service,
 };
 
 #[derive(Clone)]
@@ -45,10 +45,7 @@ impl<F> TimeoutService<F> {
     }
 }
 
-impl<F> MakeService for TimeoutService<F>
-where
-    F: MakeService,
-{
+impl<F: MakeService> MakeService for TimeoutService<F> {
     type Service = TimeoutService<F::Service>;
     type Error = F::Error;
 
@@ -58,6 +55,25 @@ where
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
+                .map_err(Into::into)?,
+        })
+    }
+}
+
+impl<F: AsyncMakeService> AsyncMakeService for TimeoutService<F> {
+    type Service = TimeoutService<F::Service>;
+    type Error = F::Error;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        Ok(TimeoutService {
+            timeout: self.timeout,
+            inner: self
+                .inner
+                .make_via_ref(old.map(|o| &o.inner))
+                .await
                 .map_err(Into::into)?,
         })
     }

@@ -1,7 +1,7 @@
 use monolake_core::{context::PeerAddr, listener::AcceptedAddr};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, ParamSet, Service,
+    AsyncMakeService, MakeService, ParamSet, Service,
 };
 
 /// A service to insert Context
@@ -38,11 +38,7 @@ impl<CX, F> ContextService<CX, F> {
     }
 }
 
-impl<CX, F> MakeService for ContextService<CX, F>
-where
-    F: MakeService,
-    CX: Clone,
-{
+impl<CX: Clone, F: MakeService> MakeService for ContextService<CX, F> {
     type Service = ContextService<CX, F::Service>;
     type Error = F::Error;
 
@@ -52,6 +48,25 @@ where
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
+                .map_err(Into::into)?,
+        })
+    }
+}
+
+impl<CX: Clone, F: AsyncMakeService> AsyncMakeService for ContextService<CX, F> {
+    type Service = ContextService<CX, F::Service>;
+    type Error = F::Error;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        Ok(ContextService {
+            ctx: self.ctx.clone(),
+            inner: self
+                .inner
+                .make_via_ref(old.map(|o| &o.inner))
+                .await
                 .map_err(Into::into)?,
         })
     }

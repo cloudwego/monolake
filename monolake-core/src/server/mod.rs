@@ -1,4 +1,6 @@
-use std::{cell::UnsafeCell, collections::HashMap, fmt::Debug, io, rc::Rc, sync::Arc};
+use std::{
+    cell::UnsafeCell, collections::HashMap, fmt::Debug, io, num::NonZeroUsize, rc::Rc, sync::Arc,
+};
 
 use anyhow::anyhow;
 use futures_channel::{
@@ -7,7 +9,7 @@ use futures_channel::{
 };
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use monoio::{blocking::DefaultThreadPool, io::stream::Stream, utils::bind_to_cpu_set};
-use service_async::{MakeService, Service};
+use service_async::{AsyncMakeService, MakeService, Service};
 use tracing::{error, info, warn};
 
 use self::runtime::RuntimeWrapper;
@@ -26,11 +28,8 @@ impl<F, LF> Manager<F, LF>
 where
     F: Send + 'static,
     LF: Send + 'static,
-    F: MakeService,
 {
-    /// Start workers according to runtime config.
-    /// Threads JoinHandle will be returned and each factory Sender will
-    /// be saved for config updating.
+    #[inline]
     pub fn spawn_workers<A>(
         &mut self,
     ) -> Vec<(
@@ -38,7 +37,87 @@ where
         futures_channel::oneshot::Sender<()>,
     )>
     where
+        F: MakeService,
         Command<F, LF>: Execute<A, F::Service>,
+    {
+        self.spawn_workers_inner(
+            |worker_id, cores, runtime_config, mut finish_rx, rx, thread_pool| {
+                move || {
+                    let worker_controller = WorkerController::<F::Service>::default();
+                    if let Some(cores) = cores {
+                        let core = worker_id % cores;
+                        if let Err(e) = bind_to_cpu_set([core]) {
+                            warn!("bind thread {worker_id} to core {core} failed: {e}");
+                        }
+                    }
+                    let mut runtime = RuntimeWrapper::new(
+                        runtime_config.as_ref(),
+                        thread_pool.map(|p| p as Box<_>),
+                    );
+                    runtime.block_on(async move {
+                        worker_controller.run_controller(rx).await;
+                        finish_rx.close();
+                    });
+                }
+            },
+        )
+    }
+
+    #[inline]
+    pub fn spawn_workers_async<A>(
+        &mut self,
+    ) -> Vec<(
+        std::thread::JoinHandle<()>,
+        futures_channel::oneshot::Sender<()>,
+    )>
+    where
+        F: AsyncMakeService,
+        Command<F, LF>: AsyncExecute<A, F::Service>,
+    {
+        self.spawn_workers_inner(
+            |worker_id, cores, runtime_config, mut finish_rx, rx, thread_pool| {
+                move || {
+                    let worker_controller = WorkerController::<F::Service>::default();
+                    if let Some(cores) = cores {
+                        let core = worker_id % cores;
+                        if let Err(e) = bind_to_cpu_set([core]) {
+                            warn!("bind thread {worker_id} to core {core} failed: {e}");
+                        }
+                    }
+                    let mut runtime = RuntimeWrapper::new(
+                        runtime_config.as_ref(),
+                        thread_pool.map(|p| p as Box<_>),
+                    );
+                    runtime.block_on(async move {
+                        worker_controller.run_controller_async(rx).await;
+                        finish_rx.close();
+                    });
+                }
+            },
+        )
+    }
+
+    /// Start workers according to runtime config.
+    /// Threads JoinHandle will be returned and each factory Sender will
+    /// be saved for config updating.
+    pub fn spawn_workers_inner<S, SO>(
+        &mut self,
+        spawn: S,
+    ) -> Vec<(
+        std::thread::JoinHandle<()>,
+        futures_channel::oneshot::Sender<()>,
+    )>
+    where
+        // Command<F, LF>: Execute<A, F::Service>,
+        S: Fn(
+            usize,
+            Option<NonZeroUsize>,
+            Arc<RuntimeConfig>,
+            futures_channel::oneshot::Receiver<()>,
+            futures_channel::mpsc::Receiver<Update<F, LF>>,
+            Option<Box<DefaultThreadPool>>,
+        ) -> SO,
+        SO: FnOnce() + Send + 'static,
     {
         let cores = if self.runtime_config.cpu_affinity {
             std::thread::available_parallelism().ok()
@@ -52,26 +131,17 @@ where
                 let thread_pool = self.thread_pool.clone();
                 let (tx, rx) = channel(128);
                 let runtime_config = runtime_config.clone();
-                let (finish_tx, mut finish_rx) = futures_channel::oneshot::channel::<()>();
+                let (finish_tx, finish_rx) = futures_channel::oneshot::channel::<()>();
                 let handler = std::thread::Builder::new()
                     .name(format!("monolake-worker-{worker_id}"))
-                    .spawn(move || {
-                        let worker_controller = WorkerController::<F::Service>::default();
-                        if let Some(cores) = cores {
-                            let core = worker_id % cores;
-                            if let Err(e) = bind_to_cpu_set([core]) {
-                                warn!("bind thread {worker_id} to core {core} failed: {e}");
-                            }
-                        }
-                        let mut runtime = RuntimeWrapper::new(
-                            runtime_config.as_ref(),
-                            thread_pool.map(|p| p as Box<_>),
-                        );
-                        runtime.block_on(async move {
-                            worker_controller.run_controller(rx).await;
-                            finish_rx.close();
-                        });
-                    })
+                    .spawn(spawn(
+                        worker_id,
+                        cores,
+                        runtime_config,
+                        finish_rx,
+                        rx,
+                        thread_pool,
+                    ))
                     .expect("start worker thread {worker_id} failed");
                 self.workers.push(tx);
                 (handler, finish_tx)
@@ -233,6 +303,13 @@ pub trait Execute<A, S> {
     fn execute(self, controller: &WorkerController<S>) -> Result<(), AnyError>;
 }
 
+pub trait AsyncExecute<A, S> {
+    fn async_execute(
+        self,
+        controller: &WorkerController<S>,
+    ) -> impl std::future::Future<Output = Result<(), AnyError>>;
+}
+
 impl<F, LF, A, S> Execute<A, S> for Command<F, LF>
 where
     F: MakeService<Service = S>,
@@ -321,7 +398,108 @@ where
     }
 }
 
+impl<F, LF, A, S> AsyncExecute<A, S> for Command<F, LF>
+where
+    F: AsyncMakeService<Service = S>,
+    F::Error: Debug,
+    LF: AsyncMakeService,
+    LF::Service: Stream<Item = io::Result<A>> + 'static,
+    LF::Error: Debug,
+    S: Service<A> + 'static,
+    S::Error: Debug,
+    A: 'static,
+{
+    async fn async_execute(self, controller: &WorkerController<S>) -> Result<(), AnyError> {
+        match self {
+            Command::Update(name, factory) => {
+                let sites = unsafe { &mut *controller.sites.get() };
+                match sites.get(&name).map(|sh| sh.handler_slot.clone()) {
+                    Some(svc_slot) => {
+                        let svc = factory
+                            .make_via_ref(Some(&svc_slot.get_svc()))
+                            .await
+                            .map_err(|e| anyhow!("build service fail {e:?}"))?;
+                        svc_slot.update_svc(Rc::new(svc));
+                        Ok(())
+                    }
+                    None => bail_into!("site {name} not exist"),
+                }
+            }
+            Command::TwoStageCreate(name, factory) => {
+                let sites = unsafe { &mut *controller.sites.get() };
+                let Some(sh) = sites.get(&name) else {
+                    bail_into!("site {name} not exist");
+                };
+
+                let current_svc = sh.handler_slot.clone();
+                let svc = factory
+                    .make_via_ref(Some(&current_svc.get_svc()))
+                    .await
+                    .map_err(|e| anyhow!("build service fail {e:?}"))?;
+                unsafe { *sh.two_stage_handler_slot.get() = Some(svc) };
+                Ok(())
+            }
+            Command::TwoStageApply(name) => {
+                let sites = unsafe { &mut *controller.sites.get() };
+                let Some(sh) = sites.get(&name) else {
+                    bail_into!("site {name} not exist");
+                };
+
+                let svc = unsafe { (*sh.two_stage_handler_slot.get()).take() }
+                    .ok_or_else(|| anyhow!("two stage service not exist"))?;
+                sh.handler_slot.update_svc(Rc::new(svc));
+                Ok(())
+            }
+            Command::TwoStageAbort(name) => {
+                let sites = unsafe { &mut *controller.sites.get() };
+                let Some(sh) = sites.get(&name) else {
+                    bail_into!("site {name} not exist");
+                };
+                unsafe { (*sh.two_stage_handler_slot.get()) = None };
+                Ok(())
+            }
+            Command::Add(name, factory, listener_factory) => {
+                // TODO: make sure the named service has not been started
+                let listener = match listener_factory.make().await {
+                    Ok(l) => l,
+                    Err(e) => bail_into!("create listener fail for site {name}: {e:?}"),
+                };
+                let svc = match factory.make().await {
+                    Ok(l) => l,
+                    Err(e) => bail_into!("create service fail for site {name}: {e:?}"),
+                };
+                let new_slot = HandlerSlot::from(Rc::new(svc));
+                let (site_handler, stop) = SiteHandler::new(new_slot.clone());
+                {
+                    let sites = unsafe { &mut *controller.sites.get() };
+                    sites.insert(name, site_handler);
+                }
+                monoio::spawn(serve(listener, new_slot, stop));
+                Ok(())
+            }
+            Command::Remove(name) => {
+                let sites = unsafe { &mut *controller.sites.get() };
+                if sites.remove(&name).is_none() {
+                    bail_into!("site {name} not exist");
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 impl<S> WorkerController<S> {
+    pub async fn run_controller_async<F, LF, A>(&self, mut rx: Receiver<Update<F, LF>>)
+    where
+        Command<F, LF>: AsyncExecute<A, S>,
+    {
+        while let Some(upd) = rx.next().await {
+            if let Err(e) = upd.result.send(upd.cmd.async_execute(self).await) {
+                error!("unable to send back result: {e:?}");
+            }
+        }
+    }
+
     pub async fn run_controller<F, LF, A>(&self, mut rx: Receiver<Update<F, LF>>)
     where
         Command<F, LF>: Execute<A, S>,

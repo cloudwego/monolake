@@ -9,7 +9,7 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Param, Service,
+    AsyncMakeService, MakeService, Param, Service,
 };
 use tracing::debug;
 
@@ -57,16 +57,28 @@ where
 }
 
 // RewriteHandler is a Service and a MakeService.
-impl<F> MakeService for RewriteHandler<F>
-where
-    F: MakeService,
-{
+impl<F: MakeService> MakeService for RewriteHandler<F> {
     type Service = RewriteHandler<F::Service>;
     type Error = F::Error;
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(RewriteHandler {
             inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
+            router: self.router.clone(),
+        })
+    }
+}
+
+impl<F: AsyncMakeService> AsyncMakeService for RewriteHandler<F> {
+    type Service = RewriteHandler<F::Service>;
+    type Error = F::Error;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        Ok(RewriteHandler {
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
             router: self.router.clone(),
         })
     }

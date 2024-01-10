@@ -8,7 +8,7 @@ use monolake_core::{context::RemoteAddr, listener::AcceptedAddr, AnyError};
 use proxy_protocol::{parse, version1, version2, ParseError, ProxyHeader};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, ParamSet, Service,
+    AsyncMakeService, MakeService, ParamSet, Service,
 };
 
 use crate::tcp::Accept;
@@ -158,16 +158,27 @@ impl<F> ProxyProtocolServiceFactory<F> {
     }
 }
 
-impl<F> MakeService for ProxyProtocolServiceFactory<F>
-where
-    F: MakeService,
-{
+impl<F: MakeService> MakeService for ProxyProtocolServiceFactory<F> {
     type Service = ProxyProtocolService<F::Service>;
     type Error = F::Error;
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(ProxyProtocolService {
             inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
+        })
+    }
+}
+
+impl<F: AsyncMakeService> AsyncMakeService for ProxyProtocolServiceFactory<F> {
+    type Service = ProxyProtocolService<F::Service>;
+    type Error = F::Error;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        Ok(ProxyProtocolService {
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
         })
     }
 }

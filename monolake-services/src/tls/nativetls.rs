@@ -6,7 +6,7 @@ use monolake_core::AnyError;
 use native_tls::Identity;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Param, Service,
+    AsyncMakeService, MakeService, Param, Service,
 };
 
 use crate::tcp::Accept;
@@ -67,6 +67,31 @@ where
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
+                .map_err(Into::into)?,
+        })
+    }
+}
+
+impl<F> AsyncMakeService for NativeTlsServiceFactory<F>
+where
+    F: AsyncMakeService,
+    F::Error: Into<AnyError>,
+{
+    type Service = NativeTlsService<F::Service>;
+    type Error = AnyError;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        let builder = native_tls::TlsAcceptor::builder(self.identity.clone());
+        let acceptor = TlsAcceptor::from(builder.build().map_err(AnyError::from)?);
+        Ok(NativeTlsService {
+            acceptor,
+            inner: self
+                .inner
+                .make_via_ref(old.map(|o| &o.inner))
+                .await
                 .map_err(Into::into)?,
         })
     }

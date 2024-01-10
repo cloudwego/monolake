@@ -3,7 +3,7 @@ use monoio_http::common::body::HttpBody;
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Service,
+    AsyncMakeService, MakeService, Service,
 };
 use tracing::debug;
 
@@ -88,16 +88,27 @@ where
 }
 
 // ConnReuseHandler is a Service and a MakeService.
-impl<F> MakeService for ConnReuseHandler<F>
-where
-    F: MakeService,
-{
+impl<F: MakeService> MakeService for ConnReuseHandler<F> {
     type Service = ConnReuseHandler<F::Service>;
     type Error = F::Error;
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(ConnReuseHandler {
             inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
+        })
+    }
+}
+
+impl<F: AsyncMakeService> AsyncMakeService for ConnReuseHandler<F> {
+    type Service = ConnReuseHandler<F::Service>;
+    type Error = F::Error;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        Ok(ConnReuseHandler {
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
         })
     }
 }

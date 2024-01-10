@@ -17,7 +17,7 @@ use monolake_core::{
     http::ResponseWithContinue,
     listener::AcceptedAddr,
 };
-use service_async::{MakeService, ParamMaybeRef, ParamRef, Service};
+use service_async::{AsyncMakeService, MakeService, ParamMaybeRef, ParamRef, Service};
 use tracing::{debug, info};
 
 use crate::http::generate_response;
@@ -140,6 +140,18 @@ impl MakeService for ProxyHandlerFactory {
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
+        Ok(ProxyHandler::default())
+    }
+}
+
+impl AsyncMakeService for ProxyHandlerFactory {
+    type Service = ProxyHandler;
+    type Error = Infallible;
+
+    async fn make_via_ref(
+        &self,
+        _old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
         Ok(ProxyHandler::default())
     }
 }

@@ -22,7 +22,7 @@ use monolake_core::{
 };
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Param, ParamRef, Service,
+    AsyncMakeService, MakeService, Param, ParamRef, Service,
 };
 use tracing::{error, info, warn};
 
@@ -272,10 +272,7 @@ where
 }
 
 // HttpCoreService is a Service and a MakeService.
-impl<F> MakeService for HttpCoreService<F>
-where
-    F: MakeService,
-{
+impl<F: MakeService> MakeService for HttpCoreService<F> {
     type Service = HttpCoreService<F::Service>;
     type Error = F::Error;
 
@@ -284,6 +281,24 @@ where
             handler_chain: self
                 .handler_chain
                 .make_via_ref(old.map(|o| &o.handler_chain))?,
+            keepalive_timeout: self.keepalive_timeout,
+        })
+    }
+}
+
+impl<F: AsyncMakeService> AsyncMakeService for HttpCoreService<F> {
+    type Service = HttpCoreService<F::Service>;
+    type Error = F::Error;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        Ok(HttpCoreService {
+            handler_chain: self
+                .handler_chain
+                .make_via_ref(old.map(|o| &o.handler_chain))
+                .await?,
             keepalive_timeout: self.keepalive_timeout,
         })
     }

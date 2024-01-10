@@ -34,7 +34,7 @@ use openidconnect::{HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Param, Service,
+    AsyncMakeService, MakeService, Param, Service,
 };
 use thiserror::Error;
 use tracing::debug;
@@ -82,9 +82,8 @@ pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Err
             HeaderValue::from_str(value.to_str().unwrap()).unwrap(),
         );
     }
-    headers.insert("Host", unsafe {
-        HeaderValue::from_maybe_shared_unchecked(format!("{}", uri.host().unwrap()))
-    });
+    let host = uri.host().unwrap();
+    headers.insert("Host", HeaderValue::from_bytes(host.as_bytes()).unwrap());
 
     let request_payload: Bytes = request.body.into();
     let req: http::Request<HttpBody> = req
@@ -134,16 +133,28 @@ pub struct OpenIdHandler<H> {
     openid_config: Option<OpenIdConfig>,
 }
 
-impl<F> MakeService for OpenIdHandler<F>
-where
-    F: MakeService,
-{
+impl<F: MakeService> MakeService for OpenIdHandler<F> {
     type Service = OpenIdHandler<F::Service>;
     type Error = F::Error;
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(OpenIdHandler {
             inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
+            openid_config: self.openid_config.clone(),
+        })
+    }
+}
+
+impl<F: AsyncMakeService> AsyncMakeService for OpenIdHandler<F> {
+    type Service = OpenIdHandler<F::Service>;
+    type Error = F::Error;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        Ok(OpenIdHandler {
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
             openid_config: self.openid_config.clone(),
         })
     }

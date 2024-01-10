@@ -4,7 +4,7 @@ use monolake_core::AnyError;
 use native_tls::Identity;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Param, Service,
+    AsyncMakeService, MakeService, Param, Service,
 };
 
 pub use self::{nativetls::NativeTlsService, rustls::RustlsService};
@@ -130,6 +130,43 @@ where
                 .map_err(Into::into),
             UnifiedTlsFactory::None(inner) => inner
                 .make_via_ref(UnifiedTlsService::as_none(old))
+                .map(UnifiedTlsService::None)
+                .map_err(Into::into),
+        }
+    }
+}
+
+impl<F> AsyncMakeService for UnifiedTlsFactory<F>
+where
+    RustlsServiceFactory<F>: AsyncMakeService<Service = RustlsService<F::Service>>,
+    NativeTlsServiceFactory<F>:
+        AsyncMakeService<Service = NativeTlsService<F::Service>, Error = AnyError>,
+    <RustlsServiceFactory<F> as AsyncMakeService>::Error: Into<AnyError>,
+    <NativeTlsServiceFactory<F> as AsyncMakeService>::Error: Into<AnyError>,
+    F: AsyncMakeService,
+    F::Error: Into<AnyError>,
+{
+    type Service = UnifiedTlsService<F::Service>;
+    type Error = AnyError;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        match self {
+            UnifiedTlsFactory::Rustls(inner) => inner
+                .make_via_ref(UnifiedTlsService::as_rustls(old))
+                .await
+                .map(UnifiedTlsService::Rustls)
+                .map_err(Into::into),
+            UnifiedTlsFactory::Native(inner) => inner
+                .make_via_ref(UnifiedTlsService::as_native(old))
+                .await
+                .map(UnifiedTlsService::Native)
+                .map_err(Into::into),
+            UnifiedTlsFactory::None(inner) => inner
+                .make_via_ref(UnifiedTlsService::as_none(old))
+                .await
                 .map(UnifiedTlsService::None)
                 .map_err(Into::into),
         }

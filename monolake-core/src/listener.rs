@@ -6,7 +6,7 @@ use monoio::{
     net::{ListenerOpts, TcpListener, TcpStream},
     BufResult,
 };
-use service_async::MakeService;
+use service_async::{AsyncMakeService, MakeService};
 
 pub enum ListenerBuilder {
     Tcp(SocketAddr, ListenerOpts),
@@ -51,6 +51,18 @@ impl MakeService for ListenerBuilder {
     type Error = io::Error;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
+        self.build()
+    }
+}
+
+impl AsyncMakeService for ListenerBuilder {
+    type Service = Listener;
+    type Error = io::Error;
+
+    async fn make_via_ref(
+        &self,
+        _old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
         self.build()
     }
 }

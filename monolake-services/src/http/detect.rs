@@ -7,7 +7,7 @@ use monoio::{
 use monolake_core::{http::HttpAccept, AnyError};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Service,
+    AsyncMakeService, MakeService, Service,
 };
 
 use crate::tcp::Accept;
@@ -19,16 +19,27 @@ pub struct HttpVersionDetect<T> {
     inner: T,
 }
 
-impl<F> MakeService for HttpVersionDetect<F>
-where
-    F: MakeService,
-{
+impl<F: MakeService> MakeService for HttpVersionDetect<F> {
     type Service = HttpVersionDetect<F::Service>;
     type Error = F::Error;
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(HttpVersionDetect {
             inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
+        })
+    }
+}
+
+impl<F: AsyncMakeService> AsyncMakeService for HttpVersionDetect<F> {
+    type Service = HttpVersionDetect<F::Service>;
+    type Error = F::Error;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        Ok(HttpVersionDetect {
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
         })
     }
 }

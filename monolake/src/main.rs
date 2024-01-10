@@ -7,6 +7,7 @@ use monolake_core::{
     listener::ListenerBuilder,
     server::{Command, Manager},
 };
+use service_async::AsyncMakeServiceWrapper;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
 use crate::{config::Config, factory::l7_factory, util::print_logo};
@@ -44,7 +45,7 @@ async fn main() -> Result<()> {
 
     // Start workers
     let mut manager = Manager::new(config.runtime);
-    let join_handlers = manager.spawn_workers();
+    let join_handlers = manager.spawn_workers_async();
     tracing::info!(
         "Start monolake with {:?} runtime, {} worker(s), {} entries and sqpoll {:?}.",
         manager.config().runtime_type,
@@ -59,7 +60,11 @@ async fn main() -> Result<()> {
         let svc_fac = l7_factory(server);
 
         manager
-            .apply(Command::Add(Arc::new(name), svc_fac, Arc::new(lis_fac)))
+            .apply(Command::Add(
+                Arc::new(name),
+                AsyncMakeServiceWrapper(svc_fac),
+                AsyncMakeServiceWrapper(Arc::new(lis_fac)),
+            ))
             .await
             .err()
             .expect("apply init config failed");

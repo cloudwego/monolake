@@ -55,6 +55,6 @@ pub fn l7_factory(
         .check_make_svc::<(TcpStream, FullContext)>()
         .push(ContextService::<EmptyContext, _>::layer())
         .check_make_svc::<(TcpStream, AcceptedAddr)>()
-        .push_arc_factory()
+        .into_arc_factory()
         .into_inner()
 }

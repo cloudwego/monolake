@@ -6,7 +6,7 @@ use monolake_core::AnyError;
 use rustls::ServerConfig;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Param, Service,
+    AsyncMakeService, MakeService, Param, Service,
 };
 
 use crate::tcp::Accept;
@@ -50,10 +50,7 @@ impl<F> RustlsServiceFactory<F> {
     }
 }
 
-impl<F> MakeService for RustlsServiceFactory<F>
-where
-    F: MakeService,
-{
+impl<F: MakeService> MakeService for RustlsServiceFactory<F> {
     type Service = RustlsService<F::Service>;
     type Error = F::Error;
 
@@ -62,6 +59,22 @@ where
         Ok(RustlsService {
             acceptor,
             inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
+        })
+    }
+}
+
+impl<F: AsyncMakeService> AsyncMakeService for RustlsServiceFactory<F> {
+    type Service = RustlsService<F::Service>;
+    type Error = F::Error;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        let acceptor = TlsAcceptor::from(self.config.clone());
+        Ok(RustlsService {
+            acceptor,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
         })
     }
 }

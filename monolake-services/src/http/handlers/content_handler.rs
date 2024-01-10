@@ -6,7 +6,7 @@ use monoio_http::common::{
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    MakeService, Service,
+    AsyncMakeService, MakeService, Service,
 };
 
 use crate::http::generate_response;
@@ -97,6 +97,20 @@ where
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(ContentHandler {
             inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
+        })
+    }
+}
+
+impl<F: AsyncMakeService> AsyncMakeService for ContentHandler<F> {
+    type Service = ContentHandler<F::Service>;
+    type Error = F::Error;
+
+    async fn make_via_ref(
+        &self,
+        old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        Ok(ContentHandler {
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
         })
     }
 }
