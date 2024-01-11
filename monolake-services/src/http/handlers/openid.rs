@@ -7,8 +7,14 @@ use bytes::{Bytes, BytesMut};
 use cookie::Cookie;
 use http::{HeaderName, HeaderValue, Request, Response, StatusCode};
 use lazy_static::lazy_static;
+use monoio::net::TcpStream;
 use monoio_http::common::body::{Body, FixedBody, HttpBody, StreamHint};
-use monoio_http_client::Client;
+use monoio_transports::{
+    connectors::{Connector, TcpConnector, TlsConnector, TlsStream},
+    http::HttpConnector,
+    key::Key,
+    pooled::connector::PooledConnector,
+};
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
 #[allow(unused)]
 use openidconnect::core::{
@@ -35,6 +41,9 @@ use tracing::debug;
 use url::Url;
 
 use crate::http::generate_response;
+
+type PoolHttpsConnector =
+    HttpConnector<PooledConnector<TlsConnector<TcpConnector>, Key, TlsStream<TcpStream>, ()>>;
 
 #[derive(Debug, Error)]
 pub enum Error {}
@@ -82,8 +91,11 @@ pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Err
         .body(HttpBody::fixed_body(Some(request_payload)))
         .unwrap();
 
-    let client = Client::default();
-    let response = client.send_request(req).await.unwrap();
+    let client = PoolHttpsConnector::default();
+    let key = req.uri().try_into().unwrap();
+    let mut client = client.connect(key).await.unwrap();
+    let (response, _) = client.send_request(req).await;
+    let response = response.unwrap();
 
     let status = response.status().as_u16();
     // let headers: HeaderMap = response.headers().clone();

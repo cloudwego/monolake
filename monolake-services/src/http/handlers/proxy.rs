@@ -1,11 +1,13 @@
 use std::convert::Infallible;
 
 use bytes::Bytes;
-use http::{header, uri::Scheme, HeaderMap, HeaderValue, Request, StatusCode};
+use http::{header, HeaderMap, HeaderValue, Request, StatusCode};
 use monoio::net::TcpStream;
 use monoio_http::common::body::HttpBody;
+#[cfg(feature = "tls")]
+use monoio_transports::connectors::{TlsConnector, TlsStream};
 use monoio_transports::{
-    connectors::{Connector, TcpConnector, TlsConnector, TlsStream},
+    connectors::{Connector, TcpConnector},
     http::HttpConnector,
     key::Key,
     pooled::connector::PooledConnector,
@@ -21,16 +23,24 @@ use tracing::{debug, info};
 use crate::http::generate_response;
 
 type PoolHttpConnector = HttpConnector<PooledConnector<TcpConnector, Key, TcpStream, ()>>;
+#[cfg(feature = "tls")]
 type PoolHttpsConnector =
     HttpConnector<PooledConnector<TlsConnector<TcpConnector>, Key, TlsStream<TcpStream>, ()>>;
 
 #[derive(Clone, Default)]
 pub struct ProxyHandler {
     connector: PoolHttpConnector,
+    #[cfg(feature = "tls")]
     tls_connector: PoolHttpsConnector,
 }
 
 impl ProxyHandler {
+    #[cfg(not(feature = "tls"))]
+    pub fn new(connector: PoolHttpConnector) -> Self {
+        ProxyHandler { connector }
+    }
+
+    #[cfg(feature = "tls")]
     pub fn new(connector: PoolHttpConnector, tls_connector: PoolHttpsConnector) -> Self {
         ProxyHandler {
             connector,
@@ -55,11 +65,11 @@ where
         (mut req, ctx): (Request<HttpBody>, CX),
     ) -> Result<Self::Response, Self::Error> {
         add_xff_header(req.headers_mut(), &ctx);
-        if req.uri().scheme() == Some(&Scheme::HTTPS) {
-            self.send_https_request(req).await
-        } else {
-            self.send_http_request(req).await
+        #[cfg(feature = "tls")]
+        if req.uri().scheme() == Some(&http::uri::Scheme::HTTPS) {
+            return self.send_https_request(req).await;
         }
+        self.send_http_request(req).await
     }
 }
 
@@ -92,6 +102,7 @@ impl ProxyHandler {
         }
     }
 
+    #[cfg(feature = "tls")]
     async fn send_https_request(
         &self,
         req: Request<HttpBody>,
