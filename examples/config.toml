@@ -69,5 +69,7 @@ name = "monolake.cloudwego.io"
 listener = { type = "socket", value = "0.0.0.0:8083" }
 
 [[servers.server4.routes]]
-upstreams = [{ endpoint = { type = "uri", value = "https://www.wikipedia.org" } }]
+upstreams = [
+    { endpoint = { type = "uri", value = "https://www.wikipedia.org" } },
+]
 path = '/'

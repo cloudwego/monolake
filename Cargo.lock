@@ -1211,9 +1211,9 @@ dependencies = [
 
 [[package]]
 name = "monoio-codec"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e27eed408f0e927a9ad28d334a76f8878253aaf61bcc4f0e209623104415974d"
+checksum = "3764cbbc38b7634415ff013d8f7a6369f54cb86dbed4e43c8e7fed00e9383ecc"
 dependencies = [
  "bytes",
  "monoio",
@@ -1233,9 +1233,9 @@ dependencies = [
 
 [[package]]
 name = "monoio-http"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ebd005afc1553dbb2ca0f13ec0a28ac826378850420e8b003d8eb6ad52a347b"
+checksum = "74c76ffdd56f6057b4a46b94e80cae840ae8d7060eed6cee96fcc093fc204a06"
 dependencies = [
  "brotli",
  "bytes",
@@ -1256,28 +1256,6 @@ dependencies = [
  "smallvec",
  "thiserror",
  "tracing",
-]
-
-[[package]]
-name = "monoio-http-client"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35501d02c689997ac8aff8bc0005ff7b2b8ce8b65ddb11930539ddeae0465f51"
-dependencies = [
- "bytes",
- "http 1.0.0",
- "local-sync",
- "monoio",
- "monoio-http",
- "monoio-rustls",
- "rustls",
- "serde",
- "serde_json",
- "service-async",
- "smol_str",
- "thiserror",
- "tracing",
- "webpki-roots",
 ]
 
 [[package]]
@@ -1324,6 +1302,29 @@ dependencies = [
  "monoio-io-wrapper",
  "rustls",
  "thiserror",
+]
+
+[[package]]
+name = "monoio-transports"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2178b2f723c069e75d29e5855eef69a7b004c07a98241b20ed85cc2bd043fb9f"
+dependencies = [
+ "bytes",
+ "http 1.0.0",
+ "local-sync",
+ "monoio",
+ "monoio-codec",
+ "monoio-compat",
+ "monoio-http",
+ "monoio-rustls",
+ "rustls",
+ "serde",
+ "serde_json",
+ "service-async",
+ "smol_str",
+ "thiserror",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -1379,9 +1380,9 @@ dependencies = [
  "matchit",
  "monoio",
  "monoio-http",
- "monoio-http-client",
  "monoio-native-tls",
  "monoio-rustls",
+ "monoio-transports",
  "monolake-core",
  "native-tls",
  "openidconnect",

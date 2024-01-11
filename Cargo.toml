@@ -4,8 +4,8 @@ resolver = "2"
 
 [workspace.dependencies]
 monoio = "0.2.0"
-monoio-http = "0.3.0"
-monoio-http-client = "0.3.0"
+monoio-http = "0.3.1"
+monoio-transports = "0.3.0"
 monoio-native-tls = "0.3.0"
 monoio-rustls = "0.3.0"
 native-tls = "0.2"
