@@ -1,7 +1,7 @@
 use std::{convert::Infallible, fmt::Debug, pin::Pin, time::Duration};
 
 use bytes::Bytes;
-use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
+use futures::{stream::FuturesUnordered, StreamExt};
 use http::StatusCode;
 use monoio::io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent, Split, Splitable};
 use monoio_http::{
@@ -210,40 +210,40 @@ impl<H> HttpCoreService<H> {
 
         loop {
             let ctx = ctx.clone();
-            futures::select! {
-                result = rx.recv().fuse() => {
-                    match result {
-                        Some(Ok((request, response_handle)))  => {
-                            let request = HttpBody::request(request);
-                            backend_resp_stream.push( async move {
-                                (self.handler_chain.handle(request, ctx).await, response_handle)
-                            });
-                        },
-                        Some(Err(e)) => {
-                            error!("H2 connection error {e:?}");
-                            break;
-                        },
-                        None => {}
-                    }
-                },
-                result = backend_resp_stream.next() => {
-                    match result {
-                        Some((Ok((response, _)), response_handle)) => {
-                            frontend_resp_stream.push(Self::h2_process_response(response, response_handle));
-                        }
-                        Some((Err(e), mut response_handle)) => {
-                            error!("Handler chain returned error : {e:?}");
-                            let (parts, _) = generate_response(StatusCode::INTERNAL_SERVER_ERROR, false).into_parts();
-                            let response = http::Response::from_parts(parts, ());
-                            let _ = response_handle.send_response(response, true);
-                        }
-                        None => {}
-                    }
-                },
-                _ = frontend_resp_stream.next() => {},
-                complete => {}
+            monoio::select! {
+                 Some(Ok((request, response_handle))) = rx.recv() => {
+                         let request = HttpBody::request(request);
+                         backend_resp_stream.push( async move {
+                             (self.handler_chain.handle(request, ctx).await, response_handle)
+                         });
+                 }
+                 Some(result) = backend_resp_stream.next() => {
+                     match result {
+                         (Ok((response, _)), response_handle) => {
+                             frontend_resp_stream.push(Self::h2_process_response(response, response_handle));
+                         }
+                         (Err(e), mut response_handle) => {
+                             error!("Handler chain returned error : {e:?}");
+                             let (parts, _) = generate_response(StatusCode::INTERNAL_SERVER_ERROR, false).into_parts();
+                             let response = http::Response::from_parts(parts, ());
+                             let _ = response_handle.send_response(response, true);
+                         }
+                     }
+                 }
+                 Some(_) = frontend_resp_stream.next() => {
+                 }
+                  else => {
+                     // No more futures to drive, break the loop
+                     // and drop the service.
+                     break;
+                  }
             }
         }
+
+        info!(
+            "H2 connection processing complete for {:?}",
+            ParamRef::<PeerAddr>::param_ref(&ctx)
+        );
     }
 }
 
