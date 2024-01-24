@@ -1,6 +1,4 @@
-use std::{
-    cell::UnsafeCell, collections::HashMap, fmt::Debug, io, num::NonZeroUsize, rc::Rc, sync::Arc,
-};
+use std::{cell::UnsafeCell, collections::HashMap, fmt::Debug, io, rc::Rc, sync::Arc};
 
 use anyhow::anyhow;
 use futures_channel::{
@@ -40,27 +38,15 @@ where
         F: MakeService,
         Command<F, LF>: Execute<A, F::Service>,
     {
-        self.spawn_workers_inner(
-            |worker_id, cores, runtime_config, mut finish_rx, rx, thread_pool| {
-                move || {
-                    let worker_controller = WorkerController::<F::Service>::default();
-                    if let Some(cores) = cores {
-                        let core = worker_id % cores;
-                        if let Err(e) = bind_to_cpu_set([core]) {
-                            warn!("bind thread {worker_id} to core {core} failed: {e}");
-                        }
-                    }
-                    let mut runtime = RuntimeWrapper::new(
-                        runtime_config.as_ref(),
-                        thread_pool.map(|p| p as Box<_>),
-                    );
-                    runtime.block_on(async move {
-                        worker_controller.run_controller(rx).await;
-                        finish_rx.close();
-                    });
-                }
-            },
-        )
+        self.spawn_workers_inner(|mut finish_rx, rx| {
+            move |mut runtime: RuntimeWrapper| {
+                let worker_controller = WorkerController::<F::Service>::default();
+                runtime.block_on(async move {
+                    worker_controller.run_controller(rx).await;
+                    finish_rx.close();
+                });
+            }
+        })
     }
 
     #[inline]
@@ -74,27 +60,15 @@ where
         F: AsyncMakeService,
         Command<F, LF>: AsyncExecute<A, F::Service>,
     {
-        self.spawn_workers_inner(
-            |worker_id, cores, runtime_config, mut finish_rx, rx, thread_pool| {
-                move || {
-                    let worker_controller = WorkerController::<F::Service>::default();
-                    if let Some(cores) = cores {
-                        let core = worker_id % cores;
-                        if let Err(e) = bind_to_cpu_set([core]) {
-                            warn!("bind thread {worker_id} to core {core} failed: {e}");
-                        }
-                    }
-                    let mut runtime = RuntimeWrapper::new(
-                        runtime_config.as_ref(),
-                        thread_pool.map(|p| p as Box<_>),
-                    );
-                    runtime.block_on(async move {
-                        worker_controller.run_controller_async(rx).await;
-                        finish_rx.close();
-                    });
-                }
-            },
-        )
+        self.spawn_workers_inner(|mut finish_rx, rx| {
+            move |mut runtime: RuntimeWrapper| {
+                let worker_controller = WorkerController::<F::Service>::default();
+                runtime.block_on(async move {
+                    worker_controller.run_controller_async(rx).await;
+                    finish_rx.close();
+                });
+            }
+        })
     }
 
     /// Start workers according to runtime config.
@@ -102,22 +76,17 @@ where
     /// be saved for config updating.
     pub fn spawn_workers_inner<S, SO>(
         &mut self,
-        spawn: S,
+        fn_lambda: S,
     ) -> Vec<(
         std::thread::JoinHandle<()>,
         futures_channel::oneshot::Sender<()>,
     )>
     where
-        // Command<F, LF>: Execute<A, F::Service>,
         S: Fn(
-            usize,
-            Option<NonZeroUsize>,
-            Arc<RuntimeConfig>,
             futures_channel::oneshot::Receiver<()>,
             futures_channel::mpsc::Receiver<Update<F, LF>>,
-            Option<Box<DefaultThreadPool>>,
         ) -> SO,
-        SO: FnOnce() + Send + 'static,
+        SO: FnOnce(RuntimeWrapper) + Send + 'static,
     {
         let cores = if self.runtime_config.cpu_affinity {
             std::thread::available_parallelism().ok()
@@ -132,17 +101,23 @@ where
                 let (tx, rx) = channel(128);
                 let runtime_config = runtime_config.clone();
                 let (finish_tx, finish_rx) = futures_channel::oneshot::channel::<()>();
+                let f = fn_lambda(finish_rx, rx);
                 let handler = std::thread::Builder::new()
                     .name(format!("monolake-worker-{worker_id}"))
-                    .spawn(spawn(
-                        worker_id,
-                        cores,
-                        runtime_config,
-                        finish_rx,
-                        rx,
-                        thread_pool,
-                    ))
+                    .spawn(move || {
+                        f(RuntimeWrapper::new(
+                            runtime_config.as_ref(),
+                            thread_pool.map(|p| p as Box<_>),
+                        ))
+                    })
                     .expect("start worker thread {worker_id} failed");
+                // bind thread to cpu core
+                if let Some(cores) = cores {
+                    let core = worker_id % cores;
+                    if let Err(e) = bind_to_cpu_set([core]) {
+                        warn!("bind thread {worker_id} to core {core} failed: {e}");
+                    }
+                }
                 self.workers.push(tx);
                 (handler, finish_tx)
             })
