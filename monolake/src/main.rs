@@ -10,11 +10,14 @@ use monolake_core::{
 use service_async::AsyncMakeServiceWrapper;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
-use crate::{config::Config, factory::l7_factory, util::print_logo};
+use crate::{
+    config::Config, factory::l7_factory, thrift_factory::thrift_factory, util::print_logo,
+};
 
 mod config;
 mod context;
 mod factory;
+mod thrift_factory;
 mod util;
 
 #[derive(Parser, Debug)]
@@ -57,7 +60,12 @@ async fn main() -> Result<()> {
     // Construct Service Factory and Listener Factory
     for (name, ServiceConfig { listener, server }) in config.servers.into_iter() {
         let lis_fac = ListenerBuilder::try_from(listener).expect("build listener failed");
-        let svc_fac = l7_factory(server);
+
+        let svc_fac = if server.proxy_type == config::ProxyType::Thrift {
+            thrift_factory(server)
+        } else {
+            l7_factory(server)
+        };
 
         manager
             .apply(Command::Add(

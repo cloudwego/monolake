@@ -7,6 +7,7 @@ pub mod context;
 pub mod http;
 pub mod listener;
 pub mod server;
+pub mod thrift;
 pub mod util;
 
 pub(crate) mod sealed {

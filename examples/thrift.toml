@@ -1,0 +1,14 @@
+[runtime]
+# runtime_type = "legacy"
+workers = 1
+entries = 1024
+
+
+[servers.thrift_proxy]
+name = "thrift_proxy"
+listener = { type = "socket", value = "0.0.0.0:8081" }
+
+# make test happy
+[[servers.thrift_proxy.routes]]
+path = '/'
+upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:9080" } }]

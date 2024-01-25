@@ -25,7 +25,9 @@ vendored = ["native-tls?/vendored"]
 [dependencies]
 monoio = { workspace = true, features = ['splice'] }
 monolake-core = { path = "../monolake-core" }
+monoio-codec = { workspace = true }
 monoio-http = { workspace = true }
+monoio-thrift = { workspace = true }
 monoio-transports = { workspace = true, features = [
     "logging",
     "rustls-unsafe-io",
@@ -47,7 +49,7 @@ rustls-pemfile = { version = "1", optional = true }
 webpki-roots = { version = "0.25.2", optional = true }
 
 # common
-bytes = "1"
+bytes = { workspace = true }
 # async-channel = "1"
 rand = "0.8"
 matchit = "0.7"

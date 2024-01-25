@@ -4,7 +4,9 @@ resolver = "2"
 
 [workspace.dependencies]
 monoio = "0.2.0"
+monoio-codec = "0.3"
 monoio-http = "0.3.1"
+monoio-thrift = { git = "https://github.com/bobozhengsir/monoio-thrift.git", branch = "feature/payload_raw_codec" }
 monoio-transports = "0.3.0"
 monoio-native-tls = "0.3.0"
 monoio-rustls = "0.3.0"
@@ -16,7 +18,11 @@ http = "1.0"
 anyhow = "1"
 serde = "1"
 tracing = "0.1"
+bytes = "1"
 
 [profile.release-lto]
 inherits = "release"
 lto = true
+
+#[patch."https://github.com/monoio-rs/monoio-thrift.git"]
+#monoio-thrift = { path = "/data00/home/zhengjianbo/code/github/monoio-thrift" }

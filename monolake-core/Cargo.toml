@@ -10,11 +10,13 @@ proxy-protocol = []
 [dependencies]
 monoio = { workspace = true, features = ["splice", "sync"] }
 monoio-http = { workspace = true }
+monoio-thrift = { workspace = true }
 service-async = { workspace = true }
 http = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tracing = { workspace = true }
+bytes = { workspace = true }
 
 # futures
 futures-util = { version = "0.3", features = ["sink"] }
