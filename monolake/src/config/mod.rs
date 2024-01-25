@@ -16,6 +16,7 @@ pub struct Config {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum ProxyType {
     #[default]
     Http,

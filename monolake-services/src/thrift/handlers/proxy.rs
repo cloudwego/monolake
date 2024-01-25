@@ -21,21 +21,27 @@ use monolake_core::{
 use service_async::{AsyncMakeService, MakeService, ParamMaybeRef, ParamRef, Service};
 use tracing::info;
 
+use crate::http::handlers::rewrite::{Endpoint, RouteConfig};
+
 // TODO: refactor config mod, support unified connector
-type PoolThriftConnector = PooledConnector<TcpConnector, Key, TcpStream, ()>;
+type PoolThriftTcpConnector = PooledConnector<TcpConnector, Key, TcpStream, ()>;
 
 #[derive(Clone, Default)]
 pub struct ProxyHandler {
-    connector: PoolThriftConnector,
+    tcp_connector: PoolThriftTcpConnector,
+    routes: Vec<RouteConfig>,
 }
 
 impl ProxyHandler {
-    pub fn new(connector: PoolThriftConnector) -> Self {
-        ProxyHandler { connector }
+    pub fn new(tcp_connector: PoolThriftTcpConnector, routes: Vec<RouteConfig>) -> Self {
+        ProxyHandler {
+            tcp_connector,
+            routes,
+        }
     }
 
-    pub const fn factory() -> ProxyHandlerFactory {
-        ProxyHandlerFactory
+    pub const fn factory(config: Vec<RouteConfig>) -> ProxyHandlerFactory {
+        ProxyHandlerFactory { config }
     }
 }
 
@@ -51,22 +57,26 @@ where
         (mut req, ctx): (ThriftRequest<ThriftBody>, CX),
     ) -> Result<Self::Response, Self::Error> {
         add_metainfo(&mut req.ttheader, &ctx);
-        self.send_http_request(req).await
+        self.send_request(req).await
     }
 }
 
 impl ProxyHandler {
-    async fn send_http_request(
+    async fn send_request(
         &self,
         req: ThriftRequest<ThriftBody>,
     ) -> Result<ThriftResponse<ThriftBody>, monoio_transports::Error> {
         // TODO: how to choose key
-        let key = Key {
-            host: "10.225.151.2".into(),
-            port: 9969,
-            server_name: None,
+        let upstream = &self.routes[0].upstreams[0];
+        let key = match upstream.endpoint {
+            Endpoint::Socket(addr) => Key {
+                host: addr.ip().to_string().into(),
+                port: addr.port(),
+                server_name: None,
+            },
+            _ => panic!("now only support tcp"),
         };
-        let conn = match self.connector.connect(key).await {
+        let conn = match self.tcp_connector.connect(key).await {
             Ok(conn) => conn,
             Err(e) => {
                 info!("connect upstream error: {:?}", e);
@@ -93,14 +103,19 @@ impl ProxyHandler {
     }
 }
 
-pub struct ProxyHandlerFactory;
+pub struct ProxyHandlerFactory {
+    config: Vec<RouteConfig>,
+}
 
 impl MakeService for ProxyHandlerFactory {
     type Service = ProxyHandler;
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        Ok(ProxyHandler::default())
+        Ok(ProxyHandler::new(
+            PoolThriftTcpConnector::default(),
+            self.config.clone(),
+        ))
     }
 }
 
@@ -112,7 +127,10 @@ impl AsyncMakeService for ProxyHandlerFactory {
         &self,
         _old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
-        Ok(ProxyHandler::default())
+        Ok(ProxyHandler::new(
+            PoolThriftTcpConnector::default(),
+            self.config.clone(),
+        ))
     }
 }
 

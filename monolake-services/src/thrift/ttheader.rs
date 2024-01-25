@@ -10,7 +10,7 @@ use service_async::{
     layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Param, ParamRef, Service,
 };
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::http::Keepalive;
 
@@ -52,7 +52,7 @@ impl<H> TtheaderCoreService<H> {
                 }
                 Ok(None) => {
                     // EOF
-                    info!(
+                    debug!(
                         "Connection {:?} closed",
                         ParamRef::<PeerAddr>::param_ref(&ctx),
                     );

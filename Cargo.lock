@@ -1329,7 +1329,7 @@ dependencies = [
 [[package]]
 name = "monoio-thrift"
 version = "0.0.1"
-source = "git+https://github.com/bobozhengsir/monoio-thrift.git?branch=feature/payload_raw_codec#92c4a9cd6b6c7c854d961950dda9b2776a2832c8"
+source = "git+https://github.com/monoio-rs/monoio-thrift.git?branch=master#0e20feec73e7ad52f6ca23641731c9f8699d12b5"
 dependencies = [
  "byteorder",
  "bytes",

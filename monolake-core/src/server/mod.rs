@@ -8,7 +8,7 @@ use futures_channel::{
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use monoio::{blocking::DefaultThreadPool, io::stream::Stream, utils::bind_to_cpu_set};
 use service_async::{AsyncMakeService, MakeService, Service};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use self::runtime::RuntimeWrapper;
 use crate::{bail_into, config::RuntimeConfig, AnyError};
@@ -515,7 +515,7 @@ where
                         monoio::spawn(async move {
                             match svc.call(accept).await {
                                 Ok(_) => {
-                                    info!("Connection complete");
+                                    debug!("Connection complete");
                                 }
                                 Err(e) => {
                                     error!("Connection error: {e:?}");

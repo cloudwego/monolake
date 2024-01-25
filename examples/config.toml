@@ -1,6 +1,6 @@
 [runtime]
 # runtime_type = "legacy"
-workers = 1
+worker_threads = 2
 entries = 1024
 
 

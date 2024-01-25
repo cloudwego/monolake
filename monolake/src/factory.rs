@@ -1,6 +1,7 @@
 //! Preconstructed factories.
 use std::fmt::Debug;
 
+use certain_map::Param;
 use monoio::net::TcpStream;
 use monolake_core::listener::{AcceptedAddr, AcceptedStream};
 #[cfg(feature = "openid")]
@@ -14,6 +15,7 @@ use monolake_services::{
         HttpCoreService, HttpVersionDetect,
     },
     tcp::Accept,
+    thrift::{handlers::ProxyHandler as TProxyHandler, ttheader::TtheaderCoreService},
 };
 use service_async::{stack::FactoryStack, ArcMakeService, Service};
 
@@ -32,29 +34,51 @@ pub fn l7_factory(
     impl Service<Accept<AcceptedStream, AcceptedAddr>, Error = impl Debug>,
     impl Debug,
 > {
-    let stacks = FactoryStack::new(config)
-        .replace(ProxyHandler::factory())
-        .push(ContentHandler::layer())
-        .push(RewriteHandler::layer());
+    match config.proxy_type {
+        crate::config::ProxyType::Http => {
+            let stacks = FactoryStack::new(config)
+                .replace(ProxyHandler::factory())
+                .push(ContentHandler::layer())
+                .push(RewriteHandler::layer());
 
-    #[cfg(feature = "openid")]
-    let stacks = stacks.push(OpenIdHandler::layer());
+            #[cfg(feature = "openid")]
+            let stacks = stacks.push(OpenIdHandler::layer());
 
-    let stacks = stacks
-        .push(ConnReuseHandler::layer())
-        .push(HttpCoreService::layer())
-        .push(HttpVersionDetect::layer());
+            let stacks = stacks
+                .push(ConnReuseHandler::layer())
+                .push(HttpCoreService::layer())
+                .push(HttpVersionDetect::layer());
 
-    #[cfg(feature = "tls")]
-    let stacks = stacks.push(monolake_services::tls::UnifiedTlsFactory::layer());
+            #[cfg(feature = "tls")]
+            let stacks = stacks.push(monolake_services::tls::UnifiedTlsFactory::layer());
 
-    #[cfg(feature = "proxy-protocol")]
-    let stacks = stacks.push(ProxyProtocolServiceFactory::layer());
+            #[cfg(feature = "proxy-protocol")]
+            let stacks = stacks.push(ProxyProtocolServiceFactory::layer());
 
-    stacks
-        .check_make_svc::<(TcpStream, FullContext)>()
-        .push(ContextService::<EmptyContext, _>::layer())
-        .check_make_svc::<(TcpStream, AcceptedAddr)>()
-        .into_arc_factory()
-        .into_inner()
+            stacks
+                .check_make_svc::<(TcpStream, FullContext)>()
+                .push(ContextService::<EmptyContext, _>::layer())
+                .check_make_svc::<(TcpStream, AcceptedAddr)>()
+                .into_boxed_service()
+                .into_arc_factory()
+                .into_inner()
+        }
+        crate::config::ProxyType::Thrift => {
+            let proxy_config = config.param();
+            let stacks = FactoryStack::new(config)
+                .replace(TProxyHandler::factory(proxy_config))
+                .push(TtheaderCoreService::layer());
+
+            #[cfg(feature = "tls")]
+            let stacks = stacks.push(monolake_services::tls::UnifiedTlsFactory::layer());
+
+            stacks
+                .check_make_svc::<(TcpStream, FullContext)>()
+                .push(ContextService::<EmptyContext, _>::layer())
+                .check_make_svc::<(TcpStream, AcceptedAddr)>()
+                .into_boxed_service()
+                .into_arc_factory()
+                .into_inner()
+        }
+    }
 }
