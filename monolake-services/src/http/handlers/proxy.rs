@@ -1,4 +1,5 @@
 use std::convert::Infallible;
+use std::time::Duration;
 
 use bytes::Bytes;
 use http::{header, HeaderMap, HeaderValue, Request, StatusCode};
@@ -48,8 +49,10 @@ impl ProxyHandler {
         }
     }
 
-    pub const fn factory() -> ProxyHandlerFactory {
-        ProxyHandlerFactory
+    pub const fn factory(timeout: Duration) -> ProxyHandlerFactory {
+        ProxyHandlerFactory {
+            http_timeout: timeout,
+        }
     }
 }
 
@@ -132,7 +135,17 @@ impl ProxyHandler {
     }
 }
 
-pub struct ProxyHandlerFactory;
+pub struct ProxyHandlerFactory {
+    http_timeout: Duration,
+}
+
+impl ProxyHandlerFactory {
+     pub fn new(timeout: Duration) -> ProxyHandlerFactory {
+         ProxyHandlerFactory {
+             http_timeout: timeout,
+         }
+     }
+}
 
 // HttpCoreService is a Service and a MakeService.
 impl MakeService for ProxyHandlerFactory {
@@ -140,7 +153,15 @@ impl MakeService for ProxyHandlerFactory {
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        Ok(ProxyHandler::default())
+        let mut connector = PoolHttpConnector::default();
+        connector.timeout = self.http_timeout;
+
+        let handler = ProxyHandler {
+            connector: connector,
+            #[cfg(feature = "tls")]
+            tls_connector: PoolHttpsConnector::default(),
+        };
+        Ok(handler)
     }
 }
 
@@ -152,7 +173,15 @@ impl AsyncMakeService for ProxyHandlerFactory {
         &self,
         _old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
-        Ok(ProxyHandler::default())
+        let mut connector = PoolHttpConnector::default();
+        connector.timeout =(*self).http_timeout;
+
+        let handler = ProxyHandler {
+            connector: connector,
+            #[cfg(feature = "tls")]
+            tls_connector: PoolHttpsConnector::default(),
+        };
+        Ok(handler)
     }
 }
 

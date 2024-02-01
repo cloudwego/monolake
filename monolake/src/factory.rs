@@ -32,8 +32,8 @@ pub fn l7_factory(
     impl Service<Accept<AcceptedStream, AcceptedAddr>, Error = impl Debug>,
     impl Debug,
 > {
-    let stacks = FactoryStack::new(config)
-        .replace(ProxyHandler::factory())
+    let stacks = FactoryStack::new(config.clone())
+        .replace(ProxyHandler::factory(config.timeout_config.0))
         .push(ContentHandler::layer())
         .push(RewriteHandler::layer());
 
