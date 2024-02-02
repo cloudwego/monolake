@@ -115,8 +115,8 @@ impl Config {
                 None => Default::default(),
             };
             let timeout_config: HttpTimeout = match server.http_timeout_sec {
-                Some(sec) =>HttpTimeout(Duration::from_secs(sec)),
-                None => Default::default(),
+                Some(sec) =>HttpTimeout(Some(Duration::from_secs(sec))),
+                None => HttpTimeout(None),
             };
             servers_new.insert(
                 key,

@@ -49,7 +49,7 @@ impl ProxyHandler {
         }
     }
 
-    pub const fn factory(timeout: Duration) -> ProxyHandlerFactory {
+    pub const fn factory(timeout: Option<Duration>) -> ProxyHandlerFactory {
         ProxyHandlerFactory {
             http_timeout: timeout,
         }
@@ -136,11 +136,11 @@ impl ProxyHandler {
 }
 
 pub struct ProxyHandlerFactory {
-    http_timeout: Duration,
+    http_timeout: Option<Duration>,
 }
 
 impl ProxyHandlerFactory {
-     pub fn new(timeout: Duration) -> ProxyHandlerFactory {
+     pub fn new(timeout: Option<Duration>) -> ProxyHandlerFactory {
          ProxyHandlerFactory {
              http_timeout: timeout,
          }

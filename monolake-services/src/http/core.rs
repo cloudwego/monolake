@@ -32,7 +32,7 @@ use super::{generate_response, util::AccompanyPair};
 pub struct HttpCoreService<H> {
     handler_chain: H,
     keepalive_timeout: Duration,
-    http_timeout: Duration,
+    http_timeout: Option<Duration>,
 }
 
 
@@ -321,12 +321,11 @@ impl Default for Keepalive {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct HttpTimeout(pub Duration);
+pub struct HttpTimeout(pub Option<Duration>);
 
 impl Default for HttpTimeout {
     fn default() -> Self {
-        const DEFAULT_TIMEOUT_SEC: u64 = 60;
-        Self(Duration::from_secs(DEFAULT_TIMEOUT_SEC))
+        HttpTimeout(None)
     }
 }
 
@@ -338,11 +337,10 @@ pub struct Timeouts {
 
 impl Default for Timeouts {
     fn default() -> Self {
-        const DEFAULT_TIMEOUT_SEC: u64 = 60;
         const DEFAULT_KEEPALIVE_SEC: u64 = 75;
         Self {
             keepalive: Keepalive(Duration::from_secs(DEFAULT_KEEPALIVE_SEC)),
-            timeout: HttpTimeout(Duration::from_secs(DEFAULT_TIMEOUT_SEC)),
+            timeout: HttpTimeout(None),
         }
     }
 }
