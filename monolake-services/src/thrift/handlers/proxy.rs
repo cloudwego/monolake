@@ -1,16 +1,17 @@
 use std::{convert::Infallible, io};
 
-use monoio::{
-    io::{sink::SinkExt, stream::Stream, Splitable},
-    net::TcpStream,
-};
+use monoio::io::{sink::SinkExt, stream::Stream, Splitable};
 use monoio_codec::{FramedRead, FramedWrite};
 use monoio_thrift::codec::ttheader::{
     RawPayloadCodec, TTHeader, TTHeaderPayloadDecoder, TTHeaderPayloadEncoder,
 };
 use monoio_transports::{
-    connectors::{Connector, TcpConnector},
-    key::Key,
+    connectors::{
+        unified_connector::{
+            UnifiedTransportAddr, UnifiedTransportConnection, UnifiedTransportConnector,
+        },
+        Connector,
+    },
     pooled::connector::PooledConnector,
 };
 use monolake_core::{
@@ -23,21 +24,22 @@ use tracing::info;
 
 use crate::http::handlers::rewrite::{Endpoint, RouteConfig};
 
-// TODO: refactor config mod, support unified connector
-type PoolThriftTcpConnector = PooledConnector<TcpConnector, Key, TcpStream, ()>;
+type PoolThriftConnector = PooledConnector<
+    UnifiedTransportConnector,
+    UnifiedTransportAddr,
+    UnifiedTransportConnection,
+    (),
+>;
 
 #[derive(Clone, Default)]
 pub struct ProxyHandler {
-    tcp_connector: PoolThriftTcpConnector,
+    connector: PoolThriftConnector,
     routes: Vec<RouteConfig>,
 }
 
 impl ProxyHandler {
-    pub fn new(tcp_connector: PoolThriftTcpConnector, routes: Vec<RouteConfig>) -> Self {
-        ProxyHandler {
-            tcp_connector,
-            routes,
-        }
+    pub fn new(connector: PoolThriftConnector, routes: Vec<RouteConfig>) -> Self {
+        ProxyHandler { connector, routes }
     }
 
     pub const fn factory(config: Vec<RouteConfig>) -> ProxyHandlerFactory {
@@ -68,15 +70,14 @@ impl ProxyHandler {
     ) -> Result<ThriftResponse<ThriftBody>, monoio_transports::Error> {
         // TODO: how to choose key
         let upstream = &self.routes[0].upstreams[0];
-        let key = match upstream.endpoint {
-            Endpoint::Socket(addr) => Key {
-                host: addr.ip().to_string().into(),
-                port: addr.port(),
-                server_name: None,
-            },
-            _ => panic!("now only support tcp"),
+        let key = match &upstream.endpoint {
+            Endpoint::Socket(addr) => {
+                UnifiedTransportAddr::Tcp(addr.ip().to_string().into(), addr.port())
+            }
+            Endpoint::Unix(path) => UnifiedTransportAddr::Unix(path.clone()),
+            _ => panic!("not support"),
         };
-        let conn = match self.tcp_connector.connect(key).await {
+        let conn = match self.connector.connect(key).await {
             Ok(conn) => conn,
             Err(e) => {
                 info!("connect upstream error: {:?}", e);
@@ -113,7 +114,7 @@ impl MakeService for ProxyHandlerFactory {
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(ProxyHandler::new(
-            PoolThriftTcpConnector::default(),
+            PoolThriftConnector::default(),
             self.config.clone(),
         ))
     }
@@ -128,7 +129,7 @@ impl AsyncMakeService for ProxyHandlerFactory {
         _old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         Ok(ProxyHandler::new(
-            PoolThriftTcpConnector::default(),
+            PoolThriftConnector::default(),
             self.config.clone(),
         ))
     }
