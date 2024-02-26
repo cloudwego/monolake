@@ -4,8 +4,9 @@ resolver = "2"
 
 [workspace.dependencies]
 monoio = "0.2.0"
-monoio-http = "0.3.1"
-monoio-transports = "0.3.0"
+monoio-http = "0.3.3"
+#monoio-transports = { path = "../monoio-transports" }
+monoio-transports = { git = "https://github.com/monoio-rs/monoio-transports", branch = "timeout_ownership" }
 monoio-native-tls = "0.3.0"
 monoio-rustls = "0.3.0"
 native-tls = "0.2"

@@ -8,10 +8,9 @@ use monoio_http::common::body::HttpBody;
 #[cfg(feature = "tls")]
 use monoio_transports::connectors::{TlsConnector, TlsStream};
 use monoio_transports::{
-    connectors::{Connector, TcpConnector},
-    http::HttpConnector,
+    connectors::{Connector, TcpConnector, TcpTlsAddr},
+    http::H1Connector,
     key::Key,
-    pooled::connector::PooledConnector,
 };
 use monolake_core::{
     context::{PeerAddr, RemoteAddr},
@@ -23,12 +22,13 @@ use tracing::{debug, info};
 
 use crate::http::generate_response;
 
-type PoolHttpConnector = HttpConnector<PooledConnector<TcpConnector, Key, TcpStream, ()>>;
+//type PoolHttpConnector = H1Connector<PooledConnector<TcpConnector, Key, TcpStream>, Key, TcpStream>;
+type PoolHttpConnector = H1Connector<TcpConnector, Key, TcpStream>;
 #[cfg(feature = "tls")]
 type PoolHttpsConnector =
-    HttpConnector<PooledConnector<TlsConnector<TcpConnector>, Key, TlsStream<TcpStream>, ()>>;
+    H1Connector<TlsConnector<TcpConnector>, TcpTlsAddr, TlsStream<TcpStream>>;
 
-#[derive(Clone, Default)]
+#[derive( Default)]
 pub struct ProxyHandler {
     connector: PoolHttpConnector,
     #[cfg(feature = "tls")]
@@ -37,7 +37,7 @@ pub struct ProxyHandler {
 
 impl ProxyHandler {
     #[cfg(not(feature = "tls"))]
-    pub fn new(connector: PoolHttpConnector) -> Self {
+    pub fn new(connector: H1Connector) -> Self {
         ProxyHandler { connector }
     }
 
@@ -110,6 +110,7 @@ impl ProxyHandler {
         &self,
         req: Request<HttpBody>,
     ) -> Result<ResponseWithContinue, Infallible> {
+/*
         let key = match req.uri().try_into() {
             Ok(key) => key,
             Err(e) => {
@@ -118,7 +119,9 @@ impl ProxyHandler {
             }
         };
         debug!("key: {:?}", key);
-        let mut conn = match self.tls_connector.connect(key).await {
+*/
+        let unified_addr = TcpTlsAddr::try_from(req.uri()).unwrap();
+        let mut conn = match self.tls_connector.connect(unified_addr).await {
             Ok(conn) => conn,
             Err(e) => {
                 info!("connect upstream error: {:?}", e);
@@ -153,8 +156,8 @@ impl MakeService for ProxyHandlerFactory {
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        let mut connector = PoolHttpConnector::default();
-        connector.timeout = self.http_timeout;
+        let mut connector = PoolHttpConnector::default().with_default_pool();
+        connector.read_timeout = self.http_timeout;
 
         let handler = ProxyHandler {
             connector: connector,
@@ -173,8 +176,8 @@ impl AsyncMakeService for ProxyHandlerFactory {
         &self,
         _old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
-        let mut connector = PoolHttpConnector::default();
-        connector.timeout =(*self).http_timeout;
+        let mut connector = PoolHttpConnector::default().with_default_pool();
+        connector.read_timeout =(*self).http_timeout;
 
         let handler = ProxyHandler {
             connector: connector,

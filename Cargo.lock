@@ -1212,9 +1212,9 @@ dependencies = [
 
 [[package]]
 name = "monoio-codec"
-version = "0.3.1"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3764cbbc38b7634415ff013d8f7a6369f54cb86dbed4e43c8e7fed00e9383ecc"
+checksum = "c830335de6542de28ffd87e1005325ee9b7b1177e5ec31a26824fee6e3ce54c1"
 dependencies = [
  "bytes",
  "monoio",
@@ -1234,9 +1234,9 @@ dependencies = [
 
 [[package]]
 name = "monoio-http"
-version = "0.3.1"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74c76ffdd56f6057b4a46b94e80cae840ae8d7060eed6cee96fcc093fc204a06"
+checksum = "c05431a1c9c940cd3ef784c0c7c78d1bcea6e6cb2f2490a6f68ed2c030dae7d1"
 dependencies = [
  "brotli",
  "bytes",
@@ -1307,9 +1307,8 @@ dependencies = [
 
 [[package]]
 name = "monoio-transports"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2178b2f723c069e75d29e5855eef69a7b004c07a98241b20ed85cc2bd043fb9f"
+version = "0.3.4"
+source = "git+https://github.com/monoio-rs/monoio-transports?branch=timeout_ownership#3722267c116f214e84d3983616379d14ebfa9a6d"
 dependencies = [
  "bytes",
  "http 1.0.0",

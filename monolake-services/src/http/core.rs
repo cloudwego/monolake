@@ -54,7 +54,10 @@ impl<H> HttpCoreService<H> {
         CX: ParamRef<PeerAddr> + Clone,
     {
         let (reader, writer) = stream.into_split();
-        let mut decoder = RequestDecoder::new(reader, self.http_timeout);
+        let mut decoder = match self.http_timeout {
+            Some(timeout) => RequestDecoder::new_with_timeout(reader, timeout),
+            None => RequestDecoder::new(reader),
+        };
         let mut encoder = GenericEncoder::new(writer);
 
         loop {
