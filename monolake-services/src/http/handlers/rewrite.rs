@@ -203,8 +203,6 @@ fn rewrite_request(request: &mut Request<HttpBody>, upstream: &Upstream) {
 mod tests {
     use std::time::SystemTime;
 
-    use matchit::Router;
-
     use super::*;
 
     fn iterate_match<'a>(req_path: &str, routes: &'a [RouteConfig]) -> Option<&'a RouteConfig> {

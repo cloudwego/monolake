@@ -11,7 +11,7 @@ use service_async::{AsyncMakeService, MakeService, Service};
 use tracing::{debug, error, info, warn};
 
 use self::runtime::RuntimeWrapper;
-use crate::{bail_into, config::RuntimeConfig, AnyError};
+use crate::{config::RuntimeConfig, AnyError};
 
 mod runtime;
 

@@ -3,11 +3,11 @@ members = ["monolake", "monolake-core", "monolake-services"]
 resolver = "2"
 
 [workspace.dependencies]
-monoio = "0.2.0"
+monoio = "0.2.2"
 monoio-codec = "0.3"
-monoio-http = "0.3.1"
-monoio-thrift = "0.0.2"
-monoio-transports = "0.3"
+monoio-http = "0.3.4"
+monoio-thrift = "0.0.3"
+monoio-transports = "0.4.1"
 monoio-native-tls = "0.3.0"
 monoio-rustls = "0.3.0"
 native-tls = "0.2"

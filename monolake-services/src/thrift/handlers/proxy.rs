@@ -6,13 +6,8 @@ use monoio_thrift::codec::ttheader::{
     RawPayloadCodec, TTHeader, TTHeaderPayloadDecoder, TTHeaderPayloadEncoder,
 };
 use monoio_transports::{
-    connectors::{
-        unified_connector::{
-            UnifiedTransportAddr, UnifiedTransportConnection, UnifiedTransportConnector,
-        },
-        Connector,
-    },
-    pooled::connector::PooledConnector,
+    connectors::{Connector, UnifiedL4Addr, UnifiedL4Connector, UnifiedL4Stream},
+    pool::{PooledConnector, Reuse, ReuseConnector},
 };
 use monolake_core::{
     context::{PeerAddr, RemoteAddr},
@@ -24,12 +19,8 @@ use tracing::info;
 
 use crate::http::handlers::rewrite::{Endpoint, RouteConfig};
 
-type PoolThriftConnector = PooledConnector<
-    UnifiedTransportConnector,
-    UnifiedTransportAddr,
-    UnifiedTransportConnection,
-    (),
->;
+type PoolThriftConnector =
+    PooledConnector<ReuseConnector<UnifiedL4Connector>, UnifiedL4Addr, Reuse<UnifiedL4Stream>>;
 
 #[derive(Clone, Default)]
 pub struct ProxyHandler {
@@ -52,7 +43,7 @@ where
     CX: ParamRef<PeerAddr> + ParamMaybeRef<Option<RemoteAddr>>,
 {
     type Response = ThriftResponse<ThriftBody>;
-    type Error = monoio_transports::Error; // TODO: user error
+    type Error = io::Error; // TODO: user error
 
     async fn call(
         &self,
@@ -67,14 +58,12 @@ impl ProxyHandler {
     async fn send_request(
         &self,
         req: ThriftRequest<ThriftBody>,
-    ) -> Result<ThriftResponse<ThriftBody>, monoio_transports::Error> {
+    ) -> Result<ThriftResponse<ThriftBody>, io::Error> {
         // TODO: how to choose key
         let upstream = &self.routes[0].upstreams[0];
         let key = match &upstream.endpoint {
-            Endpoint::Socket(addr) => {
-                UnifiedTransportAddr::Tcp(addr.ip().to_string().into(), addr.port())
-            }
-            Endpoint::Unix(path) => UnifiedTransportAddr::Unix(path.clone()),
+            Endpoint::Socket(addr) => UnifiedL4Addr::Tcp(*addr),
+            Endpoint::Unix(path) => UnifiedL4Addr::Unix(path.clone()),
             _ => panic!("not support"),
         };
         let conn = match self.connector.connect(key).await {
@@ -92,14 +81,12 @@ impl ProxyHandler {
         let mut encoder =
             FramedWrite::new(writer, TTHeaderPayloadEncoder::new(RawPayloadCodec::new()));
 
-        if let Err(e) = encoder.send_and_flush(req).await {
-            return Err(e.into());
-        }
+        encoder.send_and_flush(req).await?;
 
         match decoder.next().await {
             Some(Ok(resp)) => Ok(resp),
-            Some(Err(e)) => Err(e.into()),
-            None => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "TODO: eof").into()),
+            Some(Err(e)) => Err(e),
+            None => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "TODO: eof")),
         }
     }
 }

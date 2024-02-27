@@ -10,10 +10,8 @@ use lazy_static::lazy_static;
 use monoio::net::TcpStream;
 use monoio_http::common::body::{Body, FixedBody, HttpBody, StreamHint};
 use monoio_transports::{
-    connectors::{Connector, TcpConnector, TlsConnector, TlsStream},
-    http::HttpConnector,
-    key::Key,
-    pooled::connector::PooledConnector,
+    connectors::{Connector, TcpConnector, TcpTlsAddr, TlsConnector, TlsStream},
+    http::H1Connector,
 };
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
 #[allow(unused)]
@@ -42,8 +40,7 @@ use url::Url;
 
 use crate::http::generate_response;
 
-type PoolHttpsConnector =
-    HttpConnector<PooledConnector<TlsConnector<TcpConnector>, Key, TlsStream<TcpStream>, ()>>;
+type HttpsConnector = H1Connector<TlsConnector<TcpConnector>, TcpTlsAddr, TlsStream<TcpStream>>;
 
 #[derive(Debug, Error)]
 pub enum Error {}
@@ -90,7 +87,7 @@ pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Err
         .body(HttpBody::fixed_body(Some(request_payload)))
         .unwrap();
 
-    let client = PoolHttpsConnector::default();
+    let client = HttpsConnector::default().with_default_pool();
     let key = req.uri().try_into().unwrap();
     let mut client = client.connect(key).await.unwrap();
     let (response, _) = client.send_request(req).await;

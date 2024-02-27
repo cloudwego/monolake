@@ -1,4 +1,7 @@
-use std::convert::Infallible;
+use std::{
+    convert::Infallible,
+    net::{SocketAddr, ToSocketAddrs},
+};
 
 use bytes::Bytes;
 use http::{header, HeaderMap, HeaderValue, Request, StatusCode};
@@ -7,10 +10,8 @@ use monoio_http::common::body::HttpBody;
 #[cfg(feature = "tls")]
 use monoio_transports::connectors::{TlsConnector, TlsStream};
 use monoio_transports::{
-    connectors::{Connector, TcpConnector},
-    http::HttpConnector,
-    key::Key,
-    pooled::connector::PooledConnector,
+    connectors::{Connector, TcpConnector, TcpTlsAddr},
+    http::H1Connector,
 };
 use monolake_core::{
     context::{PeerAddr, RemoteAddr},
@@ -22,26 +23,35 @@ use tracing::{debug, info};
 
 use crate::http::generate_response;
 
-type PoolHttpConnector = HttpConnector<PooledConnector<TcpConnector, Key, TcpStream, ()>>;
+type HttpConnector = H1Connector<TcpConnector, SocketAddr, TcpStream>;
 #[cfg(feature = "tls")]
-type PoolHttpsConnector =
-    HttpConnector<PooledConnector<TlsConnector<TcpConnector>, Key, TlsStream<TcpStream>, ()>>;
+type HttpsConnector = H1Connector<TlsConnector<TcpConnector>, TcpTlsAddr, TlsStream<TcpStream>>;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ProxyHandler {
-    connector: PoolHttpConnector,
+    connector: HttpConnector,
     #[cfg(feature = "tls")]
-    tls_connector: PoolHttpsConnector,
+    tls_connector: HttpsConnector,
+}
+
+impl Default for ProxyHandler {
+    fn default() -> Self {
+        Self {
+            connector: HttpConnector::default().with_default_pool(),
+            #[cfg(feature = "tls")]
+            tls_connector: HttpsConnector::default().with_default_pool(),
+        }
+    }
 }
 
 impl ProxyHandler {
     #[cfg(not(feature = "tls"))]
-    pub fn new(connector: PoolHttpConnector) -> Self {
+    pub fn new(connector: HttpConnector) -> Self {
         ProxyHandler { connector }
     }
 
     #[cfg(feature = "tls")]
-    pub fn new(connector: PoolHttpConnector, tls_connector: PoolHttpsConnector) -> Self {
+    pub fn new(connector: HttpConnector, tls_connector: HttpsConnector) -> Self {
         ProxyHandler {
             connector,
             tls_connector,
@@ -78,12 +88,21 @@ impl ProxyHandler {
         &self,
         req: Request<HttpBody>,
     ) -> Result<ResponseWithContinue, Infallible> {
-        let key = match req.uri().try_into() {
-            Ok(key) => key,
+        let Some(host) = req.uri().host() else {
+            info!("invalid uri which does not contain host: {:?}", req.uri());
+            return Ok((generate_response(StatusCode::BAD_REQUEST, true), true));
+        };
+        let port = req.uri().port_u16().unwrap_or(80);
+        let mut iter = match (host, port).to_socket_addrs() {
+            Ok(iter) => iter,
             Err(e) => {
                 info!("convert invalid uri: {:?} with error: {:?}", req.uri(), e);
                 return Ok((generate_response(StatusCode::BAD_REQUEST, true), true));
             }
+        };
+        let Some(key) = iter.next() else {
+            info!("unable to resolve host: {host}");
+            return Ok((generate_response(StatusCode::BAD_REQUEST, true), true));
         };
         debug!("key: {:?}", key);
         let mut conn = match self.connector.connect(key).await {
