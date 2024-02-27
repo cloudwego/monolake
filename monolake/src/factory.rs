@@ -36,8 +36,8 @@ pub fn l7_factory(
 > {
     match config.proxy_type {
         crate::config::ProxyType::Http => {
-            let stacks = FactoryStack::new(config)
-                .replace(ProxyHandler::factory())
+            let stacks = FactoryStack::new(config.clone())
+                .replace(ProxyHandler::factory(config.timeout_config.0))
                 .push(ContentHandler::layer())
                 .push(RewriteHandler::layer());
 

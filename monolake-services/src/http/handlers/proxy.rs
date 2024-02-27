@@ -1,6 +1,7 @@
 use std::{
     convert::Infallible,
     net::{SocketAddr, ToSocketAddrs},
+    time::Duration,
 };
 
 use bytes::Bytes;
@@ -58,8 +59,10 @@ impl ProxyHandler {
         }
     }
 
-    pub const fn factory() -> ProxyHandlerFactory {
-        ProxyHandlerFactory
+    pub const fn factory(timeout: Option<Duration>) -> ProxyHandlerFactory {
+        ProxyHandlerFactory {
+            http_timeout: timeout,
+        }
     }
 }
 
@@ -151,7 +154,17 @@ impl ProxyHandler {
     }
 }
 
-pub struct ProxyHandlerFactory;
+pub struct ProxyHandlerFactory {
+    http_timeout: Option<Duration>,
+}
+
+impl ProxyHandlerFactory {
+    pub fn new(timeout: Option<Duration>) -> ProxyHandlerFactory {
+        ProxyHandlerFactory {
+            http_timeout: timeout,
+        }
+    }
+}
 
 // HttpCoreService is a Service and a MakeService.
 impl MakeService for ProxyHandlerFactory {
@@ -159,7 +172,9 @@ impl MakeService for ProxyHandlerFactory {
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        Ok(ProxyHandler::default())
+        let mut factory = Ok(ProxyHandler::default());
+        factory.as_mut().unwrap().connector.read_timeout = self.http_timeout;
+        factory
     }
 }
 
@@ -171,7 +186,9 @@ impl AsyncMakeService for ProxyHandlerFactory {
         &self,
         _old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
-        Ok(ProxyHandler::default())
+        let mut factory = Ok(ProxyHandler::default());
+        factory.as_mut().unwrap().connector.read_timeout = self.http_timeout;
+        factory
     }
 }
 

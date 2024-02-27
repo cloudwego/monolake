@@ -1514,6 +1514,8 @@ dependencies = [
 [[package]]
 name = "monoio-transports"
 version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cef9cc3d7cb6c0f65ea027f8ed5fdfe8d0b2919716bf52faa87050991ce24191"
 dependencies = [
  "bytes",
  "http 1.0.0",

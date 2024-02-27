@@ -1,7 +1,7 @@
 pub use detect::HttpVersionDetect;
 use http::HeaderValue;
 
-pub use self::core::{HttpCoreService, Keepalive};
+pub use self::core::{HttpCoreService, HttpTimeout, Keepalive, Timeouts};
 pub mod handlers;
 
 mod core;
