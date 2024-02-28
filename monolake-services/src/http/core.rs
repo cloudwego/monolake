@@ -36,7 +36,11 @@ pub struct HttpCoreService<H> {
 }
 
 impl<H> HttpCoreService<H> {
-    pub fn new(handler_chain: H, keepalive_config: Keepalive, timeout_config: HttpReadTimeout) -> Self {
+    pub fn new(
+        handler_chain: H,
+        keepalive_config: Keepalive,
+        timeout_config: HttpReadTimeout,
+    ) -> Self {
         HttpCoreService {
             handler_chain,
             keepalive_timeout: keepalive_config.0,
