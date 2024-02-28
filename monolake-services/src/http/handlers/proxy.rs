@@ -172,9 +172,13 @@ impl MakeService for ProxyHandlerFactory {
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        let mut factory = Ok(ProxyHandler::default());
-        factory.as_mut().unwrap().connector.read_timeout = self.http_timeout;
-        factory
+        let mut http_connector = HttpConnector::default().with_default_pool();
+        http_connector.read_timeout = self.http_timeout;
+        Ok(ProxyHandler {
+            connector: http_connector,
+            #[cfg(feature = "tls")]
+            tls_connector: HttpsConnector::default().with_default_pool(),
+        })
     }
 }
 
@@ -186,9 +190,13 @@ impl AsyncMakeService for ProxyHandlerFactory {
         &self,
         _old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
-        let mut factory = Ok(ProxyHandler::default());
-        factory.as_mut().unwrap().connector.read_timeout = self.http_timeout;
-        factory
+        let mut http_connector = HttpConnector::default().with_default_pool();
+        http_connector.read_timeout = self.http_timeout;
+        Ok(ProxyHandler {
+            connector: http_connector,
+            #[cfg(feature = "tls")]
+            tls_connector: HttpsConnector::default().with_default_pool(),
+        })
     }
 }
 

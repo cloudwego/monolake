@@ -1,7 +1,7 @@
 use certain_map::Param;
 #[cfg(feature = "openid")]
 use monolake_services::http::handlers::openid::OpenIdConfig;
-use monolake_services::http::{HttpTimeout, Keepalive, Timeouts};
+use monolake_services::http::{HttpReadTimeout, Keepalive, Timeouts};
 
 use super::{RouteConfig, ServerConfig};
 
@@ -11,8 +11,8 @@ impl Param<Keepalive> for ServerConfig {
     }
 }
 
-impl Param<HttpTimeout> for ServerConfig {
-    fn param(&self) -> HttpTimeout {
+impl Param<HttpReadTimeout> for ServerConfig {
+    fn param(&self) -> HttpReadTimeout {
         self.timeout_config
     }
 }

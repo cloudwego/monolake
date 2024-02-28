@@ -36,7 +36,7 @@ pub struct HttpCoreService<H> {
 }
 
 impl<H> HttpCoreService<H> {
-    pub fn new(handler_chain: H, keepalive_config: Keepalive, timeout_config: HttpTimeout) -> Self {
+    pub fn new(handler_chain: H, keepalive_config: Keepalive, timeout_config: HttpReadTimeout) -> Self {
         HttpCoreService {
             handler_chain,
             keepalive_timeout: keepalive_config.0,
@@ -318,19 +318,13 @@ impl Default for Keepalive {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct HttpTimeout(pub Option<Duration>);
-
-impl Default for HttpTimeout {
-    fn default() -> Self {
-        HttpTimeout(None)
-    }
-}
+#[derive(Default, Debug, Copy, Clone)]
+pub struct HttpReadTimeout(pub Option<Duration>);
 
 #[derive(Debug, Copy, Clone)]
 pub struct Timeouts {
     pub keepalive: Keepalive,
-    pub timeout: HttpTimeout,
+    pub timeout: HttpReadTimeout,
 }
 
 impl Default for Timeouts {
@@ -338,7 +332,7 @@ impl Default for Timeouts {
         const DEFAULT_KEEPALIVE_SEC: u64 = 75;
         Self {
             keepalive: Keepalive(Duration::from_secs(DEFAULT_KEEPALIVE_SEC)),
-            timeout: HttpTimeout(None),
+            timeout: HttpReadTimeout(None),
         }
     }
 }

@@ -4,7 +4,7 @@ use monolake_core::{
     config::{RuntimeConfig, ServiceConfig},
     listener::ListenerBuilder,
 };
-use monolake_services::http::{handlers::rewrite::RouteConfig, HttpTimeout, Keepalive};
+use monolake_services::http::{handlers::rewrite::RouteConfig, HttpReadTimeout, Keepalive};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 mod extractor;
@@ -31,7 +31,7 @@ pub struct ServerConfig {
     pub tls: monolake_services::tls::TlsConfig,
     pub routes: Vec<RouteConfig>,
     pub keepalive_config: Keepalive,
-    pub timeout_config: HttpTimeout,
+    pub timeout_config: HttpReadTimeout,
     pub auth_config: Option<AuthConfig>,
 }
 
@@ -125,9 +125,9 @@ impl Config {
                 Some(sec) => Keepalive(Duration::from_secs(sec)),
                 None => Default::default(),
             };
-            let timeout_config: HttpTimeout = match server.http_timeout_sec {
-                Some(sec) => HttpTimeout(Some(Duration::from_secs(sec))),
-                None => HttpTimeout(None),
+            let timeout_config: HttpReadTimeout = match server.http_timeout_sec {
+                Some(sec) => HttpReadTimeout(Some(Duration::from_secs(sec))),
+                None => HttpReadTimeout(None),
             };
             servers_new.insert(
                 key,
