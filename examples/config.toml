@@ -18,7 +18,7 @@ upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:9080" } }]
 
 
 [servers.server_tls]
-tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem" }
+tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key" }
 name = "monolake.cloudwego.io"
 listener = { type = "socket", value = "0.0.0.0:8081" }
 
@@ -52,7 +52,7 @@ path = '/*p'
 
 
 [servers.server3]
-tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem", stack = "rustls" }
+tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key", stack = "rustls" }
 name = "monolake.cloudwego.io"
 listener = { type = "socket", value = "0.0.0.0:8082" }
 
@@ -64,7 +64,7 @@ upstreams = [
 
 
 [servers.server4]
-tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem", stack = "native_tls" }
+tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key", stack = "native_tls" }
 name = "monolake.cloudwego.io"
 listener = { type = "socket", value = "0.0.0.0:8083" }
 

@@ -17,7 +17,7 @@ git clone https://github.com/cloudwego/monolake.git
 cd monolake
 
 # generate certs
-mkdir examples/certs && openssl req -x509 -newkey rsa:2048 -keyout examples/certs/key.pem -out examples/certs/cert.pem -sha256 -days 365 -nodes -subj "/CN=monolake.cloudwego.io"
+sh -c "cd examples && ./gen_cert.sh"
 ```
 
 ### Build
@@ -37,13 +37,13 @@ cargo build --profile=release-lto
 
 ```bash
 # run example with debug version
-target/debug/monolake -c examples/config.toml
+cargo run --package monolake -- -c examples/config.toml
 
 # enable debug logging level
-RUST_LOG=debug target/debug/monolake -c examples/config.toml
+RUST_LOG=debug cargo run --package monolake -- -c examples/config.toml
 
 # send https request
-curl -kvvv https://localhost:8082/
+curl -vvv --cacert examples/certs/rootCA.crt --resolve "gateway.monolake.rs:8082:127.0.0.1"  https://gateway.monolake.rs:8082/
 ```
 
 ## Limitations

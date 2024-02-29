@@ -3,7 +3,7 @@
 # This script is used to generate the needed certificates when run demo.
 # Generate accroading to https://github.com/monoio-rs/monoio-tls/blob/master/example/certs/README.md
 
-mkdir certs
+mkdir -p certs
 cd certs || exit
 
 openssl genrsa -out rootCA.key 4096
