@@ -1419,9 +1419,9 @@ dependencies = [
 
 [[package]]
 name = "monoio-http"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69840eeba48d1a8c6ed79b353d2f4b92514181dd7b448e07f2ffe06aad6dce47"
+checksum = "e7a6b384f1902cf861e79443bd76e67f1f008d4a178ac6be329fa5155068e695"
 dependencies = [
  "brotli",
  "bytes",

@@ -1,6 +1,6 @@
 use http::{Request, StatusCode};
 use monoio_http::common::{
-    body::{BodyExt, FixedBody, HttpBody},
+    body::{BodyEncodeExt, FixedBody, HttpBody},
     response::Response,
 };
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
