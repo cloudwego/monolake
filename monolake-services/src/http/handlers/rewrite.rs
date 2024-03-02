@@ -187,8 +187,11 @@ fn rewrite_request(request: &mut Request<HttpBody>, upstream: &Upstream) {
 
         let uri = request.uri_mut();
         let path_and_query = match uri.path_and_query() {
-            Some(path_and_query) => path_and_query.as_str(),
-            None => "/",
+            Some(path_and_query) => match path_and_query.query() {
+                Some(query) => format!("{}?{}", remote.path(), query),
+                None => String::from(remote.path()),
+            },
+            None => "/".to_string(),
         };
         *uri = http::Uri::builder()
             .authority(authority.to_owned())
