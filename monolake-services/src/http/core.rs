@@ -99,10 +99,31 @@ impl<H> HttpCoreService<H> {
                 Ok((resp, should_cont)) => {
                     // 2. do these things simultaneously: read body and send + handle response
                     let mut f = acc_fut.replace(encoder.send_and_flush(resp));
-                    if let Err(e) = unsafe { Pin::new_unchecked(&mut f) }.await {
-                        warn!("error when encode and write response: {e}");
-                        break;
+                    match self.http_timeout {
+                        None => {
+                            if let Err(e) = unsafe { Pin::new_unchecked(&mut f) }.await {
+                                warn!("error when encode and write response: {e}");
+                                break;
+                            }
+                        }
+                        Some(http_timeout) => {
+                            match monoio::time::timeout(http_timeout, unsafe { Pin::new_unchecked(&mut f) }).await {
+                                Err(_) => {
+                                    info!(
+                                        "Connection {:?} write timed out",
+                                        ParamRef::<PeerAddr>::param_ref(&ctx),
+                                    );
+                                    break;
+                                }
+                                Ok(Err(e)) => {
+                                    warn!("error when encode and write response: {e}");
+                                    break;
+                                }
+                                _ => (),
+                            }
+                        }
                     }
+
                     if !should_cont {
                         break;
                     }
