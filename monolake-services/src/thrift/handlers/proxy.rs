@@ -49,7 +49,6 @@ where
         &self,
         (mut req, ctx): (ThriftRequest<ThriftBody>, CX),
     ) -> Result<Self::Response, Self::Error> {
-        add_metainfo(&mut req.ttheader, &ctx);
         self.send_request(req).await
     }
 }
@@ -120,21 +119,4 @@ impl AsyncMakeService for ProxyHandlerFactory {
             self.config.clone(),
         ))
     }
-}
-
-fn add_metainfo<CX>(headers: &mut TTHeader, ctx: &CX)
-where
-    CX: ParamRef<PeerAddr> + ParamMaybeRef<Option<RemoteAddr>>,
-{
-    let peer_addr = ParamRef::<PeerAddr>::param_ref(ctx);
-    let remote_addr = ParamMaybeRef::<Option<RemoteAddr>>::param_maybe_ref(ctx);
-    let addr = remote_addr
-        .and_then(|addr| addr.as_ref().map(|x| &x.0))
-        .unwrap_or(&peer_addr.0);
-
-    let addr = match addr {
-        AcceptedAddr::Tcp(addr) => addr.ip().to_string().into(),
-        AcceptedAddr::Unix(addr) => addr.as_pathname().and_then(|s| s.to_str()).unwrap().into(),
-    };
-    headers.str_headers.insert("rip".into(), addr);
 }
