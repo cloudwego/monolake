@@ -1,6 +1,10 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::{thread, time};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread, time,
+};
 
 use anyhow::Result;
 use clap::Parser;
