@@ -22,6 +22,7 @@ certain-map = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
+signal-hook = { version = "0.3.17" }
 
 monolake-core = { path = "../monolake-core" }
 monolake-services = { path = "../monolake-services" }

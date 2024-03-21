@@ -46,6 +46,33 @@ RUST_LOG=debug cargo run --package monolake -- -c examples/config.toml
 curl -vvv --cacert examples/certs/rootCA.crt --resolve "gateway.monolake.rs:8082:127.0.0.1"  https://gateway.monolake.rs:8082/
 ```
 
+## code coverage test
+
+### install llvm-cov
+cargo install cargo-llvm-cov
+
+### It is already done: adding llvm-cov to Cargo.toml dependencies foelds:
+[dependencies]
+cargo-llvm-cov = "0.6.8"
+
+### run code coverage test for all unit tests (in the code)
+cargo llvm-cov
+
+### run code coverage test for monolake functions
+cargo llvm-cov --html run -- -c examples/config-2.toml
+
+curl http://localhost:8402 # ip/port depends on config
+curl -k https://localhost:6442 # ip/port depends on config
+./wrk 'http://localhost:8402' -d 10s -c 10 -t 1 # ip/port depends on config
+./wrk 'https://localhost:6442' -d 10s -c 10 -t 1  # ip/port depends on config
+
+ps -A | grep monolake # find pid-of-monolake
+kill -15 <pid-of-monolake> # send SIGTERM to quit monolake
+
+open target/llvm-cov/html/index.html # show code coverage in browser page
+
+cargo llvm-cov clean --workspace # clean the result for the next run
+
 ## Limitations
 
 1. On Linux 5.6+, both uring and epoll are supported

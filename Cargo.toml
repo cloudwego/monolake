@@ -19,6 +19,7 @@ anyhow = "1"
 serde = "1"
 tracing = "0.1"
 bytes = "1"
+cargo-llvm-cov = "0.6.8"
 
 [profile.release-lto]
 inherits = "release"
