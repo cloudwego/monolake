@@ -35,7 +35,7 @@ struct Args {
 async fn main() -> Result<()> {
     let term = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term))?;
-    
+
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(
