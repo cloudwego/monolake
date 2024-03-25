@@ -31,20 +31,14 @@ use super::{generate_response, util::AccompanyPair};
 #[derive(Clone)]
 pub struct HttpCoreService<H> {
     handler_chain: H,
-    keepalive_timeout: Duration,
-    http_timeout: Option<Duration>,
+    http_timeout: HttpServerTimeout,
 }
 
 impl<H> HttpCoreService<H> {
-    pub fn new(
-        handler_chain: H,
-        keepalive_config: Keepalive,
-        timeout_config: HttpReadTimeout,
-    ) -> Self {
+    pub fn new(handler_chain: H, http_timeout: HttpServerTimeout) -> Self {
         HttpCoreService {
             handler_chain,
-            keepalive_timeout: keepalive_config.0,
-            http_timeout: timeout_config.0,
+            http_timeout,
         }
     }
 
@@ -58,17 +52,34 @@ impl<H> HttpCoreService<H> {
         let (reader, writer) = stream.into_split();
         let mut decoder = RequestDecoder::new(reader);
         let mut encoder = GenericEncoder::new(writer);
+        decoder.set_timeout(self.http_timeout.keepalive_timeout);
 
         loop {
-            // decode request with keepalive timeout
-            let req = match monoio::time::timeout(self.keepalive_timeout, decoder.next()).await {
-                Ok(Some(Ok(req))) => HttpBody::request(req),
-                Ok(Some(Err(err))) => {
+            // decode request with header timeout
+            let decoded = match self.http_timeout.read_header_timeout {
+                Some(header_timeout) => {
+                    match monoio::time::timeout(header_timeout, decoder.next()).await {
+                        Ok(inner) => inner,
+                        Err(_) => {
+                            info!(
+                                "Connection {:?} decode http header timed out",
+                                ParamRef::<PeerAddr>::param_ref(&ctx),
+                            );
+                            break;
+                        }
+                    }
+                }
+                None => decoder.next().await,
+            };
+
+            let req = match decoded {
+                Some(Ok(req)) => HttpBody::request(req),
+                Some(Err(err)) => {
                     // decode error
                     warn!("decode request header failed: {err}");
                     break;
                 }
-                Ok(None) => {
+                None => {
                     // EOF
                     info!(
                         "Connection {:?} closed",
@@ -76,17 +87,7 @@ impl<H> HttpCoreService<H> {
                     );
                     break;
                 }
-                Err(_) => {
-                    // timeout
-                    info!(
-                        "Connection {:?} keepalive timed out",
-                        ParamRef::<PeerAddr>::param_ref(&ctx),
-                    );
-                    break;
-                }
             };
-
-            // Check if we should keepalive
 
             // handle request and reply response
             // 1. do these things simultaneously: read body and send + handle request
@@ -99,15 +100,15 @@ impl<H> HttpCoreService<H> {
                 Ok((resp, should_cont)) => {
                     // 2. do these things simultaneously: read body and send + handle response
                     let mut f = acc_fut.replace(encoder.send_and_flush(resp));
-                    match self.http_timeout {
+                    match self.http_timeout.read_body_timeout {
                         None => {
                             if let Err(e) = unsafe { Pin::new_unchecked(&mut f) }.await {
                                 warn!("error when encode and write response: {e}");
                                 break;
                             }
                         }
-                        Some(http_timeout) => {
-                            match monoio::time::timeout(http_timeout, unsafe {
+                        Some(body_timeout) => {
+                            match monoio::time::timeout(body_timeout, unsafe {
                                 Pin::new_unchecked(&mut f)
                             })
                             .await
@@ -312,7 +313,6 @@ impl<F: MakeService> MakeService for HttpCoreService<F> {
             handler_chain: self
                 .handler_chain
                 .make_via_ref(old.map(|o| &o.handler_chain))?,
-            keepalive_timeout: self.keepalive_timeout,
             http_timeout: self.http_timeout,
         })
     }
@@ -331,37 +331,31 @@ impl<F: AsyncMakeService> AsyncMakeService for HttpCoreService<F> {
                 .handler_chain
                 .make_via_ref(old.map(|o| &o.handler_chain))
                 .await?,
-            keepalive_timeout: self.keepalive_timeout,
             http_timeout: self.http_timeout,
         })
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct Keepalive(pub Duration);
-
-impl Default for Keepalive {
-    fn default() -> Self {
-        const DEFAULT_KEEPALIVE_SEC: u64 = 75;
-        Self(Duration::from_secs(DEFAULT_KEEPALIVE_SEC))
-    }
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct HttpServerTimeout {
+    // Connection keepalive timeout: If no byte comes when decoder want next request, close the
+    // connection. Link Nginx `keepalive_timeout`
+    pub keepalive_timeout: Option<Duration>,
+    // Read full http header.
+    // Like Nginx `client_header_timeout`
+    pub read_header_timeout: Option<Duration>,
+    // Receiving full body timeout.
+    // Like Nginx `client_body_timeout`
+    pub read_body_timeout: Option<Duration>,
 }
 
-#[derive(Default, Debug, Copy, Clone)]
-pub struct HttpReadTimeout(pub Option<Duration>);
-
-#[derive(Debug, Copy, Clone)]
-pub struct Timeouts {
-    pub keepalive: Keepalive,
-    pub timeout: HttpReadTimeout,
-}
-
-impl Default for Timeouts {
+impl Default for HttpServerTimeout {
     fn default() -> Self {
         const DEFAULT_KEEPALIVE_SEC: u64 = 75;
         Self {
-            keepalive: Keepalive(Duration::from_secs(DEFAULT_KEEPALIVE_SEC)),
-            timeout: HttpReadTimeout(None),
+            keepalive_timeout: Some(Duration::from_secs(DEFAULT_KEEPALIVE_SEC)),
+            read_header_timeout: None,
+            read_body_timeout: None,
         }
     }
 }
@@ -369,8 +363,8 @@ impl Default for Timeouts {
 impl<F> HttpCoreService<F> {
     pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
     where
-        C: Param<Timeouts>,
+        C: Param<HttpServerTimeout>,
     {
-        layer_fn(|c: &C, inner| Self::new(inner, c.param().keepalive, c.param().timeout))
+        layer_fn(|c: &C, inner| Self::new(inner, c.param()))
     }
 }

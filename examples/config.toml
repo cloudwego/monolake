@@ -77,7 +77,7 @@ path = '/'
 [servers.server5]
 name = "timeout.com"
 listener = { type = "socket", value = "0.0.0.0:8084" }
-http_timeout_sec = 2
+http_timeout = {server_read_header_timeout_sec = 2}
 
 [[servers.server5.routes]]
 path = '/ping'

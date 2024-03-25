@@ -3,7 +3,7 @@ use std::{convert::Infallible, io};
 use monoio::io::{sink::SinkExt, stream::Stream, Splitable};
 use monoio_codec::{FramedRead, FramedWrite};
 use monoio_thrift::codec::ttheader::{
-    RawPayloadCodec, TTHeader, TTHeaderPayloadDecoder, TTHeaderPayloadEncoder,
+    RawPayloadCodec, TTHeaderPayloadDecoder, TTHeaderPayloadEncoder,
 };
 use monoio_transports::{
     connectors::{Connector, UnifiedL4Addr, UnifiedL4Connector, UnifiedL4Stream},
@@ -11,7 +11,6 @@ use monoio_transports::{
 };
 use monolake_core::{
     context::{PeerAddr, RemoteAddr},
-    listener::AcceptedAddr,
     thrift::{ThriftBody, ThriftRequest, ThriftResponse},
 };
 use service_async::{AsyncMakeService, MakeService, ParamMaybeRef, ParamRef, Service};
@@ -47,7 +46,7 @@ where
 
     async fn call(
         &self,
-        (mut req, ctx): (ThriftRequest<ThriftBody>, CX),
+        (req, _ctx): (ThriftRequest<ThriftBody>, CX),
     ) -> Result<Self::Response, Self::Error> {
         self.send_request(req).await
     }

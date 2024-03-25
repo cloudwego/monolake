@@ -1,37 +1,28 @@
 use certain_map::Param;
 #[cfg(feature = "openid")]
 use monolake_services::http::handlers::openid::OpenIdConfig;
-use monolake_services::http::{HttpReadTimeout, Keepalive, Timeouts};
+use monolake_services::{http::HttpServerTimeout, thrift::ttheader::ThriftServerTimeout};
 
 use super::{RouteConfig, ServerConfig};
 
-impl Param<Keepalive> for ServerConfig {
-    fn param(&self) -> Keepalive {
-        self.keepalive_config
+impl Param<HttpServerTimeout> for ServerConfig {
+    #[inline]
+    fn param(&self) -> HttpServerTimeout {
+        self.http_server_timeout
     }
 }
 
-impl Param<HttpReadTimeout> for ServerConfig {
-    fn param(&self) -> HttpReadTimeout {
-        self.timeout_config
-    }
-}
-
-impl Param<Timeouts> for ServerConfig {
-    fn param(&self) -> Timeouts {
-        Timeouts {
-            keepalive: self.keepalive_config,
-            timeout: self.timeout_config,
-        }
+impl Param<ThriftServerTimeout> for ServerConfig {
+    #[inline]
+    fn param(&self) -> ThriftServerTimeout {
+        self.thrift_server_timeout
     }
 }
 
 #[cfg(feature = "openid")]
 impl Param<Option<OpenIdConfig>> for ServerConfig {
     fn param(&self) -> Option<OpenIdConfig> {
-        self.auth_config.clone().map(|cfg| match cfg {
-            super::AuthConfig::OpenIdConfig(inner) => inner,
-        })
+        self.auth_config.clone().map(|cfg| cfg.0)
     }
 }
 

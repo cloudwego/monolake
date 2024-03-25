@@ -10,21 +10,19 @@ use service_async::{
     layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Param, ParamRef, Service,
 };
-use tracing::{debug, error, info, warn};
-
-use crate::http::Keepalive;
+use tracing::{error, info, warn};
 
 #[derive(Clone)]
 pub struct TtheaderCoreService<H> {
     handler_chain: H,
-    keepalive_timeout: Duration,
+    thrift_timeout: ThriftServerTimeout,
 }
 
 impl<H> TtheaderCoreService<H> {
-    pub fn new(handler_chain: H, keepalive_config: Keepalive) -> Self {
+    pub fn new(handler_chain: H, thrift_timeout: ThriftServerTimeout) -> Self {
         TtheaderCoreService {
             handler_chain,
-            keepalive_timeout: keepalive_config.0,
+            thrift_timeout,
         }
     }
 
@@ -42,28 +40,56 @@ impl<H> TtheaderCoreService<H> {
             FramedWrite::new(writer, TTHeaderPayloadEncoder::new(RawPayloadCodec::new()));
 
         loop {
-            // decode request with keepalive timeout
-            let req = match monoio::time::timeout(self.keepalive_timeout, decoder.next()).await {
-                Ok(Some(Ok(req))) => req,
-                Ok(Some(Err(err))) => {
+            if let Some(keepalive_timeout) = self.thrift_timeout.keepalive_timeout {
+                match monoio::time::timeout(keepalive_timeout, decoder.peek_data()).await {
+                    Ok(Ok([])) => {
+                        // Connection closed normally.
+                        break;
+                    }
+                    Ok(Err(io_error)) => {
+                        error!(
+                            "Connection {:?} io error: {io_error}",
+                            ParamRef::<PeerAddr>::param_ref(&ctx)
+                        );
+                        break;
+                    }
+                    Err(_) => {
+                        info!(
+                            "Connection {:?} keepalive timed out",
+                            ParamRef::<PeerAddr>::param_ref(&ctx),
+                        );
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+
+            // decode request with message timeout
+            let decoded = match self.thrift_timeout.message_timeout {
+                Some(message_timeout) => {
+                    match monoio::time::timeout(message_timeout, decoder.next()).await {
+                        Ok(x) => x,
+                        Err(_) => {
+                            info!(
+                                "Connection {:?} keepalive timed out",
+                                ParamRef::<PeerAddr>::param_ref(&ctx),
+                            );
+                            break;
+                        }
+                    }
+                }
+                None => decoder.next().await,
+            };
+
+            let req = match decoded {
+                Some(Ok(req)) => req,
+                Some(Err(err)) => {
                     // decode error
-                    warn!("decode request header failed: {err}");
+                    error!("decode thrift message failed: {err}");
                     break;
                 }
-                Ok(None) => {
-                    // EOF
-                    debug!(
-                        "Connection {:?} closed",
-                        ParamRef::<PeerAddr>::param_ref(&ctx),
-                    );
-                    break;
-                }
-                Err(_) => {
-                    // timeout
-                    info!(
-                        "Connection {:?} keepalive timed out",
-                        ParamRef::<PeerAddr>::param_ref(&ctx),
-                    );
+                None => {
+                    // Connection closed normally.
                     break;
                 }
             };
@@ -122,7 +148,7 @@ where
             handler_chain: self
                 .handler_chain
                 .make_via_ref(old.map(|o| &o.handler_chain))?,
-            keepalive_timeout: self.keepalive_timeout,
+            thrift_timeout: self.thrift_timeout,
         })
     }
 }
@@ -140,15 +166,24 @@ impl<F: AsyncMakeService> AsyncMakeService for TtheaderCoreService<F> {
                 .handler_chain
                 .make_via_ref(old.map(|o| &o.handler_chain))
                 .await?,
-            keepalive_timeout: self.keepalive_timeout,
+            thrift_timeout: self.thrift_timeout,
         })
     }
+}
+
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct ThriftServerTimeout {
+    // Connection keepalive timeout: If no byte comes when decoder want next request, close the
+    // connection. Link Nginx `keepalive_timeout`
+    pub keepalive_timeout: Option<Duration>,
+    // Read full thrift message.
+    pub message_timeout: Option<Duration>,
 }
 
 impl<F> TtheaderCoreService<F> {
     pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
     where
-        C: Param<Keepalive>,
+        C: Param<ThriftServerTimeout>,
     {
         layer_fn(|c: &C, inner| Self::new(inner, c.param()))
     }

@@ -33,6 +33,7 @@ pub struct ProxyHandler {
     connector: HttpConnector,
     #[cfg(feature = "tls")]
     tls_connector: HttpsConnector,
+    pub http_upstream_timeout: HttpUpstreamTimeout,
 }
 
 impl Default for ProxyHandler {
@@ -41,6 +42,7 @@ impl Default for ProxyHandler {
             connector: HttpConnector::default().with_default_pool(),
             #[cfg(feature = "tls")]
             tls_connector: HttpsConnector::default().with_default_pool(),
+            http_upstream_timeout: Default::default(),
         }
     }
 }
@@ -48,7 +50,10 @@ impl Default for ProxyHandler {
 impl ProxyHandler {
     #[cfg(not(feature = "tls"))]
     pub fn new(connector: HttpConnector) -> Self {
-        ProxyHandler { connector }
+        ProxyHandler {
+            connector,
+            http_upstream_timeout: Default::default(),
+        }
     }
 
     #[cfg(feature = "tls")]
@@ -56,12 +61,13 @@ impl ProxyHandler {
         ProxyHandler {
             connector,
             tls_connector,
+            http_upstream_timeout: Default::default(),
         }
     }
 
-    pub const fn factory(timeout: Option<Duration>) -> ProxyHandlerFactory {
+    pub const fn factory(http_upstream_timeout: HttpUpstreamTimeout) -> ProxyHandlerFactory {
         ProxyHandlerFactory {
-            http_timeout: timeout,
+            http_upstream_timeout,
         }
     }
 }
@@ -137,7 +143,21 @@ impl ProxyHandler {
             }
         };
         debug!("key: {:?}", key);
-        let mut conn = match self.tls_connector.connect(key).await {
+        let connect = match self.http_upstream_timeout.connect_timeout {
+            Some(connect_timeout) => {
+                match monoio::time::timeout(connect_timeout, self.tls_connector.connect(key)).await
+                {
+                    Ok(x) => x,
+                    Err(_) => {
+                        info!("connect upstream timeout");
+                        return Ok((generate_response(StatusCode::BAD_GATEWAY, true), true));
+                    }
+                }
+            }
+            None => self.tls_connector.connect(key).await,
+        };
+
+        let mut conn = match connect {
             Ok(conn) => conn,
             Err(e) => {
                 info!("connect upstream error: {:?}", e);
@@ -155,13 +175,13 @@ impl ProxyHandler {
 }
 
 pub struct ProxyHandlerFactory {
-    http_timeout: Option<Duration>,
+    http_upstream_timeout: HttpUpstreamTimeout,
 }
 
 impl ProxyHandlerFactory {
-    pub fn new(timeout: Option<Duration>) -> ProxyHandlerFactory {
+    pub fn new(http_upstream_timeout: HttpUpstreamTimeout) -> ProxyHandlerFactory {
         ProxyHandlerFactory {
-            http_timeout: timeout,
+            http_upstream_timeout,
         }
     }
 }
@@ -172,12 +192,12 @@ impl MakeService for ProxyHandlerFactory {
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        let mut http_connector = HttpConnector::default().with_default_pool();
-        http_connector.read_timeout = self.http_timeout;
+        let http_connector = HttpConnector::default().with_default_pool();
         Ok(ProxyHandler {
             connector: http_connector,
             #[cfg(feature = "tls")]
             tls_connector: HttpsConnector::default().with_default_pool(),
+            http_upstream_timeout: self.http_upstream_timeout,
         })
     }
 }
@@ -190,14 +210,25 @@ impl AsyncMakeService for ProxyHandlerFactory {
         &self,
         _old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
-        let mut http_connector = HttpConnector::default().with_default_pool();
-        http_connector.read_timeout = self.http_timeout;
+        let http_connector = HttpConnector::default().with_default_pool();
         Ok(ProxyHandler {
             connector: http_connector,
             #[cfg(feature = "tls")]
             tls_connector: HttpsConnector::default().with_default_pool(),
+            http_upstream_timeout: self.http_upstream_timeout,
         })
     }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+pub struct HttpUpstreamTimeout {
+    // Connect timeout
+    // Link Nginx `proxy_connect_timeout`
+    pub connect_timeout: Option<Duration>,
+    // Read full http header.
+    pub read_header_timeout: Option<Duration>,
+    // Receiving full body timeout.
+    pub read_body_timeout: Option<Duration>,
 }
 
 fn add_xff_header<CX>(headers: &mut HeaderMap, ctx: &CX)

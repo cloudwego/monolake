@@ -4,7 +4,10 @@ use monolake_core::{
     config::{RuntimeConfig, ServiceConfig},
     listener::ListenerBuilder,
 };
-use monolake_services::http::{handlers::rewrite::RouteConfig, HttpReadTimeout, Keepalive};
+use monolake_services::{
+    http::{handlers::rewrite::RouteConfig, HttpServerTimeout},
+    thrift::ttheader::ThriftServerTimeout,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 mod extractor;
@@ -25,13 +28,15 @@ pub enum ProxyType {
 
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
+    #[allow(unused)]
     pub name: String,
     pub proxy_type: ProxyType,
     #[cfg(feature = "tls")]
     pub tls: monolake_services::tls::TlsConfig,
     pub routes: Vec<RouteConfig>,
-    pub keepalive_config: Keepalive,
-    pub timeout_config: HttpReadTimeout,
+    pub http_server_timeout: HttpServerTimeout,
+    pub thrift_server_timeout: ThriftServerTimeout,
+    #[cfg(feature = "openid")]
     pub auth_config: Option<AuthConfig>,
 }
 
@@ -42,9 +47,8 @@ pub struct ServerUserConfig {
     pub proxy_type: ProxyType,
     pub tls: Option<TlsUserConfig>,
     pub routes: Vec<RouteConfig>,
-    pub keepalive_sec: Option<u64>,
-    pub http_timeout_sec: Option<u64>,
-    pub auth_config: Option<AuthConfig>,
+    pub http_timeout: Option<HttpTimeout>,
+    pub thrift_timeout: Option<ThriftTimeout>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,6 +59,28 @@ pub struct TlsUserConfig {
     pub stack: TlsStack,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct HttpTimeout {
+    // Connection keepalive timeout: If no byte comes when decoder want next request, close the
+    // connection. Link Nginx `keepalive_timeout`
+    server_keepalive_timeout_sec: Option<u64>,
+    // Read full http header.
+    // Like Nginx `client_header_timeout`
+    server_read_header_timeout_sec: Option<u64>,
+    // Receiving full body timeout.
+    // Like Nginx `client_body_timeout`
+    server_read_body_timeout_sec: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct ThriftTimeout {
+    // Connection keepalive timeout: If no byte comes when decoder want next request, close the
+    // connection. Link Nginx `keepalive_timeout`
+    server_keepalive_timeout_sec: Option<u64>,
+    // Read full thrift message.
+    server_message_timeout_sec: Option<u64>,
+}
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum TlsStack {
@@ -63,12 +89,9 @@ pub enum TlsStack {
     NativeTls,
 }
 
+#[cfg(feature = "openid")]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(untagged)]
-pub enum AuthConfig {
-    #[cfg(feature = "openid")]
-    OpenIdConfig(monolake_services::http::handlers::openid::OpenIdConfig),
-}
+pub struct AuthConfig(pub monolake_services::http::handlers::openid::OpenIdConfig);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
@@ -121,14 +144,8 @@ impl Config {
                 }
                 None => monolake_services::tls::TlsConfig::None,
             };
-            let keepalive_config: Keepalive = match server.keepalive_sec {
-                Some(sec) => Keepalive(Duration::from_secs(sec)),
-                None => Default::default(),
-            };
-            let timeout_config: HttpReadTimeout = match server.http_timeout_sec {
-                Some(sec) => HttpReadTimeout(Some(Duration::from_secs(sec))),
-                None => HttpReadTimeout(None),
-            };
+            let server_http_timeout = server.http_timeout.unwrap_or_default();
+            let server_thrift_timeout = server.thrift_timeout.unwrap_or_default();
             servers_new.insert(
                 key,
                 ServiceConfig {
@@ -138,9 +155,27 @@ impl Config {
                         #[cfg(feature = "tls")]
                         tls,
                         routes: server.routes,
-                        keepalive_config,
-                        timeout_config,
-                        auth_config: server.auth_config,
+                        http_server_timeout: HttpServerTimeout {
+                            keepalive_timeout: server_http_timeout
+                                .server_keepalive_timeout_sec
+                                .map(Duration::from_secs),
+                            read_header_timeout: server_http_timeout
+                                .server_read_header_timeout_sec
+                                .map(Duration::from_secs),
+                            read_body_timeout: server_http_timeout
+                                .server_read_body_timeout_sec
+                                .map(Duration::from_secs),
+                        },
+                        thrift_server_timeout: ThriftServerTimeout {
+                            keepalive_timeout: server_thrift_timeout
+                                .server_keepalive_timeout_sec
+                                .map(Duration::from_secs),
+                            message_timeout: server_thrift_timeout
+                                .server_message_timeout_sec
+                                .map(Duration::from_secs),
+                        },
+                        #[cfg(feature = "openid")]
+                        auth_config: None,
                     },
                     listener,
                 },
