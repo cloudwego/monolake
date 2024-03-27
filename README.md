@@ -46,32 +46,63 @@ RUST_LOG=debug cargo run --package monolake -- -c examples/config.toml
 curl -vvv --cacert examples/certs/rootCA.crt --resolve "gateway.monolake.rs:8082:127.0.0.1"  https://gateway.monolake.rs:8082/
 ```
 
-## code coverage test
+## manual code coverage test
 
-### install llvm-cov
-cargo install cargo-llvm-cov
+When PR is merged into main branch, unit test code coverage will be automatically run. But to get more code coverage rate, we need to run code coverage test manually.
 
-### It is already done: adding llvm-cov to Cargo.toml dependencies foelds:
+### install coverage tool
+cargo install grcov # or "cargo install cargo-llvm-cov" for llvm-cov
+
+### adding coverage tool to Cargo.toml dependencies foelds:
+cargo add grcov --package monolake 
+#### or for llvm-cov: add 'cargo-llvm-cov = "0.6.8"' to [dependencies] 
 [dependencies]
 cargo-llvm-cov = "0.6.8"
 
+### grcov only: setup code coverage test for all unit tests 
+export RUSTFLAGS="-Cinstrument-coverage"
+export LLVM_PROFILE_FILE="<your_name>-%p-%m.profraw"
+cargo build
+
 ### run code coverage test for all unit tests (in the code)
+cargo test 
+#### or for llvm-cov run "cargo llvm-cov"
 cargo llvm-cov
 
-### run code coverage test for monolake functions
-cargo llvm-cov --html run -- -c examples/config-2.toml
+### run code coverage test for integration test
+RUST_LOG=info target/debug/code-coverage-monolake -c examples/config-2.toml & 
+#### or for llvm-cov run "cargo llvm-cov --html run -- --bin code-coverage-monolake -c examples/config-2.toml"
+cargo llvm-cov --html run -- --bin code-coverage-monolake -c examples/config-2.toml
 
+### integration test
 curl http://localhost:8402 # ip/port depends on config
+####
 curl -k https://localhost:6442 # ip/port depends on config
+####
 ./wrk 'http://localhost:8402' -d 10s -c 10 -t 1 # ip/port depends on config
+####
 ./wrk 'https://localhost:6442' -d 10s -c 10 -t 1  # ip/port depends on config
 
-ps -A | grep monolake # find pid-of-monolake
-kill -15 <pid-of-monolake> # send SIGTERM to quit monolake
+### manually kill the monolake process
+kill -15 $(ps aux | grep 'code-coverage-monolake' | awk '{print $2}')
 
-open target/llvm-cov/html/index.html # show code coverage in browser page
+### grcov only: merge code coverage report
+grcov . -s . --binary-path ./target/debug/ -t html --branch --ignore-not-existing -o ./target/debug/coverage/
 
-cargo llvm-cov clean --workspace # clean the result for the next run
+### browse code coverage report
+open target/debug/coverage/index.html
+#### or for llvm-cov "open target/llvm-cov/index.html"
+open target/llvm-cov/index.html
+
+### if it is not the first run, use target/debug/coverage/html/index.html
+open target/debug/coverage/html/index.html
+#### or for llvm-cov "open target/llvm-cov/html/index.html"
+open target/llvm-cov/html/index.html
+
+### clean coverage report result for the next run
+rm *.profraw */*.profraw 
+#### or for llvm-cov "cargo llvm-cov clean --workspace" 
+cargo llvm-cov clean --workspace
 
 ## Limitations
 

@@ -1,4 +1,10 @@
-use std::sync::Arc;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread, time,
+};
 
 use anyhow::Result;
 use clap::Parser;
@@ -27,6 +33,9 @@ struct Args {
 
 #[monoio::main(timer_enabled = true)]
 async fn main() -> Result<()> {
+    let term = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&term))?;
+
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(
@@ -72,10 +81,18 @@ async fn main() -> Result<()> {
     }
     tracing::info!("init config broadcast successfully");
 
+    while !term.load(Ordering::Relaxed) {
+        // Do some time-limited stuff here
+        // (if this could block forever, then there's no guarantee the signal will have any
+        // effect).
+        thread::sleep(time::Duration::from_millis(100));
+    }
+    tracing::info!("SIGTERM received");
+
     // TODO(ihciah): run update task or api server to do config update, maybe in xDS protocol
     // Wait for workers
-    for (_, mut close) in join_handlers.into_iter() {
-        close.cancellation().await;
-    }
+    // for (_, mut close) in join_handlers.into_iter() {
+    //     close.cancellation().await;
+    // }
     Ok(())
 }

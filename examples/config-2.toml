@@ -32,7 +32,7 @@ entries = 4096
         upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:10085" } }]
 
 [servers.server_tls2]
-    tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem" }
+    tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem", stack = "rustls"  }
     name = "monolake.cloudwego.io"
     listener = { type = "socket", value = "0.0.0.0:6442" }
     [[servers.server_tls2.routes]]
@@ -56,7 +56,7 @@ entries = 4096
         upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:10084" } }]
 
 [servers.server_tls5]
-    tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem" }
+    tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem", stack = "native_tls" }
     name = "monolake.cloudwego.io"
     listener = { type = "socket", value = "0.0.0.0:6445" }
     [[servers.server_tls5.routes]]

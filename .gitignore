@@ -3,6 +3,7 @@
 .idea
 .swp
 *.pem
+*.profraw
 
 /examples/certs
 /docs/cloudwego.github.io
