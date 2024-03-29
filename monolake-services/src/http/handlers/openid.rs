@@ -193,17 +193,15 @@ lazy_static! {
 }
 
 // impl<H> HttpHandler for OpenIdHandler<H>
-impl<H, CX> Service<(Request<HttpBody>, CX)> for OpenIdHandler<H>
+impl<H, CX, B> Service<(Request<B>, CX)> for OpenIdHandler<H>
 where
-    H: HttpHandler<CX>,
+    H: HttpHandler<CX, B>,
+    H::Body: FixedBody,
 {
-    type Response = ResponseWithContinue;
+    type Response = ResponseWithContinue<H::Body>;
     type Error = H::Error;
 
-    async fn call(
-        &self,
-        (request, ctx): (Request<HttpBody>, CX),
-    ) -> Result<Self::Response, Self::Error> {
+    async fn call(&self, (request, ctx): (Request<B>, CX)) -> Result<Self::Response, Self::Error> {
         if self.openid_config.is_none() {
             return self.inner.handle(request, ctx).await;
         }
@@ -287,7 +285,7 @@ where
             if code_pair.is_none() || state_pair.is_none() {
                 let mut redirect_response = Response::builder()
                     .status(StatusCode::from_u16(301).unwrap())
-                    .body(HttpBody::fixed_body(None))
+                    .body(H::Body::fixed_body(None))
                     .unwrap();
                 redirect_response
                     .headers_mut()
@@ -309,9 +307,9 @@ where
             let (_, state_val) = state_pair.clone().unwrap();
             state = CsrfToken::new(state_val.clone().into_owned());
             if !session_store.contains_key(&state_val.to_string()) {
-                let mut redirect_response: Response<HttpBody> = Response::builder()
+                let mut redirect_response: Response<H::Body> = Response::builder()
                     .status(StatusCode::from_u16(301).unwrap())
-                    .body(HttpBody::fixed_body(None))
+                    .body(H::Body::fixed_body(None))
                     .unwrap();
                 redirect_response
                     .headers_mut()

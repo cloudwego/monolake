@@ -4,6 +4,7 @@ version = "0.3.2"
 edition = "2021"
 
 [features]
+default = ["hyper"]
 openid = [
     "tls",
     "dep:cookie",
@@ -22,6 +23,7 @@ tls = [
     "dep:native-tls",
 ]
 vendored = ["native-tls?/vendored"]
+hyper = ["dep:hyper", "dep:hyper-util", "dep:monoio-compat", "monoio/poll-io", "monoio-compat/hyper"]
 
 [dependencies]
 monoio = { workspace = true, features = ['splice'] }
@@ -48,6 +50,18 @@ native-tls = { workspace = true, optional = true }
 rustls = { version = "0.21", optional = true, default-features = false }
 rustls-pemfile = { version = "1", optional = true }
 webpki-roots = { version = "0.25.2", optional = true }
+
+hyper = { version = "1.1", features = [
+    "http1",
+    "client",
+    "server",
+], optional = true }
+hyper-util = { version = "0.1.3", features = [
+    "http1",
+    "client",
+    "server-auto",
+], optional = true }
+monoio-compat = { version = "0.2.2", features = ["hyper"], optional = true }
 
 # common
 bytes = { workspace = true }

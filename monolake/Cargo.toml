@@ -24,7 +24,7 @@ serde = { workspace = true }
 tracing = { workspace = true }
 
 monolake-core = { path = "../monolake-core" }
-monolake-services = { path = "../monolake-services" }
+monolake-services = { path = "../monolake-services", features = ["hyper"]}
 
 # tls: needed for native-tls init
 native-tls = { workspace = true, optional = true }

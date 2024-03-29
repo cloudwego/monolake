@@ -1,6 +1,6 @@
 use http::{uri::Scheme, HeaderValue, Request, StatusCode, Version};
 use matchit::Router;
-use monoio_http::common::body::HttpBody;
+use monoio_http::common::body::FixedBody;
 use monolake_core::{
     http::{HttpHandler, ResponseWithContinue},
     util::uri_serde,
@@ -21,16 +21,17 @@ pub struct RewriteHandler<H> {
     router: Router<RouteConfig>,
 }
 
-impl<H, CX> Service<(Request<HttpBody>, CX)> for RewriteHandler<H>
+impl<H, CX, B> Service<(Request<B>, CX)> for RewriteHandler<H>
 where
-    H: HttpHandler<CX>,
+    H: HttpHandler<CX, B>,
+    H::Body: FixedBody,
 {
-    type Response = ResponseWithContinue;
+    type Response = ResponseWithContinue<H::Body>;
     type Error = H::Error;
 
     async fn call(
         &self,
-        (mut request, ctx): (Request<HttpBody>, CX),
+        (mut request, ctx): (Request<B>, CX),
     ) -> Result<Self::Response, Self::Error> {
         let req_path = request.uri().path();
         tracing::info!("request path: {req_path}");
@@ -148,7 +149,7 @@ impl<F> RewriteHandler<F> {
     }
 }
 
-fn rewrite_request(request: &mut Request<HttpBody>, upstream: &Upstream) {
+fn rewrite_request<B>(request: &mut Request<B>, upstream: &Upstream) {
     let remote = match &upstream.endpoint {
         Endpoint::Uri(uri) => uri,
         _ => unimplemented!("not implement"),

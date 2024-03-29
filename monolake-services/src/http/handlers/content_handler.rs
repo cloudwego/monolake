@@ -1,6 +1,8 @@
+use std::fmt::Debug;
+
 use http::{Request, StatusCode};
 use monoio_http::common::{
-    body::{BodyEncodeExt, FixedBody, HttpBody},
+    body::{BodyEncodeExt, FixedBody},
     response::Response,
 };
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
@@ -16,17 +18,18 @@ pub struct ContentHandler<H> {
     inner: H,
 }
 
-impl<H, CX> Service<(Request<HttpBody>, CX)> for ContentHandler<H>
+impl<H, CX, B> Service<(Request<B>, CX)> for ContentHandler<H>
 where
-    H: HttpHandler<CX>,
+    H: HttpHandler<CX, B>,
+    B: BodyEncodeExt + FixedBody,
+    H::Body: BodyEncodeExt + FixedBody,
+    B::EncodeDecodeError: Debug,
+    <H::Body as BodyEncodeExt>::EncodeDecodeError: Debug,
 {
-    type Response = ResponseWithContinue;
+    type Response = ResponseWithContinue<H::Body>;
     type Error = H::Error;
 
-    async fn call(
-        &self,
-        (request, ctx): (Request<HttpBody>, CX),
-    ) -> Result<Self::Response, Self::Error> {
+    async fn call(&self, (request, ctx): (Request<B>, CX)) -> Result<Self::Response, Self::Error> {
         let content_encoding = request
             .headers()
             .get(http::header::CONTENT_ENCODING)
@@ -56,19 +59,17 @@ where
         let (parts, body) = request.into_parts();
         match body.decode_content(content_encoding).await {
             Ok(decodec_data) => {
-                let req = Request::from_parts(parts, HttpBody::fixed_body(Some(decodec_data)));
+                let req = Request::from_parts(parts, B::fixed_body(Some(decodec_data)));
                 let (mut response, _) = self.inner.handle(req, ctx).await?;
                 if accept_encoding != "identity" {
                     let (parts, body) = response.into_parts();
                     match body.encode_content(accept_encoding).await {
                         Ok(encoded_data) => {
-                            response = Response::from_parts(
-                                parts,
-                                HttpBody::fixed_body(Some(encoded_data)),
-                            )
+                            response =
+                                Response::from_parts(parts, H::Body::fixed_body(Some(encoded_data)))
                         }
                         Err(e) => {
-                            tracing::error!("Response content encoding failed {}", e);
+                            tracing::error!("Response content encoding failed {e:?}");
                             return Ok((
                                 generate_response(StatusCode::INTERNAL_SERVER_ERROR, false),
                                 true,
@@ -79,7 +80,7 @@ where
                 Ok((response, true))
             }
             Err(e) => {
-                tracing::error!("Request content decode failed {}", e);
+                tracing::error!("Request content decode failed {e:?}");
                 Ok((generate_response(StatusCode::BAD_REQUEST, false), true))
             }
         }

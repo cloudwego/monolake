@@ -45,7 +45,7 @@ impl<H> HttpCoreService<H> {
     async fn h1_svc<S, CX>(&self, stream: S, ctx: CX)
     where
         S: Split + AsyncReadRent + AsyncWriteRent,
-        H: HttpHandler<CX>,
+        H: HttpHandler<CX, HttpBody, Body = HttpBody>,
         H::Error: Into<AnyError> + Debug,
         CX: ParamRef<PeerAddr> + Clone,
     {
@@ -141,7 +141,10 @@ impl<H> HttpCoreService<H> {
                     // something error when process request(not a biz error)
                     error!("error when processing request: {e:?}");
                     if let Err(e) = encoder
-                        .send_and_flush(generate_response(StatusCode::INTERNAL_SERVER_ERROR, true))
+                        .send_and_flush(generate_response::<HttpBody>(
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            true,
+                        ))
                         .await
                     {
                         warn!("error when reply client: {e}");
@@ -200,7 +203,7 @@ impl<H> HttpCoreService<H> {
     async fn h2_svc<S, CX>(&self, stream: S, ctx: CX)
     where
         S: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
-        H: HttpHandler<CX>,
+        H: HttpHandler<CX, HttpBody, Body = HttpBody>,
         H::Error: Into<AnyError> + Debug,
         CX: ParamRef<PeerAddr> + Clone,
     {
@@ -256,7 +259,7 @@ impl<H> HttpCoreService<H> {
                          }
                          (Err(e), mut response_handle) => {
                              error!("Handler chain returned error : {e:?}");
-                             let (parts, _) = generate_response(StatusCode::INTERNAL_SERVER_ERROR, false).into_parts();
+                             let (parts, _) = generate_response::<HttpBody>(StatusCode::INTERNAL_SERVER_ERROR, false).into_parts();
                              let response = http::Response::from_parts(parts, ());
                              let _ = response_handle.send_response(response, true);
                          }
@@ -282,7 +285,7 @@ impl<H> HttpCoreService<H> {
 impl<H, Stream, CX> Service<HttpAccept<Stream, CX>> for HttpCoreService<H>
 where
     Stream: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
-    H: HttpHandler<CX>,
+    H: HttpHandler<CX, HttpBody, Body = HttpBody>,
     H::Error: Into<AnyError> + Debug,
     CX: ParamRef<PeerAddr> + Clone,
 {

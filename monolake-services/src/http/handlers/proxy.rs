@@ -7,7 +7,10 @@ use std::{
 use bytes::Bytes;
 use http::{header, HeaderMap, HeaderValue, Request, StatusCode};
 use monoio::net::TcpStream;
-use monoio_http::common::body::HttpBody;
+use monoio_http::common::{
+    body::{Body, HttpBody},
+    error::HttpError,
+};
 #[cfg(feature = "tls")]
 use monoio_transports::connectors::{TlsConnector, TlsStream};
 use monoio_transports::{
@@ -76,17 +79,16 @@ impl ProxyHandler {
     }
 }
 
-impl<CX> Service<(Request<HttpBody>, CX)> for ProxyHandler
+impl<CX, B> Service<(Request<B>, CX)> for ProxyHandler
 where
     CX: ParamRef<PeerAddr> + ParamMaybeRef<Option<RemoteAddr>>,
+    B: Body,
+    HttpError: From<B::Error>,
 {
-    type Response = ResponseWithContinue;
+    type Response = ResponseWithContinue<HttpBody>;
     type Error = Infallible;
 
-    async fn call(
-        &self,
-        (mut req, ctx): (Request<HttpBody>, CX),
-    ) -> Result<Self::Response, Self::Error> {
+    async fn call(&self, (mut req, ctx): (Request<B>, CX)) -> Result<Self::Response, Self::Error> {
         add_xff_header(req.headers_mut(), &ctx);
         #[cfg(feature = "tls")]
         if req.uri().scheme() == Some(&http::uri::Scheme::HTTPS) {
@@ -97,10 +99,14 @@ where
 }
 
 impl ProxyHandler {
-    async fn send_http_request(
+    async fn send_http_request<B>(
         &self,
-        req: Request<HttpBody>,
-    ) -> Result<ResponseWithContinue, Infallible> {
+        req: Request<B>,
+    ) -> Result<ResponseWithContinue<HttpBody>, Infallible>
+    where
+        B: Body,
+        HttpError: From<B::Error>,
+    {
         let Some(host) = req.uri().host() else {
             info!("invalid uri which does not contain host: {:?}", req.uri());
             return Ok((generate_response(StatusCode::BAD_REQUEST, true), true));
@@ -135,10 +141,14 @@ impl ProxyHandler {
     }
 
     #[cfg(feature = "tls")]
-    async fn send_https_request(
+    async fn send_https_request<B>(
         &self,
-        req: Request<HttpBody>,
-    ) -> Result<ResponseWithContinue, Infallible> {
+        req: Request<B>,
+    ) -> Result<ResponseWithContinue<HttpBody>, Infallible>
+    where
+        B: Body,
+        HttpError: From<B::Error>,
+    {
         let key = match req.uri().try_into() {
             Ok(key) => key,
             Err(e) => {

@@ -1,5 +1,4 @@
 use http::{Request, Version};
-use monoio_http::common::body::HttpBody;
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
@@ -16,16 +15,16 @@ pub struct ConnReuseHandler<H> {
     inner: H,
 }
 
-impl<H, CX> Service<(Request<HttpBody>, CX)> for ConnReuseHandler<H>
+impl<H, CX, B> Service<(Request<B>, CX)> for ConnReuseHandler<H>
 where
-    H: HttpHandler<CX>,
+    H: HttpHandler<CX, B>,
 {
-    type Response = ResponseWithContinue;
+    type Response = ResponseWithContinue<H::Body>;
     type Error = H::Error;
 
     async fn call(
         &self,
-        (mut request, ctx): (Request<HttpBody>, CX),
+        (mut request, ctx): (Request<B>, CX),
     ) -> Result<Self::Response, Self::Error> {
         let version = request.version();
         let keepalive = is_conn_keepalive(request.headers(), version);

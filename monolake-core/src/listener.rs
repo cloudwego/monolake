@@ -177,3 +177,113 @@ impl AsyncWriteRent for AcceptedStream {
         }
     }
 }
+
+// #[cfg(feature = "hyper")]
+pub enum AcceptedStreamPoll {
+    Tcp(monoio::net::tcp::stream_poll::TcpStreamPoll),
+    #[cfg(unix)]
+    Unix(monoio::net::unix::stream_poll::UnixStreamPoll),
+}
+
+// #[cfg(feature = "hyper")]
+impl monoio::io::IntoPollIo for AcceptedStream {
+    type PollIo = AcceptedStreamPoll;
+
+    #[inline]
+    fn try_into_poll_io(self) -> Result<Self::PollIo, (std::io::Error, Self)> {
+        match self {
+            AcceptedStream::Tcp(inner) => inner
+                .try_into_poll_io()
+                .map(AcceptedStreamPoll::Tcp)
+                .map_err(|(e, io)| (e, AcceptedStream::Tcp(io))),
+            AcceptedStream::Unix(inner) => inner
+                .try_into_poll_io()
+                .map(AcceptedStreamPoll::Unix)
+                .map_err(|(e, io)| (e, AcceptedStream::Unix(io))),
+        }
+    }
+}
+
+// #[cfg(feature = "hyper")]
+impl monoio::io::IntoCompIo for AcceptedStreamPoll {
+    type CompIo = AcceptedStream;
+
+    fn try_into_comp_io(self) -> Result<Self::CompIo, (std::io::Error, Self)> {
+        match self {
+            AcceptedStreamPoll::Tcp(inner) => inner
+                .try_into_comp_io()
+                .map(AcceptedStream::Tcp)
+                .map_err(|(e, io)| (e, AcceptedStreamPoll::Tcp(io))),
+            AcceptedStreamPoll::Unix(inner) => inner
+                .try_into_comp_io()
+                .map(AcceptedStream::Unix)
+                .map_err(|(e, io)| (e, AcceptedStreamPoll::Unix(io))),
+        }
+    }
+}
+
+impl monoio::io::poll_io::AsyncRead for AcceptedStreamPoll {
+    #[inline]
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut monoio::io::poll_io::ReadBuf<'_>,
+    ) -> std::task::Poll<io::Result<()>> {
+        match self.get_mut() {
+            AcceptedStreamPoll::Tcp(inner) => {
+                unsafe { std::pin::Pin::new_unchecked(inner) }.poll_read(cx, buf)
+            }
+            AcceptedStreamPoll::Unix(inner) => {
+                unsafe { std::pin::Pin::new_unchecked(inner) }.poll_read(cx, buf)
+            }
+        }
+    }
+}
+
+impl monoio::io::poll_io::AsyncWrite for AcceptedStreamPoll {
+    #[inline]
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<Result<usize, io::Error>> {
+        match self.get_mut() {
+            AcceptedStreamPoll::Tcp(inner) => {
+                unsafe { std::pin::Pin::new_unchecked(inner) }.poll_write(cx, buf)
+            }
+            AcceptedStreamPoll::Unix(inner) => {
+                unsafe { std::pin::Pin::new_unchecked(inner) }.poll_write(cx, buf)
+            }
+        }
+    }
+
+    #[inline]
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), io::Error>> {
+        match self.get_mut() {
+            AcceptedStreamPoll::Tcp(inner) => {
+                unsafe { std::pin::Pin::new_unchecked(inner) }.poll_flush(cx)
+            }
+            AcceptedStreamPoll::Unix(inner) => {
+                unsafe { std::pin::Pin::new_unchecked(inner) }.poll_flush(cx)
+            }
+        }
+    }
+
+    #[inline]
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), io::Error>> {
+        match self.get_mut() {
+            AcceptedStreamPoll::Tcp(inner) => {
+                unsafe { std::pin::Pin::new_unchecked(inner) }.poll_shutdown(cx)
+            }
+            AcceptedStreamPoll::Unix(inner) => {
+                unsafe { std::pin::Pin::new_unchecked(inner) }.poll_shutdown(cx)
+            }
+        }
+    }
+}
