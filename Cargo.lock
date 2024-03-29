@@ -1496,9 +1496,9 @@ dependencies = [
 
 [[package]]
 name = "monoio-thrift"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86556e7bb717f452203ca7693b3acdbcfdc8c0e1df43130a7c321ad704ce1111"
+checksum = "e09b99b2e4ce9915cde35f87c000aecaef4db16a855e505d39470213958bb672"
 dependencies = [
  "byteorder",
  "bytes",
@@ -1513,9 +1513,9 @@ dependencies = [
 
 [[package]]
 name = "monoio-transports"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cef9cc3d7cb6c0f65ea027f8ed5fdfe8d0b2919716bf52faa87050991ce24191"
+checksum = "26f060aa71ff10d1ae9906000e7d2bb97256ff88b1bfffc41a85513b6f394fd5"
 dependencies = [
  "bytes",
  "http 1.0.0",
@@ -1578,7 +1578,7 @@ dependencies = [
 
 [[package]]
 name = "monolake-services"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "bytes",

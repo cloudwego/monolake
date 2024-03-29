@@ -11,7 +11,7 @@ use monoio_http::common::body::HttpBody;
 #[cfg(feature = "tls")]
 use monoio_transports::connectors::{TlsConnector, TlsStream};
 use monoio_transports::{
-    connectors::{Connector, TcpConnector, TcpTlsAddr},
+    connectors::{Connector, TcpConnector},
     http::H1Connector,
 };
 use monolake_core::{
@@ -26,7 +26,11 @@ use crate::http::generate_response;
 
 type HttpConnector = H1Connector<TcpConnector, SocketAddr, TcpStream>;
 #[cfg(feature = "tls")]
-type HttpsConnector = H1Connector<TlsConnector<TcpConnector>, TcpTlsAddr, TlsStream<TcpStream>>;
+type HttpsConnector = H1Connector<
+    TlsConnector<TcpConnector>,
+    monoio_transports::connectors::TcpTlsAddr,
+    TlsStream<TcpStream>,
+>;
 
 #[derive(Clone)]
 pub struct ProxyHandler {

@@ -1,13 +1,11 @@
 use std::{convert::Infallible, io};
 
-use monoio::io::{sink::SinkExt, stream::Stream, Splitable};
-use monoio_codec::{FramedRead, FramedWrite};
-use monoio_thrift::codec::ttheader::{
-    RawPayloadCodec, TTHeaderPayloadDecoder, TTHeaderPayloadEncoder,
-};
+use monoio::io::{sink::SinkExt, stream::Stream};
+use monoio_codec::Framed;
+use monoio_thrift::codec::ttheader::{RawPayloadCodec, TTHeaderPayloadCodec};
 use monoio_transports::{
     connectors::{Connector, UnifiedL4Addr, UnifiedL4Connector, UnifiedL4Stream},
-    pool::{PooledConnector, Reuse, ReuseConnector},
+    pool::{ConnectorMap, ConnectorMapper, PooledConnector, Reuse, ReuseConnector},
 };
 use monolake_core::{
     context::{PeerAddr, RemoteAddr},
@@ -18,10 +16,31 @@ use tracing::info;
 
 use crate::http::handlers::rewrite::{Endpoint, RouteConfig};
 
-type PoolThriftConnector =
-    PooledConnector<ReuseConnector<UnifiedL4Connector>, UnifiedL4Addr, Reuse<UnifiedL4Stream>>;
+pub type PoolThriftConnector = PooledConnector<
+    ReuseConnector<ConnectorMap<UnifiedL4Connector, ThriftConnectorMapper>>,
+    UnifiedL4Addr,
+    Reuse<Framed<UnifiedL4Stream, TTHeaderPayloadCodec<RawPayloadCodec>>>,
+>;
 
-#[derive(Clone, Default)]
+#[inline]
+fn new_connector() -> PoolThriftConnector {
+    PooledConnector::new_with_default_pool(ReuseConnector(ConnectorMap::new(
+        UnifiedL4Connector::default(),
+        ThriftConnectorMapper,
+    )))
+}
+
+pub struct ThriftConnectorMapper;
+impl<C, E> ConnectorMapper<C, E> for ThriftConnectorMapper {
+    type Connection = Framed<C, TTHeaderPayloadCodec<RawPayloadCodec>>;
+    type Error = E;
+
+    #[inline]
+    fn map(&self, inner: Result<C, E>) -> Result<Self::Connection, Self::Error> {
+        inner.map(|io| Framed::new(io, TTHeaderPayloadCodec::new(RawPayloadCodec)))
+    }
+}
+
 pub struct ProxyHandler {
     connector: PoolThriftConnector,
     routes: Vec<RouteConfig>,
@@ -64,7 +83,7 @@ impl ProxyHandler {
             Endpoint::Unix(path) => UnifiedL4Addr::Unix(path.clone()),
             _ => panic!("not support"),
         };
-        let conn = match self.connector.connect(key).await {
+        let mut io = match self.connector.connect(key).await {
             Ok(conn) => conn,
             Err(e) => {
                 info!("connect upstream error: {:?}", e);
@@ -72,19 +91,21 @@ impl ProxyHandler {
             }
         };
 
-        let (reader, writer) = conn.into_split();
+        if let Err(e) = io.send_and_flush(req).await {
+            io.set_reuse(false);
+            return Err(e);
+        }
 
-        let mut decoder =
-            FramedRead::new(reader, TTHeaderPayloadDecoder::new(RawPayloadCodec::new()));
-        let mut encoder =
-            FramedWrite::new(writer, TTHeaderPayloadEncoder::new(RawPayloadCodec::new()));
-
-        encoder.send_and_flush(req).await?;
-
-        match decoder.next().await {
+        match io.next().await {
             Some(Ok(resp)) => Ok(resp),
-            Some(Err(e)) => Err(e),
-            None => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "TODO: eof")),
+            Some(Err(e)) => {
+                io.set_reuse(false);
+                Err(e)
+            }
+            None => {
+                io.set_reuse(false);
+                Err(io::ErrorKind::UnexpectedEof.into())
+            }
         }
     }
 }
@@ -98,10 +119,7 @@ impl MakeService for ProxyHandlerFactory {
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        Ok(ProxyHandler::new(
-            PoolThriftConnector::default(),
-            self.config.clone(),
-        ))
+        Ok(ProxyHandler::new(new_connector(), self.config.clone()))
     }
 }
 
@@ -113,9 +131,6 @@ impl AsyncMakeService for ProxyHandlerFactory {
         &self,
         _old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
-        Ok(ProxyHandler::new(
-            PoolThriftConnector::default(),
-            self.config.clone(),
-        ))
+        Ok(ProxyHandler::new(new_connector(), self.config.clone()))
     }
 }
