@@ -4,7 +4,7 @@ version = "0.3.2"
 edition = "2021"
 
 [features]
-default = ["hyper"]
+default = []
 openid = [
     "tls",
     "dep:cookie",
@@ -23,7 +23,14 @@ tls = [
     "dep:native-tls",
 ]
 vendored = ["native-tls?/vendored"]
-hyper = ["dep:hyper", "dep:hyper-util", "dep:monoio-compat", "monoio/poll-io", "monoio-compat/hyper"]
+hyper = [
+    "dep:hyper",
+    "dep:hyper-util",
+    "dep:monoio-compat",
+    "monoio/poll-io",
+    "monoio-compat/hyper",
+    "monolake-core/hyper",
+]
 
 [dependencies]
 monoio = { workspace = true, features = ['splice'] }

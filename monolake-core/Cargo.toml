@@ -6,6 +6,7 @@ edition = "2021"
 [features]
 openid = []
 proxy-protocol = []
+hyper = ["monoio/poll-io"]
 
 [dependencies]
 monoio = { workspace = true, features = ["splice", "sync"] }

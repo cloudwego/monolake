@@ -178,14 +178,14 @@ impl AsyncWriteRent for AcceptedStream {
     }
 }
 
-// #[cfg(feature = "hyper")]
+#[cfg(feature = "hyper")]
 pub enum AcceptedStreamPoll {
     Tcp(monoio::net::tcp::stream_poll::TcpStreamPoll),
     #[cfg(unix)]
     Unix(monoio::net::unix::stream_poll::UnixStreamPoll),
 }
 
-// #[cfg(feature = "hyper")]
+#[cfg(feature = "hyper")]
 impl monoio::io::IntoPollIo for AcceptedStream {
     type PollIo = AcceptedStreamPoll;
 
@@ -204,7 +204,7 @@ impl monoio::io::IntoPollIo for AcceptedStream {
     }
 }
 
-// #[cfg(feature = "hyper")]
+#[cfg(feature = "hyper")]
 impl monoio::io::IntoCompIo for AcceptedStreamPoll {
     type CompIo = AcceptedStream;
 
@@ -222,6 +222,7 @@ impl monoio::io::IntoCompIo for AcceptedStreamPoll {
     }
 }
 
+#[cfg(feature = "hyper")]
 impl monoio::io::poll_io::AsyncRead for AcceptedStreamPoll {
     #[inline]
     fn poll_read(
@@ -240,6 +241,7 @@ impl monoio::io::poll_io::AsyncRead for AcceptedStreamPoll {
     }
 }
 
+#[cfg(feature = "hyper")]
 impl monoio::io::poll_io::AsyncWrite for AcceptedStreamPoll {
     #[inline]
     fn poll_write(
