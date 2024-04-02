@@ -50,6 +50,9 @@ curl -vvv --cacert examples/certs/rootCA.crt --resolve "gateway.monolake.rs:8082
 
 When PR is merged into main branch, unit test code coverage will be automatically run. But to get more code coverage rate, we need to run code coverage test manually.
 
+### make sure you have newer version of gcc/g++ and ld
+gcc/g++ and ld must have newer version than 8.3/2.38. Otherwise build will report error of "undefined hidden symbol `__ehdr_start'". We tested with gcc/g++ 11.4.1 and ld 2.39-6. and these work. 
+
 ### install coverage tool
 cargo install grcov # or "cargo install cargo-llvm-cov" for llvm-cov
 
@@ -74,14 +77,67 @@ RUST_LOG=info target/debug/code-coverage-monolake -c examples/config-2.toml &
 #### or for llvm-cov run "cargo llvm-cov --html run -- --bin code-coverage-monolake -c examples/config-2.toml"
 cargo llvm-cov --html run -- --bin code-coverage-monolake -c examples/config-2.toml
 
-### integration test
-curl http://localhost:8402 # ip/port depends on config
-####
-curl -k https://localhost:6442 # ip/port depends on config
-####
-./wrk 'http://localhost:8402' -d 10s -c 10 -t 1 # ip/port depends on config
-####
-./wrk 'https://localhost:6442' -d 10s -c 10 -t 1  # ip/port depends on config
+### integration test (you must setup the servers before running it)
+RUST_LOG=debug target/debug/code-coverage-monolake -c examples/config.toml &
+
+#### 
+curl -k https://localhost:8102; curl -k https://localhost:8103
+
+### manually kill the monolake process
+kill -15 $(ps aux | grep 'code-coverage-monolake' | awk '{print $2}')
+
+#### more integration tests
+RUST_LOG=debug target/debug/code-coverage-monolake -c examples/config-2.toml &
+
+#### 
+curl http://localhost:8402; 
+curl http://localhost:8403; 
+curl http://localhost:8405; 
+curl -k https://localhost:6442; 
+curl -k https://localhost:6445; 
+curl -k -v https://localhost:8082; 
+curl -k -v https://localhost:8083; 
+curl -k -v http://localhost:8083; 
+curl -k -v https://localhost:6442/server2; 
+curl -k -v https://localhost:6442/server2/1
+
+#### 
+cd ../wrk; 
+./wrk 'http://localhost:8402' -d 1m -c 10 -t 1; 
+./wrk 'http://localhost:8403' -d 15s -c 10 -t 1; 
+./wrk 'http://localhost:8404' -d 15s -c 10 -t 10; 
+./wrk 'http://localhost:8405' -d 35s -c 80 -t 5; 
+./wrk 'https://localhost:6442/' -d 15s -c 10 -t 1; 
+./wrk 'https://localhost:6443/' -d 15s -c 10 -t 1; 
+./wrk 'https://localhost:6444/' -d 25s -c 80 -t 10; 
+./wrk 'https://localhost:6445/' -d 15s -c 10 -t 1; 
+
+### manually kill the monolake process
+kill -15 $(ps aux | grep 'code-coverage-monolake' | awk '{print $2}')
+
+#### more integration tests
+RUST_LOG=debug target/debug/code-coverage-monolake -c examples/config-3.toml &
+
+### manually kill the monolake process
+kill -15 $(ps aux | grep 'code-coverage-monolake' | awk '{print $2}')
+
+#### more integration tests
+RUST_LOG=debug target/debug/code-coverage-monolake -c examples/config-4.toml &
+
+#### 
+curl -v http://127.0.0.1:8080; 
+curl -v http://127.0.0.1:8080/p; 
+curl -v http://127.0.0.1:8080/p2; 
+curl -k -v https://127.0.0.1:8081; 
+curl -k -v https://127.0.0.1:8081/p; 
+curl -k -v https://127.0.0.1:8081/p2; 
+curl -X GET --unix-socket /tmp/monolake.sock http://localhost:10082; 
+curl -X GET --unix-socket /tmp/monolake.sock http://localhost:10082/; 
+curl -X GET --unix-socket /tmp/monolake.sock http://localhost:9080/; 
+curl -X GET --unix-socket /tmp/monolake.sock http://localhost:9081/; 
+curl -X GET --unix-socket /tmp/monolake.sock http://localhost:9080/p; 
+curl -X GET --unix-socket /tmp/monolake.sock http://localhost:9080/p2; 
+curl -X GET --unix-socket /tmp/monolake.sock http://localhost:9081/p; 
 
 ### manually kill the monolake process
 kill -15 $(ps aux | grep 'code-coverage-monolake' | awk '{print $2}')

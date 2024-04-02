@@ -1,8 +1,3 @@
-[runtime]
-# runtime_type = "legacy"
-worker_threads = 2
-entries = 4096
-
 [servers.server_basic2]
     name = "monolake.cloudwego.io"
     listener = { type = "socket", value = "0.0.0.0:8402" }
