@@ -81,18 +81,22 @@ where
     }
 }
 
-impl<F: MakeService> MakeService for HyperCoreService<F> {
+pub struct HyperCoreFactory<F> {
+    factory_chain: F,
+}
+
+impl<F: MakeService> MakeService for HyperCoreFactory<F> {
     type Service = HyperCoreService<F::Service>;
     type Error = F::Error;
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         let handler_chain = self
-            .handler_chain
+            .factory_chain
             .make_via_ref(old.map(|o| o.handler_chain.as_ref()))?;
         Ok(HyperCoreService::new(handler_chain))
     }
 }
 
-impl<F: AsyncMakeService> AsyncMakeService for HyperCoreService<F> {
+impl<F: AsyncMakeService> AsyncMakeService for HyperCoreFactory<F> {
     type Service = HyperCoreService<F::Service>;
     type Error = F::Error;
 
@@ -101,7 +105,7 @@ impl<F: AsyncMakeService> AsyncMakeService for HyperCoreService<F> {
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         let handler_chain = self
-            .handler_chain
+            .factory_chain
             .make_via_ref(old.map(|o| o.handler_chain.as_ref()))
             .await?;
         Ok(HyperCoreService::new(handler_chain))
@@ -109,7 +113,9 @@ impl<F: AsyncMakeService> AsyncMakeService for HyperCoreService<F> {
 }
 
 impl<F> HyperCoreService<F> {
-    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self> {
-        layer_fn(|_c: &C, inner| Self::new(inner))
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = HyperCoreFactory<F>> {
+        layer_fn(|_c: &C, inner| HyperCoreFactory {
+            factory_chain: inner,
+        })
     }
 }
