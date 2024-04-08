@@ -71,3 +71,22 @@ impl<CX: Clone, F: AsyncMakeService> AsyncMakeService for ContextService<CX, F> 
         })
     }
 }
+
+// #[monoio::test_all]
+// async fn test_context() {
+//     use std::time::Duration;
+//     use crate::common::delay::DummyService;
+
+//     let es:DummyService = DummyService{};
+//     let s:ContextService::<EmptyContext, _> = ContextService {
+//         inner: es,
+//     };
+//     let s2 = MakeService::make(&s).unwrap();
+//     let s3 = AsyncMakeService::make(&s).await.unwrap();
+//     let _ = s.layer::<Timeout>();
+//     let _ = s3.call(&s).await;
+//     let _ = s2.call(&s).await;
+//     let _ = s.call(&s).await;
+
+//     assert_eq!(s.timeout, Duration::from_secs(1));
+// }

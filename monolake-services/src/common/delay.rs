@@ -29,7 +29,7 @@ where
 pub struct Delay(pub Duration);
 
 impl<F> DelayService<F> {
-    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
+    pub fn layer<C>(&self) -> impl FactoryLayer<C, F, Factory = Self>
     where
         C: Param<Delay>,
     {
@@ -72,4 +72,60 @@ impl<F: AsyncMakeService> AsyncMakeService for DelayService<F> {
                 .map_err(Into::into)?,
         })
     }
+}
+
+#[derive(Copy, Clone)]
+pub struct DummyService
+{
+}
+
+impl <R> Service<R> for DummyService
+{
+    type Response = R;
+    type Error = std::io::Error;
+    async fn call(&self, req: R) -> Result<Self::Response, Self::Error> {
+        Ok(req)
+    }
+}
+
+impl MakeService for DummyService {
+    type Service = Self;
+    type Error = std::io::Error;
+
+    fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
+        Ok(DummyService {
+        })
+    }
+}
+
+impl AsyncMakeService for DummyService {
+    type Service = Self;
+    type Error = std::io::Error;
+
+    async fn make_via_ref(
+        &self,
+        _old: Option<&Self::Service>,
+    ) -> Result<Self::Service, Self::Error> {
+        Ok(DummyService {
+        })
+    }
+}
+
+#[monoio::test_all(timer_enabled = true)]
+async fn test_delay() {
+    use std::time::Duration;
+
+    let es:DummyService = DummyService{};
+    let s:DelayService<DummyService> = DelayService {
+        delay: Duration::from_secs(1),
+        inner: es,
+    };
+    let s2 = MakeService::make(&s).unwrap();
+    let s3 = AsyncMakeService::make(&s).await.unwrap();
+    let _ = s.layer::<Delay>();
+    let _ = s2.call(&s).await;
+    let _ = s.call(&s).await;
+    let _ = s3.call(&s).await;
+
+    assert_eq!(s.delay, Duration::from_secs(1));
 }

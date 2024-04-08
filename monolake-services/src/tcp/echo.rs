@@ -69,7 +69,7 @@ impl Default for EchoConfig {
 }
 
 impl EchoService {
-    pub fn layer<C>() -> impl FactoryLayer<C, (), Factory = Self>
+    pub fn layer<C>(&self) -> impl FactoryLayer<C, (), Factory = Self>
     where
         C: Param<EchoConfig>,
     {
@@ -77,4 +77,18 @@ impl EchoService {
             buffer_size: c.param().buffer_size,
         })
     }
+}
+
+#[monoio::test_all]
+async fn test_echo() {
+    let s:EchoService = EchoService {
+        buffer_size: 4096
+    };
+    let _ec:EchoConfig = EchoConfig::default();
+    let d = 1;
+    let _s2 = MakeService::make(&s).unwrap();
+    let _s3 = AsyncMakeService::make(&s).await.unwrap();
+    let _ = s.layer::<EchoConfig>();
+
+    assert_eq!(d, 1);
 }

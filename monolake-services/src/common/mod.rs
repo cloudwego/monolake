@@ -1,5 +1,5 @@
 mod context;
-mod delay;
+pub(crate) mod delay;
 mod erase;
 mod timeout;
 

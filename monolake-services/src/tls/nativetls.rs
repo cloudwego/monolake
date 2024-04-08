@@ -96,3 +96,27 @@ where
         })
     }
 }
+
+#[monoio::test_all(timer_enabled = true)]
+async fn test_native_tls() {
+    use std::fs::File;
+    use std::io::Read;
+    use crate::common::delay::DummyService;
+
+    let d = 1;
+    let es:DummyService = DummyService{};
+
+    let mut file = File::open(concat!(env!("CARGO_MANIFEST_DIR"), "/../examples/certs/identity.pfx")).unwrap();
+    let mut identity = vec![];
+    file.read_to_end(&mut identity).unwrap();
+    let identity = Identity::from_pkcs12(&identity, "Export").unwrap();
+
+    let s:NativeTlsServiceFactory<DummyService> = NativeTlsServiceFactory {
+        identity: identity,
+        inner: es,
+    };
+    let _s2 = MakeService::make(&s).unwrap();
+    let _s3 = AsyncMakeService::make(&s).await.unwrap();
+
+    assert_eq!(d, 1);
+}

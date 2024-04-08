@@ -53,7 +53,7 @@ impl<T: Service<Req>, Req> Service<Req> for EraseResp<T> {
 }
 
 impl<F> EraseResp<F> {
-    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self> {
+    pub fn layer<C>(&self) -> impl FactoryLayer<C, F, Factory = Self> {
         layer_fn(|_c: &C, svc| EraseResp { svc })
     }
 }
@@ -68,4 +68,22 @@ impl<T> EraseResp<T> {
     pub fn into_inner(self) -> T {
         self.svc
     }
+}
+
+#[monoio::test_all]
+async fn test_erase() {
+    use crate::common::delay::{ DummyService, Delay};
+
+    let es:DummyService = DummyService{};
+    let d = 1;
+    let s:EraseResp<DummyService> = EraseResp::new(es);
+    let s2 = MakeService::make(&s).unwrap();
+    let s3 = AsyncMakeService::make(&s).await.unwrap();
+    let _ = s.layer::<Delay>();
+    let _ = s2.call(&s).await;
+    let _ = s.call(&s).await;
+    let _ = s3.call(&s).await;
+    let _ = s.into_inner();
+
+    assert_eq!(d, 1);
 }

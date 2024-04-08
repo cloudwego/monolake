@@ -78,3 +78,36 @@ impl<F: AsyncMakeService> AsyncMakeService for RustlsServiceFactory<F> {
         })
     }
 }
+
+#[monoio::test_all(timer_enabled = true)]
+async fn test_rustls() {
+    use crate::common::delay::DummyService;
+
+    let d = 1;
+    let es:DummyService = DummyService{};
+
+    let fname = concat!(env!("CARGO_MANIFEST_DIR"), "/../examples/certs/cert.pem");
+    let cert_file = &mut std::io::BufReader::new(std::fs::File::open(fname).unwrap());
+    let key_file = &mut std::io::BufReader::new(std::fs::File::open(concat!(env!("CARGO_MANIFEST_DIR"), "/../examples/certs/key.pem")).unwrap());
+    let certs = rustls_pemfile::certs(cert_file).unwrap();
+    let cert_vec:Vec<rustls::Certificate> = certs.into_iter().map(rustls::Certificate).collect();
+    let mut private_key = rustls_pemfile::pkcs8_private_keys(key_file).unwrap();
+    let key: rustls::PrivateKey = rustls::PrivateKey(private_key.remove(0));
+    
+    let server_config = ServerConfig::builder()
+        .with_safe_default_cipher_suites()
+        .with_safe_default_kx_groups()
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_no_client_auth()
+        .with_single_cert(cert_vec, key)
+        .expect("bad certificate/key");
+    let s:RustlsServiceFactory<DummyService> = RustlsServiceFactory {
+        config: Arc::new(server_config),
+        inner: es,
+    };
+    let _s2 = MakeService::make(&s).unwrap();
+    let _s3 = AsyncMakeService::make(&s).await.unwrap();
+
+    assert_eq!(d, 1);
+}

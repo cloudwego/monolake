@@ -34,7 +34,7 @@ where
 pub struct Timeout(pub Duration);
 
 impl<F> TimeoutService<F> {
-    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
+    pub fn layer<C>(&self) -> impl FactoryLayer<C, F, Factory = Self>
     where
         C: Param<Timeout>,
     {
@@ -77,4 +77,22 @@ impl<F: AsyncMakeService> AsyncMakeService for TimeoutService<F> {
                 .map_err(Into::into)?,
         })
     }
+}
+
+#[monoio::test_all(timer_enabled = true)]
+async fn test_erase() {
+    use std::time::Duration;
+    use crate::common::delay::DummyService;
+
+    let es:DummyService = DummyService{};
+    let s:TimeoutService<DummyService> = TimeoutService {
+        timeout: Duration::from_secs(1),
+        inner: es,
+    };
+    let _s2 = MakeService::make(&s).unwrap();
+    let s3 = AsyncMakeService::make(&s).await.unwrap();
+    let _ = s.layer::<Timeout>();
+    let _ = s3.call(&s).await;
+
+    assert_eq!(s.timeout, Duration::from_secs(1));
 }

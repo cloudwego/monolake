@@ -10,6 +10,7 @@
     proxy_type = "thrift"
     keepalive_config = { secs = 0, nanos = 100000 }
     timeout_config = { secs = 0, nanos = 100000 }
+    http_timeout = { secs = 5 }
     listener = { type = "socket", value = "0.0.0.0:8403" }
     [[servers.server_basic3.routes]]
         path = '/'
