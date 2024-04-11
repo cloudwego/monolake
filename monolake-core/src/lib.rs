@@ -14,5 +14,5 @@ pub(crate) mod sealed {
     #[allow(dead_code)]
     pub trait Sealed {}
     #[allow(dead_code)]
-    pub trait SealedT<T> {}
+    pub trait SealedT<T1, T2> {}
 }

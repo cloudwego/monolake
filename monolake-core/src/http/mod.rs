@@ -12,7 +12,10 @@ pub type ResponseWithContinue<B> = (Response<B>, bool);
 // use_h2, io, addr
 pub type HttpAccept<Stream, CX> = (bool, Stream, CX);
 
-pub trait HttpHandler<CX, B>: SealedT<(CX, B)> {
+struct HttpSeal;
+
+#[allow(private_bounds)]
+pub trait HttpHandler<CX, B>: SealedT<HttpSeal, (CX, B)> {
     type Body;
     type Error;
 
@@ -23,7 +26,7 @@ pub trait HttpHandler<CX, B>: SealedT<(CX, B)> {
     ) -> impl Future<Output = Result<ResponseWithContinue<Self::Body>, Self::Error>>;
 }
 
-impl<T, CX, IB, OB> SealedT<(CX, IB)> for T where
+impl<T, CX, IB, OB> SealedT<HttpSeal, (CX, IB)> for T where
     T: Service<(Request<IB>, CX), Response = ResponseWithContinue<OB>>
 {
 }
