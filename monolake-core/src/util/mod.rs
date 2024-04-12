@@ -18,3 +18,7 @@ pub async fn file_read(path: impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
     res?;
     Ok(buf.into_inner())
 }
+
+pub fn file_read_sync(path: impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
+    std::fs::read(path)
+}

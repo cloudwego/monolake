@@ -112,7 +112,7 @@ impl TryFrom<ListenerConfig> for ListenerBuilder {
 }
 
 impl Config {
-    pub async fn load(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+    pub fn load(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         #[derive(Debug, Clone, Serialize, Deserialize)]
         pub struct UserConfig {
             #[serde(default)]
@@ -120,7 +120,7 @@ impl Config {
             pub servers: HashMap<String, ServiceConfig<ListenerConfig, ServerUserConfig>>,
         }
         // 1. load from file -> UserConfig
-        let file_context = monolake_core::util::file_read(path).await?;
+        let file_context = monolake_core::util::file_read_sync(path)?;
         let user_config = Self::from_slice::<UserConfig>(&file_context)?;
 
         // 2. UserConfig -> Config
@@ -131,8 +131,8 @@ impl Config {
             #[cfg(feature = "tls")]
             let tls = match server.tls {
                 Some(inner) => {
-                    let chain = monolake_core::util::file_read(&inner.chain).await?;
-                    let key = monolake_core::util::file_read(&inner.key).await?;
+                    let chain = monolake_core::util::file_read_sync(&inner.chain)?;
+                    let key = monolake_core::util::file_read_sync(&inner.key)?;
                     match inner.stack {
                         TlsStack::Rustls => {
                             monolake_services::tls::TlsConfig::Rustls((chain, key)).try_into()?

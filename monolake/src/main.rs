@@ -25,8 +25,7 @@ struct Args {
     config: String,
 }
 
-#[monoio::main(timer_enabled = true)]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(
@@ -39,10 +38,31 @@ async fn main() -> Result<()> {
     monoio_native_tls::init();
     print_logo();
 
-    // Read config
     let args = Args::parse();
-    let config = Config::load(&args.config).await?;
+    let config = Config::load(args.config)?;
+    let runtime_type = config.runtime.runtime_type;
+    let fut = run(config);
+    match runtime_type {
+        #[cfg(target_os = "linux")]
+        monolake_core::config::RuntimeType::IoUring => {
+            monoio::RuntimeBuilder::<monoio::IoUringDriver>::new()
+                .enable_timer()
+                .build()
+                .expect("Failed building the Runtime with IoUringDriver")
+                .block_on(fut);
+        }
+        monolake_core::config::RuntimeType::Legacy => {
+            monoio::RuntimeBuilder::<monoio::LegacyDriver>::new()
+                .enable_timer()
+                .build()
+                .expect("Failed building the Runtime with LegacyDriver")
+                .block_on(fut);
+        }
+    }
+    Ok(())
+}
 
+async fn run(config: Config) {
     // Start workers
     let mut manager = Manager::new(config.runtime);
     let join_handlers = manager.spawn_workers_async();
@@ -77,5 +97,4 @@ async fn main() -> Result<()> {
     for (_, mut close) in join_handlers.into_iter() {
         close.cancellation().await;
     }
-    Ok(())
 }
