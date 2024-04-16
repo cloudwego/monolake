@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 use monolake_core::{
-    config::ServiceConfig,
+    config::{RuntimeType, ServiceConfig},
     listener::ListenerBuilder,
     server::{Command, Manager},
 };
@@ -39,24 +39,27 @@ fn main() -> Result<()> {
     print_logo();
 
     let args = Args::parse();
-    let config = Config::load(args.config)?;
-    let runtime_type = config.runtime.runtime_type;
-    let fut = run(config);
-    match runtime_type {
+    let mut config = Config::load(args.config)?;
+    #[cfg(target_os = "linux")]
+    if matches!(config.runtime.runtime_type, RuntimeType::IoUring) && !monoio::utils::detect_uring()
+    {
+        config.runtime.runtime_type = RuntimeType::Legacy;
+    }
+    match config.runtime.runtime_type {
         #[cfg(target_os = "linux")]
         monolake_core::config::RuntimeType::IoUring => {
             monoio::RuntimeBuilder::<monoio::IoUringDriver>::new()
                 .enable_timer()
                 .build()
                 .expect("Failed building the Runtime with IoUringDriver")
-                .block_on(fut);
+                .block_on(run(config));
         }
         monolake_core::config::RuntimeType::Legacy => {
             monoio::RuntimeBuilder::<monoio::LegacyDriver>::new()
                 .enable_timer()
                 .build()
                 .expect("Failed building the Runtime with LegacyDriver")
-                .block_on(fut);
+                .block_on(run(config));
         }
     }
     Ok(())
