@@ -3,7 +3,6 @@ runtime_type = "legacy"
 worker_threads = 1
 entries = 1024
 
-
 [servers.thrift_proxy]
 name = "thrift_proxy"
 proxy_type = "thrift"
@@ -11,7 +10,7 @@ listener = { type = "socket", value = "0.0.0.0:8081" }
 
 [[servers.thrift_proxy.routes]]
 path = '/'
-upstreams = [{ endpoint = { type = "socket", value = "10.225.151.2:9969" } }]
+upstreams = [{ endpoint = { type = "socket", value = "127.0.0.1:9969" } }]
 
 [servers.thrift_proxy_uds]
 name = "thrift_proxy"

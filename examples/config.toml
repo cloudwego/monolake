@@ -3,84 +3,81 @@
 worker_threads = 2
 entries = 1024
 
-
-[servers.server_basic]
-name = "monolake.cloudwego.io"
+[servers.demo_basic]
+name = "gateway.monoio.rs"
 listener = { type = "socket", value = "0.0.0.0:8080" }
 
-[[servers.server_basic.routes]]
+[[servers.demo_basic.routes]]
 path = '/'
-upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:9080" } }]
+upstreams = [{ endpoint = { type = "uri", value = "https://www.bytedance.com/" } }]
 
-[[servers.server_basic.routes]]
-path = '/*p'
-upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:9080" } }]
+[[servers.demo_basic.routes]]
+path = '/github'
+upstreams = [{ endpoint = { type = "uri", value = "https://github.com/" } }]
 
 
-[servers.server_tls]
+[servers.demo_tls]
 tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key" }
-name = "monolake.cloudwego.io"
+name = "gateway.monoio.rs"
 listener = { type = "socket", value = "0.0.0.0:8081" }
 
-[[servers.server_tls.routes]]
+[[servers.demo_tls.routes]]
 path = '/'
 upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:8080" } }]
 
-[[servers.server_tls.routes]]
-path = '/*p'
+[[servers.demo_tls.routes]]
+path = '/{*p}'
 upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:8080" } }]
 
 
-[servers.server_uds]
-name = "monolake.cloudwego.io"
+[servers.demo_uds]
+name = "gateway.monoio.rs"
 listener = { type = "unix", value = "/tmp/monolake.sock" }
 
-[[servers.server_uds.routes]]
+[[servers.demo_uds.routes]]
 upstreams = [
     { endpoint = { type = "uri", value = "http://127.0.0.1:9080" } },
     { endpoint = { type = "uri", value = "http://127.0.0.1:10080" } },
 ]
 path = '/'
 
-
-[[servers.server_uds.routes]]
+[[servers.demo_uds.routes]]
 upstreams = [
     { endpoint = { type = "uri", value = "http://127.0.0.1:9080" } },
     { endpoint = { type = "uri", value = "http://127.0.0.1:10080" } },
 ]
-path = '/*p'
+path = '/{*p}'
 
 
-[servers.server3]
+[servers.demo_rustls]
 tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key", stack = "rustls" }
-name = "monolake.cloudwego.io"
+name = "gateway.monoio.rs"
 listener = { type = "socket", value = "0.0.0.0:8082" }
 
-[[servers.server3.routes]]
+[[servers.demo_rustls.routes]]
 path = '/'
 upstreams = [
     { endpoint = { type = "uri", value = "https://www.wikipedia.org" } },
 ]
 
 
-[servers.server4]
+[servers.demo_native_tls]
 tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key", stack = "native_tls" }
-name = "monolake.cloudwego.io"
+name = "gateway.monoio.rs"
 listener = { type = "socket", value = "0.0.0.0:8083" }
 
-[[servers.server4.routes]]
+[[servers.demo_native_tls.routes]]
 upstreams = [
     { endpoint = { type = "uri", value = "https://www.wikipedia.org" } },
 ]
 path = '/'
 
-[servers.server5]
+
+[servers.demo_timeout]
 name = "timeout.com"
 listener = { type = "socket", value = "0.0.0.0:8084" }
-http_timeout = {server_read_header_timeout_sec = 2}
+http_timeout = { server_read_header_timeout_sec = 2 }
 
-[[servers.server5.routes]]
+[[servers.demo_timeout.routes]]
 path = '/ping'
-upstreams = [
-    { endpoint = { type = "uri", value = "http://127.0.0.1:9080" } },
-]
+upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:9080" } }]

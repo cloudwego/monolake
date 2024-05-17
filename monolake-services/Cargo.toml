@@ -74,7 +74,7 @@ monoio-compat = { version = "0.2.2", features = ["hyper"], optional = true }
 bytes = { workspace = true }
 # async-channel = "1"
 rand = "0.8"
-matchit = "0.7"
+matchit = "0.8"
 pin-project-lite = "0.2"
 futures = "0.3"
 

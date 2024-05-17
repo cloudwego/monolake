@@ -4,8 +4,8 @@ use monoio_http::common::body::FixedBody;
 use monolake_core::{
     http::{HttpHandler, ResponseWithContinue},
     util::uri_serde,
+    AnyError,
 };
-use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
@@ -40,10 +40,11 @@ where
             Ok(route) => {
                 let route = route.value;
                 tracing::info!("the route id: {}", route.id);
-                let upstreams = &route.upstreams;
-                let mut rng = rand::thread_rng();
-                let next = rng.next_u32() as usize % upstreams.len();
-                let upstream: &Upstream = &upstreams[next];
+                use rand::seq::SliceRandom;
+                let upstream = route
+                    .upstreams
+                    .choose(&mut rand::thread_rng())
+                    .expect("empty upstream list");
 
                 rewrite_request(&mut request, upstream);
 
@@ -57,30 +58,62 @@ where
     }
 }
 
+pub struct RewriteHandlerFactory<F> {
+    inner: F,
+    routes: Vec<RouteConfig>,
+}
+
 // RewriteHandler is a Service and a MakeService.
-impl<F: MakeService> MakeService for RewriteHandler<F> {
+impl<F: MakeService> MakeService for RewriteHandlerFactory<F>
+where
+    F::Error: Into<AnyError>,
+{
     type Service = RewriteHandler<F::Service>;
-    type Error = F::Error;
+    type Error = AnyError;
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
+        let mut router: Router<RouteConfig> = Router::new();
+        for route in self.routes.iter() {
+            router.insert(&route.path, route.clone())?;
+            if route.upstreams.is_empty() {
+                return Err("empty upstreams".into());
+            }
+        }
         Ok(RewriteHandler {
-            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
-            router: self.router.clone(),
+            inner: self
+                .inner
+                .make_via_ref(old.map(|o| &o.inner))
+                .map_err(Into::into)?,
+            router,
         })
     }
 }
 
-impl<F: AsyncMakeService> AsyncMakeService for RewriteHandler<F> {
+impl<F: AsyncMakeService> AsyncMakeService for RewriteHandlerFactory<F>
+where
+    F::Error: Into<AnyError>,
+{
     type Service = RewriteHandler<F::Service>;
-    type Error = F::Error;
+    type Error = AnyError;
 
     async fn make_via_ref(
         &self,
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
+        let mut router: Router<RouteConfig> = Router::new();
+        for route in self.routes.iter() {
+            router.insert(&route.path, route.clone())?;
+            if route.upstreams.is_empty() {
+                return Err("empty upstreams".into());
+            }
+        }
         Ok(RewriteHandler {
-            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
-            router: self.router.clone(),
+            inner: self
+                .inner
+                .make_via_ref(old.map(|o| &o.inner))
+                .await
+                .map_err(Into::into)?,
+            router,
         })
     }
 }
@@ -134,17 +167,13 @@ pub enum Endpoint {
 }
 
 impl<F> RewriteHandler<F> {
-    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = RewriteHandlerFactory<F>>
     where
         C: Param<Vec<RouteConfig>>,
     {
         layer_fn(|c: &C, inner| {
             let routes = c.param();
-            let mut router: Router<RouteConfig> = Router::new();
-            for route in routes.into_iter() {
-                router.insert(route.path.clone(), route.clone()).unwrap();
-            }
-            Self { inner, router }
+            RewriteHandlerFactory { inner, routes }
         })
     }
 }

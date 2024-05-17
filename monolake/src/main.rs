@@ -84,7 +84,7 @@ async fn run(config: Config) {
         let svc_fac = l7_factory(server);
 
         manager
-            .apply(Command::Add(
+            .apply(Command::Init(
                 Arc::new(name),
                 AsyncMakeServiceWrapper(svc_fac),
                 AsyncMakeServiceWrapper(Arc::new(lis_fac)),
