@@ -163,7 +163,7 @@ impl<S> HandlerSlot<S> {
 pub enum Command<F, LF> {
     Prepare(Arc<String>, F),
     ApplyUpdate(Arc<String>),
-    AppleCreate(Arc<String>, LF),
+    ApplyCreate(Arc<String>, LF),
     Init(Arc<String>, F, LF),
     Abort(Arc<String>),
     Remove(Arc<String>),
@@ -214,7 +214,7 @@ where
                 controller.apply_prepare_update(&name)?;
                 Ok(())
             }
-            Command::AppleCreate(name, listener_factory) => {
+            Command::ApplyCreate(name, listener_factory) => {
                 let listener = match listener_factory.make().await {
                     Ok(l) => l,
                     Err(e) => {
