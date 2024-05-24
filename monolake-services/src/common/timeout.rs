@@ -15,7 +15,7 @@ pub struct TimeoutService<T> {
 #[derive(thiserror::Error, Debug)]
 pub enum TimeoutError<E> {
     #[error("inner error: {0:?}")]
-    Inner(#[from] E),
+    Inner(E),
     #[error("timeout")]
     Timeout,
 }

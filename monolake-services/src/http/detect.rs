@@ -22,7 +22,7 @@ pub struct HttpVersionDetect<T> {
 #[derive(thiserror::Error, Debug)]
 pub enum HttpVersionDetectError<E> {
     #[error("inner error: {0:?}")]
-    Inner(#[from] E),
+    Inner(E),
     #[error("io error: {0:?}")]
     Io(std::io::Error),
 }
@@ -106,6 +106,6 @@ where
         self.inner
             .call((h2_detect, rewind_io, addr))
             .await
-            .map_err(Into::into)
+            .map_err(HttpVersionDetectError::Inner)
     }
 }

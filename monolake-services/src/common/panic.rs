@@ -13,7 +13,7 @@ pub struct CatchPanicService<S> {
 #[derive(thiserror::Error, Debug)]
 pub enum CatchPanicError<E> {
     #[error("inner error: {0:?}")]
-    Inner(#[from] E),
+    Inner(E),
     // to make it Sync, construct a String instead of Box<dyn Ayn + Send>
     #[error("inner panic: {0}")]
     Panic(String),
