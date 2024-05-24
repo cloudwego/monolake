@@ -5,7 +5,7 @@ mod panic;
 mod timeout;
 
 pub use context::ContextService;
-pub use delay::DelayService;
+pub use delay::{Delay, DelayService};
 pub use erase::EraseResp;
-pub use panic::CatchPanicService;
-pub use timeout::TimeoutService;
+pub use panic::{CatchPanicError, CatchPanicService};
+pub use timeout::{Timeout, TimeoutError, TimeoutService};

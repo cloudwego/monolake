@@ -63,27 +63,34 @@ pub struct RewriteHandlerFactory<F> {
     routes: Vec<RouteConfig>,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum RewriteFactoryError<E> {
+    #[error("inner error: {0:?}")]
+    Inner(E),
+    #[error("empty upstream")]
+    EmptyUpstream,
+    #[error("router error: {0:?}")]
+    Router(#[from] matchit::InsertError),
+}
+
 // RewriteHandler is a Service and a MakeService.
-impl<F: MakeService> MakeService for RewriteHandlerFactory<F>
-where
-    F::Error: Into<AnyError>,
-{
+impl<F: MakeService> MakeService for RewriteHandlerFactory<F> {
     type Service = RewriteHandler<F::Service>;
-    type Error = AnyError;
+    type Error = RewriteFactoryError<F::Error>;
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         let mut router: Router<RouteConfig> = Router::new();
         for route in self.routes.iter() {
             router.insert(&route.path, route.clone())?;
             if route.upstreams.is_empty() {
-                return Err("empty upstreams".into());
+                return Err(RewriteFactoryError::EmptyUpstream);
             }
         }
         Ok(RewriteHandler {
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
-                .map_err(Into::into)?,
+                .map_err(RewriteFactoryError::Inner)?,
             router,
         })
     }
@@ -94,7 +101,7 @@ where
     F::Error: Into<AnyError>,
 {
     type Service = RewriteHandler<F::Service>;
-    type Error = AnyError;
+    type Error = RewriteFactoryError<F::Error>;
 
     async fn make_via_ref(
         &self,
@@ -104,7 +111,7 @@ where
         for route in self.routes.iter() {
             router.insert(&route.path, route.clone())?;
             if route.upstreams.is_empty() {
-                return Err("empty upstreams".into());
+                return Err(RewriteFactoryError::EmptyUpstream);
             }
         }
         Ok(RewriteHandler {
@@ -112,7 +119,7 @@ where
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
                 .await
-                .map_err(Into::into)?,
+                .map_err(RewriteFactoryError::Inner)?,
             router,
         })
     }

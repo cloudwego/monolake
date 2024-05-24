@@ -1,4 +1,4 @@
-use std::{future::Future, rc::Rc};
+use std::{error::Error, future::Future, rc::Rc};
 
 use http::{Request, Response};
 use hyper::body::{Body, Incoming};
@@ -8,7 +8,7 @@ use monoio::io::{
     IntoPollIo,
 };
 use monoio_compat::hyper::{MonoioExecutor, MonoioIo};
-use monolake_core::{http::HttpHandler, AnyError};
+use monolake_core::http::HttpHandler;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Service,
@@ -30,18 +30,26 @@ impl<H> HyperCoreService<H> {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum HyperCoreError {
+    #[error("io error: {0:?}")]
+    Io(#[from] std::io::Error),
+    #[error("hyper error: {0:?}")]
+    Hyper(#[from] Box<dyn Error + Send + Sync>),
+}
+
 impl<H, Stream, CX> Service<Accept<Stream, CX>> for HyperCoreService<H>
 where
     Stream: IntoPollIo,
     Stream::PollIo: AsyncRead + AsyncWrite + Unpin + 'static,
     H: HttpHandler<CX, Incoming> + 'static,
-    H::Error: Into<AnyError>,
+    H::Error: Into<Box<dyn Error + Send + Sync>>,
     H::Body: Body,
-    <H::Body as Body>::Error: Into<AnyError>,
+    <H::Body as Body>::Error: Into<Box<dyn Error + Send + Sync>>,
     CX: Clone + 'static,
 {
     type Response = ();
-    type Error = AnyError;
+    type Error = HyperCoreError;
 
     async fn call(&self, (io, cx): Accept<Stream, CX>) -> Result<Self::Response, Self::Error> {
         tracing::trace!("hyper core handling io");

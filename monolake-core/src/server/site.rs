@@ -25,6 +25,12 @@ impl<S> Default for WorkerController<S> {
     }
 }
 
+enum WorkerCtlNotExist {
+    Site,
+    Preparation,
+    PreviousHandler,
+}
+
 impl<S> WorkerController<S> {
     // Lookup and clone service.
     fn get_svc(&self, name: &Arc<String>) -> Option<Rc<S>> {
@@ -41,16 +47,16 @@ impl<S> WorkerController<S> {
     }
 
     // Apply prepare to handler slot(must not be empty).
-    fn apply_prepare_update(&self, name: &Arc<String>) -> Result<(), &'static str> {
+    fn apply_prepare_update(&self, name: &Arc<String>) -> Result<(), WorkerCtlNotExist> {
         let sites = unsafe { &mut *self.sites.get() };
-        let sh = sites.get_mut(name).ok_or("unable to find named site")?;
+        let sh = sites.get_mut(name).ok_or(WorkerCtlNotExist::Site)?;
 
         let hdr = sh
             .handler
             .as_mut()
-            .ok_or("no previous handler registered")?;
+            .ok_or(WorkerCtlNotExist::PreviousHandler)?;
         let prepare_slot = unsafe { &mut *sh.prepare_slot.get() };
-        let prepare = prepare_slot.take().ok_or("no preparation exists")?;
+        let prepare = prepare_slot.take().ok_or(WorkerCtlNotExist::Preparation)?;
 
         hdr.slot.update_svc(Rc::new(prepare));
         Ok(())
@@ -60,11 +66,11 @@ impl<S> WorkerController<S> {
     fn apply_prepare_create(
         &self,
         name: &Arc<String>,
-    ) -> Result<(HandlerSlot<S>, OSender<()>), &'static str> {
+    ) -> Result<(HandlerSlot<S>, OSender<()>), WorkerCtlNotExist> {
         let sites = unsafe { &mut *self.sites.get() };
-        let sh = sites.get_mut(name).ok_or("unable to find named site")?;
+        let sh = sites.get_mut(name).ok_or(WorkerCtlNotExist::Site)?;
         let prepare_slot = unsafe { &mut *sh.prepare_slot.get() };
-        let prepare = prepare_slot.take().ok_or("no preparation exists")?;
+        let prepare = prepare_slot.take().ok_or(WorkerCtlNotExist::Preparation)?;
 
         let (new_site, stop) = Handler::create(prepare);
         let handler_slot = new_site.slot.clone();
@@ -73,18 +79,18 @@ impl<S> WorkerController<S> {
     }
 
     // Remove site.
-    fn remove(&self, name: &Arc<String>) -> Result<(), &'static str> {
+    fn remove(&self, name: &Arc<String>) -> Result<(), WorkerCtlNotExist> {
         let sites = unsafe { &mut *self.sites.get() };
         if sites.remove(name).is_none() {
-            Err("site not exist")
+            Err(WorkerCtlNotExist::Site)
         } else {
             Ok(())
         }
     }
 
-    fn unprepare(&self, name: &Arc<String>) -> Result<(), &'static str> {
+    fn unprepare(&self, name: &Arc<String>) -> Result<(), WorkerCtlNotExist> {
         let sites = unsafe { &mut *self.sites.get() };
-        let sh = sites.get_mut(name).ok_or("unable to find named site")?;
+        let sh = sites.get_mut(name).ok_or(WorkerCtlNotExist::Site)?;
         let prepare_slot = unsafe { &mut *sh.prepare_slot.get() };
         *prepare_slot = None;
         Ok(())
@@ -169,6 +175,30 @@ pub enum Command<F, LF> {
     Remove(Arc<String>),
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum CommandError<SE, LE> {
+    #[error("build service error: {0:?}")]
+    BuildService(SE),
+    #[error("build listener error: {0:?}")]
+    BuildListener(LE),
+    #[error("site not exist")]
+    SiteNotExist,
+    #[error("preparation not exist")]
+    PreparationNotExist,
+    #[error("previous handler not exist")]
+    PreviousHandlerNotExist,
+}
+
+impl<SE, LE> From<WorkerCtlNotExist> for CommandError<SE, LE> {
+    fn from(value: WorkerCtlNotExist) -> Self {
+        match value {
+            WorkerCtlNotExist::Site => Self::SiteNotExist,
+            WorkerCtlNotExist::Preparation => Self::PreparationNotExist,
+            WorkerCtlNotExist::PreviousHandler => Self::PreviousHandlerNotExist,
+        }
+    }
+}
+
 pub struct Update<F, LF> {
     cmd: Command<F, LF>,
     result: OSender<Result<(), AnyError>>,
@@ -182,31 +212,33 @@ impl<F, LF> Update<F, LF> {
 }
 
 pub trait Execute<A, S> {
+    type Error: Into<AnyError>;
     fn execute(
         self,
         controller: &WorkerController<S>,
-    ) -> impl std::future::Future<Output = Result<(), AnyError>>;
+    ) -> impl std::future::Future<Output = Result<(), Self::Error>>;
 }
 
 impl<F, LF, A, S> Execute<A, S> for Command<F, LF>
 where
     F: AsyncMakeService<Service = S>,
-    F::Error: Debug,
+    F::Error: Debug + Send + Sync + 'static,
     LF: AsyncMakeService,
     LF::Service: Stream<Item = io::Result<A>> + 'static,
-    LF::Error: Debug,
+    LF::Error: Debug + Send + Sync + 'static,
     S: Service<A> + 'static,
     S::Error: Debug,
     A: 'static,
 {
-    async fn execute(self, controller: &WorkerController<S>) -> Result<(), AnyError> {
+    type Error = CommandError<F::Error, LF::Error>;
+    async fn execute(self, controller: &WorkerController<S>) -> Result<(), Self::Error> {
         match self {
             Command::Prepare(name, factory) => {
                 let current_svc = controller.get_svc(&name);
                 let svc = factory
                     .make_via_ref(current_svc.as_deref())
                     .await
-                    .map_err(|e| format!("build service fail: {e:?}"))?;
+                    .map_err(CommandError::BuildService)?;
                 controller.set_prepare(name, svc);
                 Ok(())
             }
@@ -215,27 +247,20 @@ where
                 Ok(())
             }
             Command::ApplyCreate(name, listener_factory) => {
-                let listener = match listener_factory.make().await {
-                    Ok(l) => l,
-                    Err(e) => {
-                        return Err(format!("create listener fail for site {name}: {e:?}").into())
-                    }
-                };
+                let listener = listener_factory
+                    .make()
+                    .await
+                    .map_err(CommandError::BuildListener)?;
                 let (hdr, stop) = controller.apply_prepare_create(&name)?;
                 monoio::spawn(serve(listener, hdr, stop));
                 Ok(())
             }
             Command::Init(name, factory, listener_factory) => {
-                let svc = factory
+                let svc = factory.make().await.map_err(CommandError::BuildService)?;
+                let listener = listener_factory
                     .make()
                     .await
-                    .map_err(|e| format!("build service fail: {e:?}"))?;
-                let listener = match listener_factory.make().await {
-                    Ok(l) => l,
-                    Err(e) => {
-                        return Err(format!("create listener fail for site {name}: {e:?}").into())
-                    }
-                };
+                    .map_err(CommandError::BuildListener)?;
                 controller.set_prepare(name.clone(), svc);
                 let (hdr, stop) = controller.apply_prepare_create(&name)?;
                 monoio::spawn(serve(listener, hdr, stop));
@@ -259,7 +284,10 @@ impl<S> WorkerController<S> {
         Command<F, LF>: Execute<A, S>,
     {
         while let Some(upd) = rx.next().await {
-            if let Err(e) = upd.result.send(upd.cmd.execute(self).await) {
+            if let Err(e) = upd
+                .result
+                .send(upd.cmd.execute(self).await.map_err(Into::into))
+            {
                 error!("unable to send back result: {e:?}");
             }
         }

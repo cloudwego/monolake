@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use monoio::time::timeout;
-use monolake_core::AnyError;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Param, Service,
@@ -13,19 +12,23 @@ pub struct TimeoutService<T> {
     inner: T,
 }
 
-impl<R, T> Service<R> for TimeoutService<T>
-where
-    T: Service<R>,
-    T::Error: Into<AnyError>,
-{
+#[derive(thiserror::Error, Debug)]
+pub enum TimeoutError<E> {
+    #[error("inner error: {0:?}")]
+    Inner(#[from] E),
+    #[error("timeout")]
+    Timeout,
+}
+
+impl<R, T: Service<R>> Service<R> for TimeoutService<T> {
     type Response = T::Response;
-    type Error = AnyError;
+    type Error = TimeoutError<T::Error>;
 
     async fn call(&self, req: R) -> Result<Self::Response, Self::Error> {
         match timeout(self.timeout, self.inner.call(req)).await {
             Ok(Ok(resp)) => Ok(resp),
-            Ok(Err(err)) => Err(err.into()),
-            Err(e) => Err(e.into()),
+            Ok(Err(err)) => Err(TimeoutError::Inner(err)),
+            Err(_) => Err(TimeoutError::Timeout),
         }
     }
 }

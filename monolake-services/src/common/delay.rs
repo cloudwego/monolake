@@ -16,7 +16,6 @@ where
     T: Service<R>,
 {
     type Response = T::Response;
-
     type Error = T::Error;
 
     async fn call(&self, req: R) -> Result<Self::Response, Self::Error> {

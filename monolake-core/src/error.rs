@@ -1,4 +1,4 @@
-pub type AnyError = Box<dyn std::error::Error + Send + Sync>;
+pub type AnyError = anyhow::Error;
 
 pub type AnyResult<T, E = AnyError> = std::result::Result<T, E>;
 

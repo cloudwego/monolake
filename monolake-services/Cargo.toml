@@ -9,7 +9,6 @@ openid = [
     "tls",
     "dep:cookie",
     "dep:openidconnect",
-    "dep:thiserror",
     "dep:url",
     "dep:lazy_static",
 ]
@@ -46,6 +45,7 @@ local-sync = { workspace = true }
 service-async = { workspace = true }
 http = { workspace = true }
 anyhow = { workspace = true }
+thiserror = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
 
@@ -81,7 +81,6 @@ futures = "0.3"
 # for openid
 cookie = { version = "0.18", optional = true }
 openidconnect = { version = "3", optional = true }
-thiserror = { version = "1.0.24", optional = true }
 url = { version = "2.3.1", optional = true }
 lazy_static = { version = "1.4.0", optional = true }
 

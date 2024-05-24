@@ -15,6 +15,7 @@ monoio-thrift = { workspace = true }
 service-async = { workspace = true }
 http = { workspace = true }
 anyhow = { workspace = true }
+thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tracing = { workspace = true }
 bytes = { workspace = true }

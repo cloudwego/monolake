@@ -11,8 +11,9 @@ use monolake_services::proxy_protocol::ProxyProtocolServiceFactory;
 use monolake_services::{
     common::ContextService,
     http::{
+        core::HttpCoreService,
+        detect::HttpVersionDetect,
         handlers::{ConnReuseHandler, ContentHandler, ProxyHandler, RewriteHandler},
-        HttpCoreService, HttpVersionDetect,
     },
     tcp::Accept,
     thrift::{handlers::ProxyHandler as TProxyHandler, ttheader::TtheaderCoreService},

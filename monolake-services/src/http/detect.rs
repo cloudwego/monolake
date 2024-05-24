@@ -4,7 +4,7 @@ use monoio::{
     buf::IoBufMut,
     io::{AsyncReadRent, AsyncWriteRent, PrefixedReadIo},
 };
-use monolake_core::{http::HttpAccept, AnyError};
+use monolake_core::http::HttpAccept;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Service,
@@ -17,6 +17,14 @@ const PREFACE: &[u8; 24] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 #[derive(Clone)]
 pub struct HttpVersionDetect<T> {
     inner: T,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum HttpVersionDetectError<E> {
+    #[error("inner error: {0:?}")]
+    Inner(#[from] E),
+    #[error("io error: {0:?}")]
+    Io(std::io::Error),
 }
 
 impl<F: MakeService> MakeService for HttpVersionDetect<F> {
@@ -54,10 +62,9 @@ impl<T, Stream, CX> Service<Accept<Stream, CX>> for HttpVersionDetect<T>
 where
     Stream: AsyncReadRent + AsyncWriteRent,
     T: Service<HttpAccept<PrefixedReadIo<Stream, Cursor<Vec<u8>>>, CX>>,
-    T::Error: Into<AnyError>,
 {
     type Response = T::Response;
-    type Error = AnyError;
+    type Error = HttpVersionDetectError<T::Error>;
 
     async fn call(
         &self,
@@ -83,7 +90,7 @@ where
                     pos += n;
                 }
                 Err(e) => {
-                    return Err(e.into());
+                    return Err(HttpVersionDetectError::Io(e));
                 }
             }
 

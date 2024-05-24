@@ -1,11 +1,10 @@
-pub use detect::HttpVersionDetect;
 use http::HeaderValue;
 
 pub use self::core::{HttpCoreService, HttpServerTimeout};
 pub mod handlers;
 
-mod core;
-mod detect;
+pub mod core;
+pub mod detect;
 mod util;
 
 pub(crate) const CLOSE: &str = "close";
