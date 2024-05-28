@@ -97,15 +97,27 @@ impl<T> LinkedList<T> {
     }
 }
 
+impl<T> Drop for LinkedList<T> {
+    // Manually drop the data to make it more efficient.
+    fn drop(&mut self) {
+        let mut head = self.head;
+        while head != NULL {
+            let node = &mut self.data[head];
+            node.data.take();
+            head = node.next;
+        }
+        unsafe { self.data.set_len(0) };
+    }
+}
+
 impl<T> IntoIterator for LinkedList<T> {
     type Item = T;
     type IntoIter = LinkedListIter<T>;
 
-    fn into_iter(self) -> Self::IntoIter {
-        LinkedListIter {
-            head: self.head,
-            data: self.data,
-        }
+    fn into_iter(mut self) -> Self::IntoIter {
+        let head = std::mem::replace(&mut self.head, NULL);
+        let data = std::mem::take(&mut self.data);
+        LinkedListIter { head, data }
     }
 }
 
