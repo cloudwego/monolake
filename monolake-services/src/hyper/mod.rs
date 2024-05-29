@@ -11,10 +11,10 @@ use monoio_compat::hyper::{MonoioExecutor, MonoioIo};
 use monolake_core::http::HttpHandler;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
-    AsyncMakeService, MakeService, ParamSet, Service,
+    AsyncMakeService, MakeService, Service,
 };
 
-use crate::{common::Canceller, tcp::Accept};
+use crate::tcp::Accept;
 
 pub struct HyperCoreService<H> {
     handler_chain: Rc<H>,
@@ -42,12 +42,11 @@ impl<H, Stream, CX> Service<Accept<Stream, CX>> for HyperCoreService<H>
 where
     Stream: IntoPollIo,
     Stream::PollIo: AsyncRead + AsyncWrite + Unpin + 'static,
-    H: HttpHandler<CX::Transformed, Incoming> + 'static,
+    H: HttpHandler<CX, Incoming> + 'static,
     H::Error: Into<Box<dyn Error + Send + Sync>>,
     H::Body: Body,
     <H::Body as Body>::Error: Into<Box<dyn Error + Send + Sync>>,
-    CX: ParamSet<Canceller> + 'static,
-    CX::Transformed: Clone + 'static,
+    CX: Clone + 'static,
 {
     type Response = ();
     type Error = HyperCoreError;
@@ -56,16 +55,10 @@ where
         tracing::trace!("hyper core handling io");
         let poll_io = io.into_poll_io()?;
         let io = MonoioIo::new(poll_io);
-
-        let canceller = Canceller::new();
-        let cx = cx.param_set(canceller.clone());
         let service = HyperServiceWrapper {
             cx,
             handler_chain: self.handler_chain.clone(),
         };
-
-        let _dropper = canceller.dropper();
-
         self.builder
             .serve_connection(io, service)
             .await
