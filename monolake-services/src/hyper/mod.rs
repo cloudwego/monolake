@@ -8,7 +8,7 @@ use monoio::io::{
     IntoPollIo,
 };
 use monoio_compat::hyper::{MonoioExecutor, MonoioIo};
-use monolake_core::http::HttpHandler;
+use monolake_core::{http::HttpHandler, AnyError};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Service,
@@ -49,7 +49,7 @@ where
     CX: Clone + 'static,
 {
     type Response = ();
-    type Error = HyperCoreError;
+    type Error = AnyError;
 
     async fn call(&self, (io, cx): Accept<Stream, CX>) -> Result<Self::Response, Self::Error> {
         tracing::trace!("hyper core handling io");
@@ -63,7 +63,7 @@ where
         self.builder
             .serve_connection(io, service)
             .await
-            .map_err(Into::into)
+            .map_err(|e| HyperCoreError::Hyper(e).into())
     }
 }
 

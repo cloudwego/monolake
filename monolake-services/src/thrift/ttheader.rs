@@ -1,4 +1,4 @@
-use std::{convert::Infallible, fmt::Debug, time::Duration};
+use std::{fmt::Debug, time::Duration};
 
 use monoio::io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent};
 use monoio_codec::Framed;
@@ -24,7 +24,7 @@ impl<H> TtheaderCoreService<H> {
         }
     }
 
-    async fn svc<S, CX>(&self, stream: S, ctx: CX)
+    async fn svc<S, CX>(&self, stream: S, ctx: CX) -> Result<(), AnyError>
     where
         S: AsyncReadRent + AsyncWriteRent,
         H: ThriftHandler<CX>,
@@ -45,14 +45,14 @@ impl<H> TtheaderCoreService<H> {
                             "Connection {:?} io error: {io_error}",
                             ParamRef::<PeerAddr>::param_ref(&ctx)
                         );
-                        break;
+                        return Err(io_error.into());
                     }
-                    Err(_) => {
+                    Err(e) => {
                         info!(
                             "Connection {:?} keepalive timed out",
                             ParamRef::<PeerAddr>::param_ref(&ctx),
                         );
-                        break;
+                        return Err(e.into());
                     }
                     _ => {}
                 }
@@ -63,12 +63,12 @@ impl<H> TtheaderCoreService<H> {
                 Some(message_timeout) => {
                     match monoio::time::timeout(message_timeout, codec.next()).await {
                         Ok(x) => x,
-                        Err(_) => {
+                        Err(e) => {
                             info!(
                                 "Connection {:?} message timed out",
                                 ParamRef::<PeerAddr>::param_ref(&ctx),
                             );
-                            break;
+                            return Err(e.into());
                         }
                     }
                 }
@@ -80,7 +80,7 @@ impl<H> TtheaderCoreService<H> {
                 Some(Err(err)) => {
                     // decode error
                     error!("decode thrift message failed: {err}");
-                    break;
+                    return Err(err.into());
                 }
                 None => {
                     // Connection closed normally.
@@ -94,7 +94,7 @@ impl<H> TtheaderCoreService<H> {
                 Ok(resp) => {
                     if let Err(e) = codec.send_and_flush(resp).await {
                         warn!("error when reply client: {e}");
-                        break;
+                        return Err(e.into());
                     }
                     trace!("sent thrift response");
                 }
@@ -108,10 +108,11 @@ impl<H> TtheaderCoreService<H> {
                     // {
                     // warn!("error when reply client: {e}");
                     // }
-                    break;
+                    return Err(e.into());
                 }
             }
         }
+        Ok(())
     }
 }
 
@@ -123,11 +124,10 @@ where
     CX: ParamRef<PeerAddr> + Clone,
 {
     type Response = ();
-    type Error = Infallible;
+    type Error = AnyError;
 
     async fn call(&self, incoming_stream: (Stream, CX)) -> Result<Self::Response, Self::Error> {
-        self.svc(incoming_stream.0, incoming_stream.1).await;
-        Ok(())
+        self.svc(incoming_stream.0, incoming_stream.1).await
     }
 }
 

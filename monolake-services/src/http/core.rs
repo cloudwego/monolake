@@ -1,4 +1,4 @@
-use std::{convert::Infallible, fmt::Debug, pin::Pin, time::Duration};
+use std::{fmt::Debug, pin::Pin, time::Duration};
 
 use bytes::Bytes;
 use futures::{stream::FuturesUnordered, StreamExt};
@@ -42,7 +42,7 @@ impl<H> HttpCoreService<H> {
         }
     }
 
-    async fn h1_svc<S, CX>(&self, stream: S, ctx: CX)
+    async fn h1_svc<S, CX>(&self, stream: S, ctx: CX) -> Result<(), AnyError>
     where
         S: Split + AsyncReadRent + AsyncWriteRent,
         H: HttpHandler<CX, HttpBody, Body = HttpBody>,
@@ -60,12 +60,12 @@ impl<H> HttpCoreService<H> {
                 Some(header_timeout) => {
                     match monoio::time::timeout(header_timeout, decoder.next()).await {
                         Ok(inner) => inner,
-                        Err(_) => {
+                        Err(e) => {
                             info!(
                                 "Connection {:?} decode http header timed out",
                                 ParamRef::<PeerAddr>::param_ref(&ctx),
                             );
-                            break;
+                            return Err(e.into());
                         }
                     }
                 }
@@ -77,7 +77,7 @@ impl<H> HttpCoreService<H> {
                 Some(Err(err)) => {
                     // decode error
                     warn!("decode request header failed: {err}");
-                    break;
+                    return Err(err.into());
                 }
                 None => {
                     // EOF
@@ -104,7 +104,7 @@ impl<H> HttpCoreService<H> {
                         None => {
                             if let Err(e) = unsafe { Pin::new_unchecked(&mut f) }.await {
                                 warn!("error when encode and write response: {e}");
-                                break;
+                                return Err(e.into());
                             }
                         }
                         Some(body_timeout) => {
@@ -113,16 +113,16 @@ impl<H> HttpCoreService<H> {
                             })
                             .await
                             {
-                                Err(_) => {
+                                Err(e) => {
                                     info!(
                                         "Connection {:?} write timed out",
                                         ParamRef::<PeerAddr>::param_ref(&ctx),
                                     );
-                                    break;
+                                    return Err(e.into());
                                 }
                                 Ok(Err(e)) => {
                                     warn!("error when encode and write response: {e}");
-                                    break;
+                                    return Err(e.into());
                                 }
                                 _ => (),
                             }
@@ -134,7 +134,7 @@ impl<H> HttpCoreService<H> {
                     }
                     if let Err(e) = f.into_accompany().await {
                         warn!("error when decode request body: {e}");
-                        break;
+                        return Err(e.into());
                     }
                 }
                 Err(e) => {
@@ -149,10 +149,12 @@ impl<H> HttpCoreService<H> {
                     {
                         warn!("error when reply client: {e}");
                     }
-                    break;
+                    return Err(e.into());
                 }
             }
         }
+
+        Ok(())
     }
 
     async fn h2_process_response(
@@ -200,7 +202,7 @@ impl<H> HttpCoreService<H> {
         }
     }
 
-    async fn h2_svc<S, CX>(&self, stream: S, ctx: CX)
+    async fn h2_svc<S, CX>(&self, stream: S, ctx: CX) -> Result<(), AnyError>
     where
         S: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
         H: HttpHandler<CX, HttpBody, Body = HttpBody>,
@@ -222,7 +224,7 @@ impl<H> HttpCoreService<H> {
             }
             Err(e) => {
                 error!("h2 server build failed: {e:?}");
-                return;
+                return Err(e.into());
             }
         };
 
@@ -279,6 +281,8 @@ impl<H> HttpCoreService<H> {
             "H2 connection processing complete for {:?}",
             ParamRef::<PeerAddr>::param_ref(&ctx)
         );
+
+        Ok(())
     }
 }
 
@@ -290,7 +294,7 @@ where
     CX: ParamRef<PeerAddr> + Clone,
 {
     type Response = ();
-    type Error = Infallible;
+    type Error = AnyError;
 
     async fn call(
         &self,
@@ -302,7 +306,7 @@ where
         } else {
             self.h1_svc(stream, ctx).await
         }
-        Ok(())
+        // Ok(())
     }
 }
 
