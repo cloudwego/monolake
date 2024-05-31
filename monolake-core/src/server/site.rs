@@ -1,4 +1,4 @@
-use std::{cell::UnsafeCell, collections::HashMap, fmt::Debug, io, rc::Rc, sync::Arc};
+use std::{cell::UnsafeCell, collections::HashMap, fmt::Debug, rc::Rc, sync::Arc};
 
 use futures_channel::{
     mpsc::Receiver,
@@ -219,12 +219,13 @@ pub trait Execute<A, S> {
     ) -> impl std::future::Future<Output = Result<(), Self::Error>>;
 }
 
-impl<F, LF, A, S> Execute<A, S> for Command<F, LF>
+impl<F, LF, A, E, S> Execute<A, S> for Command<F, LF>
 where
     F: AsyncMakeService<Service = S>,
     F::Error: Debug + Send + Sync + 'static,
     LF: AsyncMakeService,
-    LF::Service: Stream<Item = io::Result<A>> + 'static,
+    LF::Service: Stream<Item = Result<A, E>> + 'static,
+    E: Debug + Send + Sync + 'static,
     LF::Error: Debug + Send + Sync + 'static,
     S: Service<A> + 'static,
     S::Error: Debug,

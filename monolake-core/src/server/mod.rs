@@ -1,4 +1,4 @@
-use std::{fmt::Debug, io};
+use std::fmt::Debug;
 
 use futures_channel::oneshot::Sender as OSender;
 use monoio::io::stream::Stream;
@@ -37,9 +37,10 @@ impl<E> ResultGroup<(), E> {
     }
 }
 
-pub async fn serve<S, Svc, A>(mut listener: S, handler: HandlerSlot<Svc>, mut stop: OSender<()>)
+pub async fn serve<S, Svc, A, E>(mut listener: S, handler: HandlerSlot<Svc>, mut stop: OSender<()>)
 where
-    S: Stream<Item = io::Result<A>> + 'static,
+    S: Stream<Item = Result<A, E>> + 'static,
+    E: Debug,
     Svc: Service<A> + 'static,
     Svc::Error: Debug,
     A: 'static,
