@@ -7,8 +7,8 @@ use service_async::{
 
 #[derive(Clone)]
 pub struct DelayService<T> {
-    delay: Duration,
-    inner: T,
+    pub delay: Duration,
+    pub inner: T,
 }
 
 impl<R, T> Service<R> for DelayService<T>
