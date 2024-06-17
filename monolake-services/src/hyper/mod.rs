@@ -7,7 +7,7 @@ use monoio::io::{
     poll_io::{AsyncRead, AsyncWrite},
     IntoPollIo,
 };
-use monoio_compat::hyper::{MonoioExecutor, MonoioIo};
+pub use monoio_compat::hyper::{MonoioExecutor, MonoioIo};
 use monolake_core::http::HttpHandler;
 use service_async::{
     layer::{layer_fn, FactoryLayer},
@@ -22,10 +22,11 @@ pub struct HyperCoreService<H> {
 }
 
 impl<H> HyperCoreService<H> {
-    pub fn new(handler_chain: H) -> Self {
+    #[inline]
+    pub fn new(handler_chain: H, builder: Builder<MonoioExecutor>) -> Self {
         Self {
             handler_chain: Rc::new(handler_chain),
-            builder: Builder::new(MonoioExecutor),
+            builder,
         }
     }
 }
@@ -90,6 +91,7 @@ where
 
 pub struct HyperCoreFactory<F> {
     factory_chain: F,
+    builder: Builder<MonoioExecutor>,
 }
 
 impl<F: MakeService> MakeService for HyperCoreFactory<F> {
@@ -99,7 +101,7 @@ impl<F: MakeService> MakeService for HyperCoreFactory<F> {
         let handler_chain = self
             .factory_chain
             .make_via_ref(old.map(|o| o.handler_chain.as_ref()))?;
-        Ok(HyperCoreService::new(handler_chain))
+        Ok(HyperCoreService::new(handler_chain, self.builder.clone()))
     }
 }
 
@@ -115,7 +117,7 @@ impl<F: AsyncMakeService> AsyncMakeService for HyperCoreFactory<F> {
             .factory_chain
             .make_via_ref(old.map(|o| o.handler_chain.as_ref()))
             .await?;
-        Ok(HyperCoreService::new(handler_chain))
+        Ok(HyperCoreService::new(handler_chain, self.builder.clone()))
     }
 }
 
@@ -123,6 +125,21 @@ impl<F> HyperCoreService<F> {
     pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = HyperCoreFactory<F>> {
         layer_fn(|_c: &C, inner| HyperCoreFactory {
             factory_chain: inner,
+            builder: Builder::new(MonoioExecutor),
         })
+    }
+
+    pub fn layer_with_builder<C>(
+        builder: Builder<MonoioExecutor>,
+    ) -> impl FactoryLayer<C, F, Factory = HyperCoreFactory<F>> {
+        layer_fn(move |_c: &C, inner| HyperCoreFactory {
+            factory_chain: inner,
+            builder: builder.clone(),
+        })
+    }
+
+    #[inline]
+    pub fn builder(&mut self) -> &mut Builder<MonoioExecutor> {
+        &mut self.builder
     }
 }
