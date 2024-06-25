@@ -1,3 +1,4 @@
+//! Common data used in context of Service processing.
 use derive_more::{From, Into};
 
 use crate::listener::AcceptedAddr;

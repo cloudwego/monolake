@@ -5,7 +5,7 @@ use clap::Parser;
 use monolake_core::{
     config::{RuntimeType, ServiceConfig},
     listener::ListenerBuilder,
-    server::{Command, Manager},
+    worker_service_lifecycle::{WorkerDirective, WorkerFleetOrchestrator},
 };
 use service_async::AsyncMakeServiceWrapper;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
@@ -67,7 +67,7 @@ fn main() -> Result<()> {
 
 async fn run(config: Config) {
     // Start workers
-    let mut manager = Manager::new(config.runtime);
+    let mut manager = WorkerFleetOrchestrator::new(config.runtime);
     let join_handlers = manager.spawn_workers_async();
     tracing::info!(
         "Start monolake with {:?} runtime, {} worker(s), {} entries and sqpoll {:?}.",
@@ -84,7 +84,7 @@ async fn run(config: Config) {
         let svc_fac = l7_factory(server);
 
         manager
-            .apply(Command::Init(
+            .dispatch_directive(WorkerDirective::CreateAndDeploy(
                 Arc::new(name),
                 AsyncMakeServiceWrapper(svc_fac),
                 AsyncMakeServiceWrapper(Arc::new(lis_fac)),

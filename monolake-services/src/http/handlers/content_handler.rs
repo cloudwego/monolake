@@ -1,3 +1,75 @@
+//! Content encoding and decoding handler for HTTP requests and responses.
+//!
+//! This module provides a `ContentHandler` that manages content encoding and decoding
+//! for both incoming requests and outgoing responses in an HTTP service stack. It supports
+//! various content encodings and can be easily integrated into a service pipeline.
+//!
+//! # Key Components
+//!
+//! - [`ContentHandler`]: The main service component responsible for content encoding/decoding.
+//!
+//! # Features
+//!
+//! - Transparent content decoding for incoming requests
+//! - Content encoding for outgoing responses based on client preferences
+//! - Support for various content encodings (e.g., gzip, deflate)
+//! - Integration with service-async framework for easy composition
+//! - Error handling for decoding and encoding failures
+//!
+//! # Usage
+//!
+//! This handler is typically used as part of a larger service stack. Here's a basic example:
+//!
+//! ```rust
+//! use monolake_services::{
+//!     common::ContextService,
+//!     http::{
+//!         core::HttpCoreService,
+//!         detect::HttpVersionDetect,
+//!         handlers::{
+//!             route::RouteConfig, ConnectionPersistenceHandler, ContentHandler, RoutingHandler,
+//!             UpstreamHandler,
+//!         },
+//!         HttpServerTimeout,
+//!     },
+//! };
+//! use service_async::{layer::FactoryLayer, stack::FactoryStack, Param};
+//!
+//! // Dummy struct to satisfy Param trait requirements
+//! struct DummyConfig;
+//!
+//! // Implement Param for DummyConfig to return Vec<RouteConfig>
+//! impl Param<Vec<RouteConfig>> for DummyConfig {
+//!     fn param(&self) -> Vec<RouteConfig> {
+//!         vec![]
+//!     }
+//! }
+//! impl Param<HttpServerTimeout> for DummyConfig {
+//!     fn param(&self) -> HttpServerTimeout {
+//!         HttpServerTimeout::default()
+//!     }
+//! }
+//!
+//! let config = DummyConfig;
+//! let stacks = FactoryStack::new(config)
+//!     .replace(UpstreamHandler::factory(Default::default()))
+//!     .push(ContentHandler::layer())
+//!     .push(RoutingHandler::layer())
+//!     .push(ConnectionPersistenceHandler::layer())
+//!     .push(HttpCoreService::layer())
+//!     .push(HttpVersionDetect::layer());
+//!
+//! // Use the service to handle HTTP requests
+//! ```
+//! # Error Handling
+//!
+//! - Decoding errors for incoming requests result in 400 Bad Request responses
+//! - Encoding errors for outgoing responses result in 500 Internal Server Error responses
+//!
+//! # Performance Considerations
+//!
+//! - Content encoding/decoding is only performed when necessary (i.e., non-identity encoding)
+//! - The handler avoids unnecessary allocations and copies where possible
 use std::fmt::Debug;
 
 use http::{Request, StatusCode};
@@ -13,6 +85,15 @@ use service_async::{
 
 use crate::http::generate_response;
 
+/// Handles content encoding and decoding for HTTP requests and responses.
+///
+/// `ContentHandler` is responsible for:
+/// 1. Decoding the content of incoming requests based on their Content-Encoding header.
+/// 2. Encoding the content of outgoing responses based on the client's Accept-Encoding preferences.
+///
+/// It wraps an inner handler and preprocesses requests before passing them to the inner handler,
+/// as well as postprocessing responses from the inner handler. For implementation details and
+/// example usage, see the [module level documentation](crate::http::handlers::content_handler).
 #[derive(Clone)]
 pub struct ContentHandler<H> {
     inner: H,

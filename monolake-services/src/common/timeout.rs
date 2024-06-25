@@ -1,3 +1,26 @@
+//! Timeout service for adding timeout functionality to HTTP handlers.
+//!
+//! This module provides a `TimeoutService` that wraps an inner service and applies
+//! a timeout to its execution. It's designed to work seamlessly with the `service_async`
+//! framework and can be easily integrated into a service stack.
+//!
+//! # Key Components
+//!
+//! - [`TimeoutService`]: The main service component that adds timeout functionality to an inner
+//!   service.
+//! - [`TimeoutError`]: Error type for timeout-related errors.
+//! - [`Timeout`]: A simple wrapper around `Duration` for configuration purposes.
+//!
+//! # Features
+//!
+//! - Adds configurable timeout to any inner service
+//! - Propagates inner service errors alongside timeout errors
+//!
+//! # Performance Considerations
+//!
+//! - Adds minimal overhead to the inner service execution
+//! - Uses efficient timeout mechanism provided by the `monoio` runtime
+
 use std::time::Duration;
 
 use monoio::time::timeout;
@@ -6,6 +29,7 @@ use service_async::{
     AsyncMakeService, MakeService, Param, Service,
 };
 
+/// Service that adds timeout functionality to an inner service.
 #[derive(Clone)]
 pub struct TimeoutService<T> {
     pub timeout: Duration,

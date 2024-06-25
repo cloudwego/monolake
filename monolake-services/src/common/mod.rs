@@ -1,3 +1,4 @@
+//! Generic services for panic catching, context management, and timeouts.
 mod cancel;
 mod context;
 mod delay;

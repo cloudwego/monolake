@@ -1,3 +1,51 @@
+//! Upstream proxy handling and request forwarding module.
+//!
+//! This module provides components for proxying HTTP and HTTPS requests to upstream servers,
+//! leveraging high-performance HTTP client implementations optimized for use with monoio's
+//! asynchronous runtime and io_uring.
+//!
+//! # Key Components
+//!
+//! - [`UpstreamHandler`]: The main service component responsible for proxying requests. It utilizes
+//!   the `HttpConnector` for efficient connection management and request handling.
+//! - [`UpstreamHandlerFactory`]: A factory for creating and updating `UpstreamHandler` instances.
+//! - [`HttpUpstreamTimeout`]: Configuration for various timeout settings in upstream communication.
+//!
+//! # Features
+//!
+//! - HTTP and HTTPS request proxying using optimized connectors
+//! - Connection pooling for efficient resource usage, provided by `HttpConnector`
+//! - Support for both HTTP/1.1 and HTTP/2 protocols
+//! - Configurable timeout settings
+//! - TLS support (enabled with the `tls` feature flag)
+//! - X-Forwarded-For header management
+//! - Leverages monoio's native IO traits built on top of io_uring for high performance
+//!
+//! # HTTP Connector Usage
+//!
+//! The `UpstreamHandler` utilizes `HttpConnector`, which provides:
+//!
+//! - Unified interface for HTTP/1.1 and HTTP/2 connections
+//! - Built-in connection pooling for efficient reuse of established connections
+//! - Optimized for monoio's asynchronous runtime and io_uring
+//! - TLS support for secure HTTPS connections
+//!
+//! # Error Handling
+//!
+//! - Connection errors result in 502 Bad Gateway responses
+//! - Invalid URIs or unresolvable hosts result in 400 Bad Request responses
+//! - Timeouts are handled gracefully, returning appropriate error responses
+//!
+//! # Performance Considerations
+//!
+//! - Utilizes `HttpConnector`'s connection pooling to reduce the overhead of creating new
+//!   connections
+//! - Employs efficient async I/O operations leveraging io_uring for improved performance
+//! - Supports both HTTP/1.1 and HTTP/2, allowing for protocol-specific optimizations
+//!
+//! # Feature Flags
+//!
+//! - `tls`: Enables TLS support for HTTPS connections to upstream servers
 use std::{
     convert::Infallible,
     net::{SocketAddr, ToSocketAddrs},
@@ -35,15 +83,23 @@ type HttpsConnector = H1Connector<
     TlsStream<TcpStream>,
 >;
 
+/// Handles proxying of HTTP and HTTPS requests to upstream servers.
+///
+/// `UpstreamHandler` is responsible for forwarding incoming requests to appropriate
+/// upstream servers, handling both HTTP and HTTPS protocols. It manages connection
+/// pooling, timeout settings, and error handling.
+///
+/// For implementation details and example usage, see the
+/// [module level documentation](crate::http::handlers::upstream).
 #[derive(Clone)]
-pub struct ProxyHandler {
+pub struct UpstreamHandler {
     connector: HttpConnector,
     #[cfg(feature = "tls")]
     tls_connector: HttpsConnector,
     pub http_upstream_timeout: HttpUpstreamTimeout,
 }
 
-impl Default for ProxyHandler {
+impl Default for UpstreamHandler {
     fn default() -> Self {
         Self {
             connector: HttpConnector::default().with_default_pool(),
@@ -54,10 +110,10 @@ impl Default for ProxyHandler {
     }
 }
 
-impl ProxyHandler {
+impl UpstreamHandler {
     #[cfg(not(feature = "tls"))]
     pub fn new(connector: HttpConnector) -> Self {
-        ProxyHandler {
+        UpstreamHandler {
             connector,
             http_upstream_timeout: Default::default(),
         }
@@ -65,21 +121,21 @@ impl ProxyHandler {
 
     #[cfg(feature = "tls")]
     pub fn new(connector: HttpConnector, tls_connector: HttpsConnector) -> Self {
-        ProxyHandler {
+        UpstreamHandler {
             connector,
             tls_connector,
             http_upstream_timeout: Default::default(),
         }
     }
 
-    pub const fn factory(http_upstream_timeout: HttpUpstreamTimeout) -> ProxyHandlerFactory {
-        ProxyHandlerFactory {
+    pub const fn factory(http_upstream_timeout: HttpUpstreamTimeout) -> UpstreamHandlerFactory {
+        UpstreamHandlerFactory {
             http_upstream_timeout,
         }
     }
 }
 
-impl<CX, B> Service<(Request<B>, CX)> for ProxyHandler
+impl<CX, B> Service<(Request<B>, CX)> for UpstreamHandler
 where
     CX: ParamRef<PeerAddr> + ParamMaybeRef<Option<RemoteAddr>>,
     B: Body,
@@ -98,7 +154,7 @@ where
     }
 }
 
-impl ProxyHandler {
+impl UpstreamHandler {
     async fn send_http_request<B>(
         &self,
         req: Request<B>,
@@ -188,26 +244,26 @@ impl ProxyHandler {
     }
 }
 
-pub struct ProxyHandlerFactory {
+pub struct UpstreamHandlerFactory {
     http_upstream_timeout: HttpUpstreamTimeout,
 }
 
-impl ProxyHandlerFactory {
-    pub fn new(http_upstream_timeout: HttpUpstreamTimeout) -> ProxyHandlerFactory {
-        ProxyHandlerFactory {
+impl UpstreamHandlerFactory {
+    pub fn new(http_upstream_timeout: HttpUpstreamTimeout) -> UpstreamHandlerFactory {
+        UpstreamHandlerFactory {
             http_upstream_timeout,
         }
     }
 }
 
 // HttpCoreService is a Service and a MakeService.
-impl MakeService for ProxyHandlerFactory {
-    type Service = ProxyHandler;
+impl MakeService for UpstreamHandlerFactory {
+    type Service = UpstreamHandler;
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         let http_connector = HttpConnector::default().with_default_pool();
-        Ok(ProxyHandler {
+        Ok(UpstreamHandler {
             connector: http_connector,
             #[cfg(feature = "tls")]
             tls_connector: HttpsConnector::default().with_default_pool(),
@@ -216,8 +272,8 @@ impl MakeService for ProxyHandlerFactory {
     }
 }
 
-impl AsyncMakeService for ProxyHandlerFactory {
-    type Service = ProxyHandler;
+impl AsyncMakeService for UpstreamHandlerFactory {
+    type Service = UpstreamHandler;
     type Error = Infallible;
 
     async fn make_via_ref(
@@ -225,7 +281,7 @@ impl AsyncMakeService for ProxyHandlerFactory {
         _old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         let http_connector = HttpConnector::default().with_default_pool();
-        Ok(ProxyHandler {
+        Ok(UpstreamHandler {
             connector: http_connector,
             #[cfg(feature = "tls")]
             tls_connector: HttpsConnector::default().with_default_pool(),

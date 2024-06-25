@@ -13,7 +13,7 @@ use monolake_services::{
     http::{
         core::HttpCoreService,
         detect::HttpVersionDetect,
-        handlers::{ConnReuseHandler, ContentHandler, ProxyHandler, RewriteHandler},
+        handlers::{ConnectionPersistenceHandler, ContentHandler, RoutingHandler, UpstreamHandler},
     },
     tcp::Accept,
     thrift::{handlers::ProxyHandler as TProxyHandler, ttheader::TtheaderCoreService},
@@ -38,15 +38,15 @@ pub fn l7_factory(
     match config.proxy_type {
         crate::config::ProxyType::Http => {
             let stacks = FactoryStack::new(config.clone())
-                .replace(ProxyHandler::factory(Default::default()))
+                .replace(UpstreamHandler::factory(Default::default()))
                 .push(ContentHandler::layer())
-                .push(RewriteHandler::layer());
+                .push(RoutingHandler::layer());
 
             #[cfg(feature = "openid")]
             let stacks = stacks.push(OpenIdHandler::layer());
 
             let stacks = stacks
-                .push(ConnReuseHandler::layer())
+                .push(ConnectionPersistenceHandler::layer())
                 .push(HttpCoreService::layer())
                 .push(HttpVersionDetect::layer());
 

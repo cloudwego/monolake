@@ -5,7 +5,7 @@ use monolake_core::{
     listener::ListenerBuilder,
 };
 use monolake_services::{
-    http::{handlers::rewrite::RouteConfig, HttpServerTimeout},
+    http::{handlers::route::RouteConfig, HttpServerTimeout},
     thrift::ttheader::ThriftServerTimeout,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};

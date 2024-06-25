@@ -1,3 +1,37 @@
+//! Network listener and stream abstractions for asynchronous I/O.
+//!
+//! This module provides unified abstractions for TCP and Unix domain socket listeners and streams,
+//! allowing for consistent handling of different network protocols in asynchronous environments.
+//!
+//! # Key Components
+//!
+//! - [`ListenerBuilder`]: A builder for creating network listeners.
+//! - [`Listener`]: A unified listener for TCP and Unix domain sockets.
+//! - [`AcceptedStream`]: A unified stream representation for accepted connections.
+//! - [`AcceptedAddr`]: A unified address representation for accepted connections.
+//!
+//! # Features
+//!
+//! - Support for both TCP and Unix domain sockets (Unix-only).
+//! - Asynchronous I/O operations using the `monoio` runtime.
+//! - Optional pool based I/O for compatibility with Hyper
+//!
+//! # Examples
+//!
+//! ```ignore
+//! use your_crate::{ListenerBuilder, Listener};
+//! use std::net::SocketAddr;
+//!
+//! async fn start_server(addr: SocketAddr) -> std::io::Result<()> {
+//!     let builder = ListenerBuilder::bind_tcp(addr, Default::default())?;
+//!     let mut listener = builder.build()?;
+//!     
+//!     while let Some(Ok((stream, addr))) = listener.next().await {
+//!         // Handle the accepted connection
+//!     }
+//!     Ok(())
+//! }
+//! ```
 use std::{io, net::SocketAddr, path::Path};
 
 use monoio::{
@@ -8,6 +42,9 @@ use monoio::{
 };
 use service_async::{AsyncMakeService, MakeService};
 
+/// A builder for creating network listeners.
+///
+/// This enum provides a unified interface for building TCP and Unix domain socket listeners.
 pub enum ListenerBuilder {
     Tcp(SocketAddr, ListenerOpts),
     #[cfg(unix)]
@@ -66,8 +103,10 @@ impl AsyncMakeService for ListenerBuilder {
         self.build()
     }
 }
-
-/// Unified listener.
+/// A unified listener for TCP and Unix domain sockets.
+///
+/// This enum represents either a TCP listener or a Unix domain socket listener,
+/// providing a consistent interface for accepting connections.
 pub enum Listener {
     Tcp(TcpListener),
     #[cfg(unix)]
@@ -100,6 +139,10 @@ impl Stream for Listener {
     }
 }
 
+/// A unified stream representation for accepted connections.
+///
+/// This enum represents either a TCP stream or a Unix domain socket stream,
+/// providing a consistent interface for I/O operations on accepted connections.
 pub enum AcceptedStream {
     Tcp(TcpStream),
     #[cfg(unix)]
@@ -179,6 +222,10 @@ impl AsyncWriteRent for AcceptedStream {
 }
 
 #[cfg(feature = "hyper")]
+/// A poll-based wrapper for accepted streams, used for integration with `hyper`.
+///
+/// This enum provides a poll-based interface for the unified stream types,
+/// allowing them to be used with libraries that expect poll-based I/O.
 pub enum AcceptedStreamPoll {
     Tcp(monoio::net::tcp::stream_poll::TcpStreamPoll),
     #[cfg(unix)]

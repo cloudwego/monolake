@@ -1,3 +1,57 @@
+//! Core Thrift THeader protocol service implementation for handling downstream client connections.
+//!
+//! This module provides a high-performance, asynchronous Thrift service that handles
+//! connections from downstream clients using the THeader protocol. It is designed to work
+//! with monoio's asynchronous runtime, providing fine-grained control over various timeouts.
+//!
+//! # Key Components
+//!
+//! - [`TtheaderCoreService`]: The main service component responsible for handling Thrift THeader
+//!   connections from downstream clients. It can be composed of a stack of handlers implementing
+//!   the [`ThriftHandler`] trait.
+//! - [`ThriftServerTimeout`]: Configuration for various timeout settings in the Thrift server.
+//!
+//! # Features
+//!
+//! - Support for Thrift THeader protocol
+//! - Composable design allowing a stack of [`ThriftHandler`] implementations
+//! - Efficient handling of concurrent requests using asynchronous I/O
+//! - Configurable timeout settings for different stages of request processing
+//! - Automatic message framing and error handling
+//!
+//! # Usage
+//!
+//! [`TtheaderCoreService`] is typically used as part of a larger service stack. Here's a basic
+//! example:
+//!
+//! ```ignore
+//! use service_async::{layer::FactoryLayer, stack::FactoryStack};
+//!
+//! use crate::thrift::TtheaderCoreService;
+//!
+//! let config = Config { /* ... */ };
+//! let proxy_config = Config { /* ... */ };
+//! let stack = FactoryStack::new(config)
+//!     .replace(TProxyHandler::factory(proxy_config))
+//!     .push(TtheaderCoreService::layer());
+//!
+//! let service = stack.make_async().await.unwrap();
+//! // Use the service to handle incoming Thrift THeader connections from downstream clients
+//! ```
+//!
+//! # Handler Composition
+//!
+//! [`TtheaderCoreService`] can be composed of multiple handlers implementing the [`ThriftHandler`]
+//! trait. This allows for a flexible and modular approach to request processing. Handlers can be
+//! chained together to form a processing pipeline, each handling a specific aspect of the
+//! Thrift request/response cycle.
+//!
+//! # Performance Considerations
+//!
+//! - Uses monoio's efficient async I/O operations for improved performance
+//! - Implements connection keep-alive to reduce connection overhead
+//! - Efficient message framing and decoding using the THeader protocol
+
 use std::{convert::Infallible, fmt::Debug, time::Duration};
 
 use monoio::io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent};
@@ -10,6 +64,13 @@ use service_async::{
 };
 use tracing::{error, info, trace, warn};
 
+/// Core Thrift service handler supporting the THeader protocol.
+///
+/// `TtheaderCoreService` is responsible for accepting Thrift connections, decoding requests,
+/// routing them through a handler chain, and encoding responses. It supports the THeader
+/// protocol for efficient message framing and metadata handling.
+/// For implementation details and example usage, see the
+/// [module level documentation](crate::thrift::ttheader).
 #[derive(Clone)]
 pub struct TtheaderCoreService<H> {
     handler_chain: H,
@@ -167,6 +228,10 @@ impl<F: AsyncMakeService> AsyncMakeService for TtheaderCoreService<F> {
     }
 }
 
+/// Configuration for Thrift server timeouts.
+///
+/// This struct allows setting timeouts for connection keepalive and message reading,
+/// providing fine-grained control over the Thrift server's behavior.
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ThriftServerTimeout {
     // Connection keepalive timeout: If no byte comes when decoder want next request, close the

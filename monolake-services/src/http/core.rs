@@ -1,3 +1,68 @@
+//! Core HTTP service implementation for handling downstream client connections.
+//!
+//! This module provides a high-performance, asynchronous HTTP service that handles
+//! connections from downstream clients. It supports HTTP/1, HTTP/1.1, and HTTP/2 protocols,
+//! and is designed to work with monoio's asynchronous runtime, providing fine-grained
+//! control over various timeouts.
+//!
+//! # Key Components
+//!
+//! - [`HttpCoreService`]: The main service component responsible for handling HTTP connections from
+//!   downstream clients. It can be composed of a stack of handlers implementing the `HttpHandler`
+//!   trait.
+//! - [`HttpServerTimeout`]: Configuration for various timeout settings in the HTTP server.
+//!
+//! # Features
+//!
+//! - Support for HTTP/1, HTTP/1.1, and HTTP/2 protocols
+//! - Composable design allowing a stack of `HttpHandler` implementations
+//! - Automatic protocol detection when combined with `HttpVersionDetect`
+//! - Efficient handling of concurrent requests using asynchronous I/O
+//! - Configurable timeout settings for different stages of request processing
+//! - Integration with `service_async` for easy composition in service stacks
+//! - Automatic response encoding and error handling
+//!
+//! # Usage
+//!
+//! `HttpCoreService` is typically used as part of a larger service stack, often in combination
+//! with `HttpVersionDetect` for automatic protocol detection. Here's a basic example:
+//!
+//! ```ignore
+//! use service_async::{layer::FactoryLayer, stack::FactoryStack};
+//!
+//! use crate::http::{HttpCoreService, HttpVersionDetect};
+//!
+//! let config = Config { /* ... */ };
+//! let stack = FactoryStack::new(config)
+//!     .push(HttpCoreService::layer())
+//!     .push(HttpVersionDetect::layer())
+//!     // ... other handlers implementing HttpHandler ...
+//!     ;
+//!
+//! let service = stack.make_async().await.unwrap();
+//! // Use the service to handle incoming HTTP connections from downstream clients
+//! ```
+//!
+//! # Handler Composition
+//!
+//! `HttpCoreService` can be composed of multiple handlers implementing the `HttpHandler` trait.
+//! This allows for a flexible and modular approach to request processing. Handlers can be
+//! chained together to form a processing pipeline, each handling a specific aspect of the
+//! HTTP request/response cycle.
+//!
+//! # Automatic Protocol Detection
+//!
+//! When used in conjunction with `HttpVersionDetect`, `HttpCoreService` can automatically
+//! detect whether an incoming connection is using HTTP/1, HTTP/1.1, or HTTP/2, and handle
+//! it appropriately. This allows for seamless support of multiple HTTP versions without
+//! the need for separate server configurations.
+//!
+//! # Performance Considerations
+//!
+//! - Uses monoio's efficient async I/O operations for improved performance
+//! - Implements connection keep-alive for HTTP/1.1 to reduce connection overhead
+//! - Supports HTTP/2 multiplexing for efficient handling of concurrent requests
+//! - Automatic protocol detection allows for optimized handling based on the client's capabilities
 use std::{convert::Infallible, fmt::Debug, pin::Pin, time::Duration};
 
 use bytes::Bytes;
@@ -28,6 +93,13 @@ use tracing::{error, info, warn};
 
 use super::{generate_response, util::AccompanyPair};
 
+/// Core HTTP service handler supporting both HTTP/1.1 and HTTP/2 protocols.
+///
+/// `HttpCoreService` is responsible for accepting HTTP connections, decoding requests,
+/// routing them through a handler chain, and encoding responses. It supports both
+/// HTTP/1.1 with keep-alive and HTTP/2 with multiplexing.
+/// For implementation details and example usage, see the
+/// [module level documentation](crate::http::core).
 #[derive(Clone)]
 pub struct HttpCoreService<H> {
     handler_chain: H,
@@ -338,17 +410,20 @@ impl<F: AsyncMakeService> AsyncMakeService for HttpCoreService<F> {
         })
     }
 }
-
+/// Represents the timeout settings for the HTTP server.
+///
+/// The `HttpServerTimeout` struct contains three optional fields:
+/// - `keepalive_timeout`: The timeout for keeping the connection alive. If no byte is received
+///   within this timeout, the connection will be closed.
+/// - `read_header_timeout`: The timeout for reading the full HTTP header.
+/// - `read_body_timeout`: The timeout for receiving the full request body.
+///
+/// By default, the `keepalive_timeout` is set to 75 seconds, while the other two timeouts are not
+/// set.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct HttpServerTimeout {
-    // Connection keepalive timeout: If no byte comes when decoder want next request, close the
-    // connection. Link Nginx `keepalive_timeout`
     pub keepalive_timeout: Option<Duration>,
-    // Read full http header.
-    // Like Nginx `client_header_timeout`
     pub read_header_timeout: Option<Duration>,
-    // Receiving full body timeout.
-    // Like Nginx `client_body_timeout`
     pub read_body_timeout: Option<Duration>,
 }
 

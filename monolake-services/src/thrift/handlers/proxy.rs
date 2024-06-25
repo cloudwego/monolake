@@ -1,3 +1,51 @@
+//! Thrift proxy handler for routing and forwarding Thrift requests to upstream servers.
+//!
+//! This module provides a high-performance, asynchronous Thrift proxy service that handles
+//! routing and forwarding of Thrift requests to configured upstream servers. It is designed
+//! to work with monoio's asynchronous runtime and supports connection pooling for efficient
+//! resource utilization.
+//!
+//! # Key Components
+//!
+//! - [`ProxyHandler`]: The main service component responsible for proxying Thrift requests to
+//!   upstream servers based on configured routes.
+//! - [`ProxyHandlerFactory`]: Factory for creating `ProxyHandler` instances.
+//! - [`PoolThriftConnector`]: A pooled connector for managing Thrift connections to upstream
+//!   servers.
+//!
+//! # Features
+//!
+//! - Support for Thrift THeader protocol
+//! - Configurable routing of requests to upstream servers
+//! - Connection pooling for efficient resource management
+//! - Integration with `service_async` for easy composition in service stacks
+//! - Support for both TCP and Unix socket connections to upstream servers
+//!
+//! # Usage
+//!
+//! `ProxyHandler` is typically used as part of a larger service stack. Here's a basic example:
+//!
+//! ```ignore
+//! use service_async::{layer::FactoryLayer, stack::FactoryStack};
+//!
+//! use crate::thrift::ProxyHandler;
+//!
+//! let config = vec![RouteConfig { /* ... */ }];
+//! let stack = FactoryStack::new(config.clone())
+//!     .push(ProxyHandler::factory(config))
+//!     // ... other layers ...
+//!     ;
+//!
+//! let service = stack.make_async().await.unwrap();
+//! // Use the service to handle incoming Thrift requests and proxy them to upstream servers
+//! ```
+//!
+//! # Performance Considerations
+//!
+//! - Uses monoio's efficient async I/O operations for improved performance
+//! - Implements connection pooling to reduce connection establishment overhead
+//! - Efficient request and response handling using the THeader protocol
+
 use std::{convert::Infallible, io};
 
 use monoio::io::{sink::SinkExt, stream::Stream};
@@ -14,7 +62,7 @@ use monolake_core::{
 use service_async::{AsyncMakeService, MakeService, ParamMaybeRef, ParamRef, Service};
 use tracing::info;
 
-use crate::http::handlers::rewrite::{Endpoint, RouteConfig};
+use crate::http::handlers::route::{Endpoint, RouteConfig};
 
 pub type PoolThriftConnector = PooledConnector<
     ReuseConnector<ConnectorMap<UnifiedL4Connector, ThriftConnectorMapper>>,
@@ -30,6 +78,10 @@ fn new_connector() -> PoolThriftConnector {
     )))
 }
 
+/// Mapper for creating Thrift-specific connections from generic network connections.
+///
+/// `ThriftConnectorMapper` is responsible for wrapping raw network connections with
+/// the appropriate Thrift protocol codec (TTHeaderPayloadCodec in this case).
 pub struct ThriftConnectorMapper;
 impl<C, E> ConnectorMapper<C, E> for ThriftConnectorMapper {
     type Connection = Framed<C, TTHeaderPayloadCodec<RawPayloadCodec>>;
@@ -40,6 +92,14 @@ impl<C, E> ConnectorMapper<C, E> for ThriftConnectorMapper {
         inner.map(|io| Framed::new(io, TTHeaderPayloadCodec::new(RawPayloadCodec)))
     }
 }
+
+/// Thrift proxy handler for routing and forwarding requests to upstream servers.
+///
+/// `ProxyHandler` is responsible for receiving Thrift requests, selecting an appropriate
+/// upstream server based on configured routes, and forwarding the request to that server.
+/// It manages connections to upstream servers using a connection pool for efficiency.
+/// For implementation details and example usage, see the
+/// [module level documentation](crate::thrift::handlers::proxy).
 
 pub struct ProxyHandler {
     connector: PoolThriftConnector,
@@ -110,6 +170,10 @@ impl ProxyHandler {
     }
 }
 
+/// Factory for creating `ProxyHandler` instances.
+///
+/// `ProxyHandlerFactory` is responsible for creating new `ProxyHandler` instances,
+/// initializing them with the necessary configuration and connection pool.
 pub struct ProxyHandlerFactory {
     config: Vec<RouteConfig>,
 }

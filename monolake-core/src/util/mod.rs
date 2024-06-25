@@ -1,3 +1,4 @@
+//! Common helper function
 use std::path::Path;
 
 use monoio::buf::IoBufMut;
