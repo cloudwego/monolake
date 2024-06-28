@@ -1,0 +1,64 @@
+[runtime]
+# runtime_type = "legacy"
+worker_threads = 2
+entries = 4096
+
+[servers.server_basic2]
+    name = "monolake.cloudwego.io"
+    listener = { type = "socket", value = "0.0.0.0:8402" }
+    [[servers.server_basic2.routes]]
+        path = '/'
+        upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:10082" } }]
+
+[servers.server_basic3]
+    name = "monolake.cloudwego.io"
+    listener = { type = "socket", value = "0.0.0.0:8403" }
+    [[servers.server_basic3.routes]]
+        path = '/'
+        upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:10083" } }]
+
+[servers.server_basic4]
+    name = "monolake.cloudwego.io"
+    listener = { type = "socket", value = "0.0.0.0:8404" }
+    [[servers.server_basic4.routes]]
+        path = '/'
+        upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:10084" } }]
+
+[servers.server_basic5]
+    name = "monolake.cloudwego.io"
+    listener = { type = "socket", value = "0.0.0.0:8405" }
+    [[servers.server_basic5.routes]]
+        path = '/'
+        upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:10085" } }]
+
+[servers.server_tls2]
+    tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem" }
+    name = "monolake.cloudwego.io"
+    listener = { type = "socket", value = "0.0.0.0:6442" }
+    [[servers.server_tls2.routes]]
+        path = '/'
+        upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:10082" } }]
+
+[servers.server_tls3]
+    tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem" }
+    name = "monolake.cloudwego.io"
+    listener = { type = "socket", value = "0.0.0.0:6443" }
+    [[servers.server_tls3.routes]]
+        path = '/'
+        upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:10083" } }]
+
+[servers.server_tls4]
+    tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem" }
+    name = "monolake.cloudwego.io"
+    listener = { type = "socket", value = "0.0.0.0:6444" }
+    [[servers.server_tls4.routes]]
+        path = '/'
+        upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:10084" } }]
+
+[servers.server_tls5]
+    tls = { chain = "examples/certs/cert.pem", key = "examples/certs/key.pem" }
+    name = "monolake.cloudwego.io"
+    listener = { type = "socket", value = "0.0.0.0:6445" }
+    [[servers.server_tls5.routes]]
+        path = '/'
+        upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:10085" } }]

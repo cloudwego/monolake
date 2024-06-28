@@ -1,0 +1,139 @@
+# Monolake Benchmark
+
+Monolake benchmark contains programs and scripts to benchmark monolake's performance and comparison with other popular open source proxy programs.
+
+## Topolonogy
+
+A client and a server will be setup on separated machines and traffic will go through the proxy which will be on another machine. The client machine is more powerful so that when testing it can reach or over the capabilities of the server. All machines are on a stable network environment to flat traffic varies.
+
+Basic test tool is wrk2 and it is installed on client machine. Nginx will be setup on server machine as web backend. Different proxy programs (monolake, nginx, traefik) will be installed and tested to compare.
+
+![1719423798184](images/README/1719423798184.png)
+
+We plan to benchmark monolake for 2 cases. The first case is monolake on a 4 core machine as proxy, another case is monolake on a 16 core machine.
+
+## Reproduce on AWS EC2 machines
+
+Reference aws ec2 id for client machine:
+
+Reference aws ec2 id for server machine:
+
+Reference aws ec2 id for proxy service machine:
+
+## Setup
+
+### Client Setup
+
+client/setup-once.sh will be used to install test tools on the client machine: curl, wrk2.
+
+```bash
+# download curl
+wget https://curl.se/download/curl-8.3.0.zip
+unzip curl-8.3.0.zip
+cd curl-8.3.0
+./configure --prefix=$HOME/curl --with-openssl
+make
+sudo make install
+
+# download wrk2
+git clone https://github.com/giltene/wrk2
+cd wrk2
+make WITH_OPENSSL=/usr
+```
+
+### Server Setup
+
+server/setup-once.sh will be used to install nginx web server on the server machine.
+
+```bash
+sudo apt install -y nginx
+sudo cp $MONOLAKE_HOME/benchmark/server/nginx-web.conf /etc/nginx/
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/cert.key -out /etc/nginx/cert.pem
+sudo cat /etc/nginx/cert.key /etc/nginx/cert.pem > $MONOLAKE_HOME/combined.pem
+sudo mv $MONOLAKE_HOME/combined.pem /etc/nginx/
+sudo cp -r $MONOLAKE_HOME/benchmark/server/webroot/* /usr/share/nginx/html/
+sudo service nginx restart
+```
+
+### Proxy Setup
+
+proxy/<>/setup-once.sh will be used to install proxy softwares monolake and comparisons nginx and traefik on the proxy machine.
+
+#### proxy/monolake/setup-once.sh
+
+```bash
+cd $MONOLAKE_HOME
+cp $MONOLAKE_HOME/benchmark/proxy/monolake/monolake.toml monolake/examples/
+cd monolake
+mkdir examples/certs && openssl req -x509 -newkey rsa:2048 -keyout examples/certs/key.pem -out examples/certs/cert.pem -sha256 -days 365 -nodes -subj "/CN=monolake.cloudwego.io"
+cargo build
+```
+
+#### proxy/nginx/setup-once.sh
+
+```bash
+sudo apt install -y nginx
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/cert.key -out /etc/nginx/cert.pem
+sudo cat /etc/nginx/cert.key /etc/nginx/cert.pem > $MONOLAKE_HOME/combined.pem
+sudo mv $MONOLAKE_HOME/combined.pem /etc/nginx/
+```
+
+#### proxy/traefik/setup-once.sh
+
+```bash
+cd $MONOLAKE_HOME/benchmark/proxy/traefik/
+wget https://github.com/traefik/traefik/releases/download/v3.0.0-rc1/traefik_v3.0.0-rc1_linux_amd64.tar.gz
+tar zxvf traefik_v3.0.0-rc1_linux_amd64.tar.gz
+rm traefik_v3.0.0-rc1_linux_amd64.tar.gz
+```
+
+### Configure Server IP
+
+proxy/update-server-ip.sh will be used to update server ip in the proxy configure files.
+
+```bash
+cd $MONOLAKE_HOME/benchmark/proxy
+sed -i -e 's/127.0.0.1/${MONOLAKE_BENCHMARK_SERVER_IP}/g' nginx/nginx.conf
+sed -i -e 's/127.0.0.1/${MONOLAKE_BENCHMARK_SERVER_IP}/g' monolake/monolake.toml
+sed -i -e 's/127.0.0.1/${MONOLAKE_BENCHMARK_SERVER_IP}/g' traefik/traefik-dynamic.toml
+```
+
+### Runtime Environment Variables
+
+```bash
+if [ -z "${MONOLAKE_HOME+set}" ]; then
+    export MONOLAKE_HOME=$HOME/monolake
+fi
+
+if [ -z "${MONOLAKE_BENCHMARK_PROXY_IP+set}" ]; then
+    export MONOLAKE_BENCHMARK_PROXY_IP=localhost
+fi
+
+if [ -z "${MONOLAKE_BENCHMARK_SERVER_IP+set}" ]; then
+    export MONOLAKE_BENCHMARK_SERVER_IP=localhost
+fi
+```
+
+## Run Benchmark Test
+
+Normally we run setup-once.sh on each machine first. For proxy machine, we only need run required 1 of 3 proxy services and don't run the other 2. Also we need run update-server-ip.sh.
+
+Now we need make sure the setup is ready. On the client, we set environment variable MONOLAKE_BENCHMARK_SERVER_IP by:
+
+`export MONOLAKE_BENCHMARK_SERVER_IP = <server-ip>`
+
+then run:
+
+```bash
+client/verify.sh
+```
+
+to make sure the result is expected.
+
+We can run benchmark test for different proxy service. For example, to benchmark monolake proxy service for http:
+
+```bash
+client/benchmark-monolake-http.sh
+```
+
+Before run the benchmark, make sure MONOLAKE_BENCHMARK_SERVER_IP and MONOLAKE_BENCHMARK_PROXY_IP are set correctly.
