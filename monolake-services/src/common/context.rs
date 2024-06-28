@@ -8,8 +8,8 @@ use service_async::{
 /// The Context will be forked from factory and PeerAddr will be set into it.
 #[derive(Debug, Clone, Copy)]
 pub struct ContextService<CX, T> {
-    inner: T,
-    ctx: CX,
+    pub inner: T,
+    pub ctx: CX,
 }
 
 impl<R, T, CX> Service<(R, AcceptedAddr)> for ContextService<CX, T>

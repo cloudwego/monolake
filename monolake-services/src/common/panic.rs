@@ -7,7 +7,7 @@ use service_async::{
 };
 
 pub struct CatchPanicService<S> {
-    inner: S,
+    pub inner: S,
 }
 
 #[derive(thiserror::Error, Debug)]

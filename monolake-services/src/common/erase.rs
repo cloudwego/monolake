@@ -5,7 +5,7 @@ use service_async::{
 
 #[derive(Debug)]
 pub struct EraseResp<T> {
-    svc: T,
+    pub svc: T,
 }
 
 impl<T: MakeService> MakeService for EraseResp<T> {

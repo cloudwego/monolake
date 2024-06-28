@@ -8,8 +8,8 @@ use service_async::{
 
 #[derive(Clone)]
 pub struct TimeoutService<T> {
-    timeout: Duration,
-    inner: T,
+    pub timeout: Duration,
+    pub inner: T,
 }
 
 #[derive(thiserror::Error, Debug)]
