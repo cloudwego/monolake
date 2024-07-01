@@ -5,8 +5,8 @@
 //! HTTP/1.0, HTTP/1.1, and HTTP/2, ensuring proper header management and version compatibility.
 //! # Key Components
 //!
-//! - [`ConnectionPersistenceHandler`]: The main service component responsible for managing
-//!   connection persistence and keep-alive behavior.
+//! - [`ConnectionReuseHandler`]: The main service component responsible for managing connection
+//!   persistence and keep-alive behavior.
 //!
 //! # Features
 //!
@@ -27,7 +27,7 @@
 //!         core::HttpCoreService,
 //!         detect::HttpVersionDetect,
 //!         handlers::{
-//!             route::RouteConfig, ConnectionPersistenceHandler, ContentHandler, RoutingHandler,
+//!             route::RouteConfig, ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler,
 //!             UpstreamHandler,
 //!         },
 //!         HttpServerTimeout,
@@ -54,8 +54,8 @@
 //! let stacks = FactoryStack::new(config)
 //!     .replace(UpstreamHandler::factory(Default::default()))
 //!     .push(ContentHandler::layer())
-//!     .push(RoutingHandler::layer())
-//!     .push(ConnectionPersistenceHandler::layer())
+//!     .push(RewriteAndRouteHandler::layer())
+//!     .push(ConnectionReuseHandler::layer())
 //!     .push(HttpCoreService::layer())
 //!     .push(HttpVersionDetect::layer());
 //!
@@ -78,7 +78,7 @@ use crate::http::{CLOSE, CLOSE_VALUE, KEEPALIVE, KEEPALIVE_VALUE};
 
 /// Handler for managing HTTP connection persistence and keep-alive behavior.
 ///
-/// `ConnectionPersistenceHandler` is responsible for:
+/// `ConnectionReuseHandler` is responsible for:
 /// 1. Detecting whether an incoming request supports keep-alive.
 /// 2. Modifying request and response headers to ensure proper keep-alive behavior.
 /// 3. Handling version-specific connection persistence logic for HTTP/1.0, HTTP/1.1, and HTTP/2.
@@ -86,11 +86,11 @@ use crate::http::{CLOSE, CLOSE_VALUE, KEEPALIVE, KEEPALIVE_VALUE};
 /// For implementation details and example usage, see the
 /// [module level documentation](crate::http::handlers::connection_persistence).
 #[derive(Clone)]
-pub struct ConnectionPersistenceHandler<H> {
+pub struct ConnectionReuseHandler<H> {
     inner: H,
 }
 
-impl<H, CX, B> Service<(Request<B>, CX)> for ConnectionPersistenceHandler<H>
+impl<H, CX, B> Service<(Request<B>, CX)> for ConnectionReuseHandler<H>
 where
     H: HttpHandler<CX, B>,
 {
@@ -162,32 +162,32 @@ where
 }
 
 // ConnReuseHandler is a Service and a MakeService.
-impl<F: MakeService> MakeService for ConnectionPersistenceHandler<F> {
-    type Service = ConnectionPersistenceHandler<F::Service>;
+impl<F: MakeService> MakeService for ConnectionReuseHandler<F> {
+    type Service = ConnectionReuseHandler<F::Service>;
     type Error = F::Error;
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        Ok(ConnectionPersistenceHandler {
+        Ok(ConnectionReuseHandler {
             inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
         })
     }
 }
 
-impl<F: AsyncMakeService> AsyncMakeService for ConnectionPersistenceHandler<F> {
-    type Service = ConnectionPersistenceHandler<F::Service>;
+impl<F: AsyncMakeService> AsyncMakeService for ConnectionReuseHandler<F> {
+    type Service = ConnectionReuseHandler<F::Service>;
     type Error = F::Error;
 
     async fn make_via_ref(
         &self,
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
-        Ok(ConnectionPersistenceHandler {
+        Ok(ConnectionReuseHandler {
             inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
         })
     }
 }
 
-impl<F> ConnectionPersistenceHandler<F> {
+impl<F> ConnectionReuseHandler<F> {
     pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self> {
         layer_fn(|_: &C, inner| Self { inner })
     }

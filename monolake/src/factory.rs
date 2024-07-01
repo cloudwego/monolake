@@ -13,7 +13,9 @@ use monolake_services::{
     http::{
         core::HttpCoreService,
         detect::HttpVersionDetect,
-        handlers::{ConnectionPersistenceHandler, ContentHandler, RoutingHandler, UpstreamHandler},
+        handlers::{
+            ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler, UpstreamHandler,
+        },
     },
     tcp::Accept,
     thrift::{handlers::ProxyHandler as TProxyHandler, ttheader::TtheaderCoreService},
@@ -40,13 +42,13 @@ pub fn l7_factory(
             let stacks = FactoryStack::new(config.clone())
                 .replace(UpstreamHandler::factory(Default::default()))
                 .push(ContentHandler::layer())
-                .push(RoutingHandler::layer());
+                .push(RewriteAndRouteHandler::layer());
 
             #[cfg(feature = "openid")]
             let stacks = stacks.push(OpenIdHandler::layer());
 
             let stacks = stacks
-                .push(ConnectionPersistenceHandler::layer())
+                .push(ConnectionReuseHandler::layer())
                 .push(HttpCoreService::layer())
                 .push(HttpVersionDetect::layer());
 

@@ -5,27 +5,27 @@
 //!
 //! ## Key Components
 //!
-//! - [`WorkerManager`]: Manages multiple service deployments across different sites.
-//! - [`ServiceDeploymentManager`]: Handles the lifecycle of individual services, including staging
-//!   and deployment.
-//! - [`WorkerDirective`]: Enum representing various actions that can be performed on services.
+//! - [`ServiceExecutor`]: Manages multiple service deployments across different sites.
+//! - [`ServiceDeploymentContainer`]: Handles the lifecycle of individual services, including
+//!   precommitting and deployment.
+//! - [`ServiceCommand`]: Enum representing various actions that can be performed on services.
 //!
 //! ## Deployment Process
 //!
 //! The system supports two deployment models:
 //!
 //! 1. Two-Stage Deployment:
-//!    - Stage a service [`WorkerDirective::StageService`]
-//!    - Either update an existing service [`WorkerDirective::UpdateDeployedWithStaged`] or deploy a
-//!      new one [`WorkerDirective::DeployNewFromStaged`]
+//!    - Precommit a service [`ServiceCommand::Precommit`]
+//!    - Either update an existing service [`ServiceCommand::Update`] or commit a new one
+//!      [`ServiceCommand::Commit`]
 //!
 //! 2. Single-Stage Deployment:
-//!    - Create and deploy a service in one step [`WorkerDirective::CreateAndDeploy`]
+//!    - Create and deploy a service in one step [`ServiceCommand::PrepareAndCommit`]
 //!
 //! ## Asynchronous Execution
 //!
 //! The system is designed to work with asynchronous service factories and supports
-//! asynchronous execution of worker directives.
+//! asynchronous execution of service commands.
 use std::{cell::UnsafeCell, collections::HashMap, fmt::Debug, rc::Rc, sync::Arc};
 
 use futures_channel::{
@@ -69,13 +69,13 @@ use crate::AnyError;
 /// This model is ideal for updating services while preserving state:
 ///
 /// a) Staging: Prepare a new service instance, potentially using state from an existing service.
-///    - Use [`WorkerDirective::StageService`]
+///    - Use [`ServiceCommand::Precommit`]
 ///    - This leverages the `make_via_ref` method from [`AsyncMakeService`], allowing state
 ///      transfer.
 ///
 /// b) Deployment: Either update an existing service or deploy a new one.
-///    - For updates: [`WorkerDirective::UpdateDeployedWithStaged`]
-///    - For new deployments: [`WorkerDirective::DeployNewFromStaged`]
+///    - For updates: [`ServiceCommand::Update`]
+///    - For new deployments: [`ServiceCommand::Commit`]
 ///
 /// This process allows for careful preparation and validation of the new service
 /// before it replaces the existing one, minimizing downtime and preserving valuable state.
@@ -84,20 +84,20 @@ use crate::AnyError;
 ///
 /// This model is suitable for initial deployments or when state preservation isn't necessary:
 ///
-/// - Create and deploy a service in one step using [`WorkerDirective::CreateAndDeploy`]
+/// - Create and deploy a service in one step using [`ServiceCommand::PrepareAndCommit`]
 /// - This is more straightforward but doesn't allow for state transfer from existing services.
 ///
 /// # Worker Thread Execution
 ///
-/// The [`WorkerManager::run_controller`] method serves as the main
-/// execution loop, processing [`WorkerDirectiveTask`]s containing
-/// [`WorkerDirective`]s. It handles service creation, updates, and removal, coordinating with
-/// [`ServiceDeploymentManager`] instances for each site.
-pub struct WorkerManager<S> {
-    sites: Rc<UnsafeCell<HashMap<Arc<String>, ServiceDeploymentManager<S>>>>,
+/// The [`ServiceExecutor::run`] method serves as the main
+/// execution loop, processing [`ServiceCommandTask`]s containing
+/// [`ServiceCommand`]s. It handles service creation, updates, and removal, coordinating with
+/// [`ServiceDeploymentContainer`] instances for each site.
+pub struct ServiceExecutor<S> {
+    sites: Rc<UnsafeCell<HashMap<Arc<String>, ServiceDeploymentContainer<S>>>>,
 }
 
-impl<S> Default for WorkerManager<S> {
+impl<S> Default for ServiceExecutor<S> {
     fn default() -> Self {
         Self {
             sites: Rc::new(UnsafeCell::new(HashMap::new())),
@@ -105,13 +105,13 @@ impl<S> Default for WorkerManager<S> {
     }
 }
 
-enum WorkerDirectiveError {
+enum ServiceCommandError {
     SiteLookupFailed,
     ServiceNotStaged,
     ServiceNotDeployed,
 }
 
-impl<S> WorkerManager<S> {
+impl<S> ServiceExecutor<S> {
     // Lookup and clone service.
     fn get_svc(&self, name: &Arc<String>) -> Option<Rc<S>> {
         let sites = unsafe { &*self.sites.get() };
@@ -119,31 +119,31 @@ impl<S> WorkerManager<S> {
     }
 
     // Set parpart slot with given S.
-    fn stage_svc(&self, name: Arc<String>, svc: S) {
+    fn precommit_svc(&self, name: Arc<String>, svc: S) {
         let sites = unsafe { &mut *self.sites.get() };
         let sh = sites
             .entry(name)
-            .or_insert_with(ServiceDeploymentManager::new);
-        let staged_slot = unsafe { &mut *sh.staged_service.get() };
-        *staged_slot = Some(svc);
+            .or_insert_with(ServiceDeploymentContainer::new);
+        let precom_svc_slot = unsafe { &mut *sh.precommitted_service.get() };
+        *precom_svc_slot = Some(svc);
     }
 
-    fn update_deployed_with_staged(&self, name: &Arc<String>) -> Result<(), WorkerDirectiveError> {
+    fn update_with_precommitted_svc(&self, name: &Arc<String>) -> Result<(), ServiceCommandError> {
         let sites = unsafe { &mut *self.sites.get() };
         let sh = sites
             .get_mut(name)
-            .ok_or(WorkerDirectiveError::SiteLookupFailed)?;
+            .ok_or(ServiceCommandError::SiteLookupFailed)?;
 
         let hdr = sh
-            .deployed_service
+            .committed_service
             .as_mut()
-            .ok_or(WorkerDirectiveError::ServiceNotDeployed)?;
-        let staged_slot = unsafe { &mut *sh.staged_service.get() };
-        let staged = staged_slot
+            .ok_or(ServiceCommandError::ServiceNotDeployed)?;
+        let precom_svc_slot = unsafe { &mut *sh.precommitted_service.get() };
+        let precom_svc = precom_svc_slot
             .take()
-            .ok_or(WorkerDirectiveError::ServiceNotStaged)?;
+            .ok_or(ServiceCommandError::ServiceNotStaged)?;
 
-        hdr.slot.update_svc(Rc::new(staged));
+        hdr.slot.update_svc(Rc::new(precom_svc));
         Ok(())
     }
 
@@ -151,48 +151,48 @@ impl<S> WorkerManager<S> {
     fn deploy_staged_service(
         &self,
         name: &Arc<String>,
-    ) -> Result<(ServiceSlot<S>, OSender<()>), WorkerDirectiveError> {
+    ) -> Result<(ServiceSlot<S>, OSender<()>), ServiceCommandError> {
         let sites = unsafe { &mut *self.sites.get() };
         let sh = sites
             .get_mut(name)
-            .ok_or(WorkerDirectiveError::SiteLookupFailed)?;
-        let staged_slot = unsafe { &mut *sh.staged_service.get() };
-        let staged = staged_slot
+            .ok_or(ServiceCommandError::SiteLookupFailed)?;
+        let precom_svc_slot = unsafe { &mut *sh.precommitted_service.get() };
+        let precom_svc = precom_svc_slot
             .take()
-            .ok_or(WorkerDirectiveError::ServiceNotStaged)?;
+            .ok_or(ServiceCommandError::ServiceNotStaged)?;
 
-        let (new_site, stop) = ServiceManager::create(staged);
+        let (new_site, stop) = ServiceSlotContainer::create(precom_svc);
         let handler_slot = new_site.slot.clone();
-        sh.deployed_service = Some(new_site);
+        sh.committed_service = Some(new_site);
         Ok((handler_slot, stop))
     }
 
     // Remove site.
-    fn remove(&self, name: &Arc<String>) -> Result<(), WorkerDirectiveError> {
+    fn remove(&self, name: &Arc<String>) -> Result<(), ServiceCommandError> {
         let sites = unsafe { &mut *self.sites.get() };
         if sites.remove(name).is_none() {
-            Err(WorkerDirectiveError::SiteLookupFailed)
+            Err(ServiceCommandError::SiteLookupFailed)
         } else {
             Ok(())
         }
     }
 
-    fn abort(&self, name: &Arc<String>) -> Result<(), WorkerDirectiveError> {
+    fn abort(&self, name: &Arc<String>) -> Result<(), ServiceCommandError> {
         let sites = unsafe { &mut *self.sites.get() };
         let sh = sites
             .get_mut(name)
-            .ok_or(WorkerDirectiveError::SiteLookupFailed)?;
-        let staged_slot = unsafe { &mut *sh.staged_service.get() };
-        *staged_slot = None;
+            .ok_or(ServiceCommandError::SiteLookupFailed)?;
+        let precom_svc_slot = unsafe { &mut *sh.precommitted_service.get() };
+        *precom_svc_slot = None;
         Ok(())
     }
 }
 
 /// Manages the deployment lifecycle of an individual service.
 ///
-/// This struct handles both the currently deployed service and any staged service
+/// This struct handles both the currently committed service and any precommit service
 /// waiting to be deployed. It supports the two-stage deployment process by maintaining
-/// separate slots for the deployed and staged services.
+/// separate slots for the commit and precommit services.
 ///
 /// # Type Parameters
 ///
@@ -202,32 +202,32 @@ impl<S> WorkerManager<S> {
 ///
 /// * `deployed_service`: The currently deployed service, if any.
 /// * `staged_service`: A service that has been prepared but not yet deployed.
-pub struct ServiceDeploymentManager<S> {
+pub struct ServiceDeploymentContainer<S> {
     /// The currently deployed service, if any.
-    deployed_service: Option<ServiceManager<S>>,
+    committed_service: Option<ServiceSlotContainer<S>>,
     /// A service that has been prepared but not yet deployed.
-    staged_service: UnsafeCell<Option<S>>,
+    precommitted_service: UnsafeCell<Option<S>>,
 }
 
-struct ServiceManager<S> {
+struct ServiceSlotContainer<S> {
     slot: ServiceSlot<S>,
     _stop: OReceiver<()>,
 }
 
-impl<S> ServiceDeploymentManager<S> {
+impl<S> ServiceDeploymentContainer<S> {
     const fn new() -> Self {
         Self {
-            deployed_service: None,
-            staged_service: UnsafeCell::new(None),
+            committed_service: None,
+            precommitted_service: UnsafeCell::new(None),
         }
     }
 
     fn get_svc(&self) -> Option<Rc<S>> {
-        self.deployed_service.as_ref().map(|h| h.slot.get_svc())
+        self.committed_service.as_ref().map(|h| h.slot.get_svc())
     }
 }
 
-impl<S> ServiceManager<S> {
+impl<S> ServiceSlotContainer<S> {
     fn create(handler: S) -> (Self, OSender<()>) {
         let (tx, rx) = ochannel();
         (
@@ -240,6 +240,7 @@ impl<S> ServiceManager<S> {
     }
 }
 
+/// Holds the deployed  [`Service`]
 pub struct ServiceSlot<S>(Rc<UnsafeCell<Rc<S>>>);
 
 impl<S> Clone for ServiceSlot<S> {
@@ -270,13 +271,13 @@ impl<S> ServiceSlot<S> {
     }
 }
 
-/// Represents directives for managing service deployment in a worker.
+/// Represents commands for managing service deployment in a worker.
 ///
 /// This enum encapsulates the various operations that can be performed on services,
 /// supporting both two-stage and one-stage deployment processes. It works in conjunction
-/// with the [`WorkerManager`] to facilitate the lifecycle management of services.
+/// with the [`ServiceExecutor`] to facilitate the lifecycle management of services.
 ///
-/// The directives align with the concepts introduced in the `service_async` crate,
+/// The commands align with the concepts introduced in the `service_async` crate,
 /// particularly leveraging the [`AsyncMakeService`] trait for efficient service creation
 /// and updates.
 ///
@@ -291,19 +292,22 @@ impl<S> ServiceSlot<S> {
 ///
 /// This model allows for state transfer and careful preparation before deployment:
 ///
-/// 1. [`StageService`](WorkerDirective::StageService): Prepare a service for deployment.
-/// 2. Either [`UpdateDeployedWithStaged`](WorkerDirective::UpdateDeployedWithStaged) or
-///    [`DeployNewFromStaged`](WorkerDirective::DeployNewFromStaged): Complete the deployment.
+/// 1. [`Precommit`](ServiceCommand::Precommit): Prepare a service for deployment.
+/// 2. Either [`Update`](ServiceCommand::Update) or [`Commit`](ServiceCommand::Commit): Complete the
+///    deployment.
 ///
 /// ## One-Stage Deployment
 ///
 /// This model creates and deploys a service in a single step:
 ///
-/// - [`CreateAndDeploy`](WorkerDirective::CreateAndDeploy): Directly create and deploy a service.
+/// - [`PrepareAndCommit`](ServiceCommand::PrepareAndCommit): Directly create and deploy a service.
+///
+/// Each variant of this enum represents a specific action in the service lifecycle,
+/// providing fine-grained control over service deployment and management.
 #[allow(dead_code)]
 #[derive(Clone)]
-pub enum WorkerDirective<F, LF> {
-    /// Stages a service for deployment without actually deploying it.
+pub enum ServiceCommand<F, LF> {
+    /// Precommits a service for deployment without actually deploying it.
     ///
     /// This is the first step in a two-stage deployment process. It leverages the
     /// `make_via_ref` method of [`AsyncMakeService`] to potentially transfer state from
@@ -312,9 +316,9 @@ pub enum WorkerDirective<F, LF> {
     /// # Arguments
     /// * `Arc<String>` - The identifier for the service.
     /// * `F` - The factory for creating the service, typically implementing [`AsyncMakeService`].
-    StageService(Arc<String>, F),
+    Precommit(Arc<String>, F),
 
-    /// Updates an existing deployed service with the version that was previously staged.
+    /// Updates an existing deployed service with the version that was previously precommitted.
     ///
     /// This is the second step in a two-stage deployment process for updating existing services.
     /// It allows for a seamless transition from the old service instance to the new one,
@@ -322,20 +326,20 @@ pub enum WorkerDirective<F, LF> {
     ///
     /// # Arguments
     /// * `Arc<String>` - The identifier for the service to update.
-    UpdateDeployedWithStaged(Arc<String>),
+    Update(Arc<String>),
 
-    /// Deploys a previously staged service for the first time.
+    /// Commits a previously precommitted service for the first time.
     ///
     /// This is the second step in a two-stage deployment process for new services.
-    /// It's used when a new service has been staged and needs to be activated with
+    /// It's used when a new service has been precommitted and needs to be activated with
     /// its corresponding listener.
     ///
     /// # Arguments
-    /// * `Arc<String>` - The identifier for the service to deploy.
+    /// * `Arc<String>` - The identifier for the service to commit.
     /// * `LF` - The listener factory for the service.
-    DeployNewFromStaged(Arc<String>, LF),
+    Commit(Arc<String>, LF),
 
-    /// Creates and deploys a service in a single operation.
+    /// Prepares and commits a service in a single operation.
     ///
     /// This is used for the one-stage deployment process, suitable for initial deployments
     /// or when state preservation isn't necessary. It combines service creation and
@@ -345,16 +349,16 @@ pub enum WorkerDirective<F, LF> {
     /// * `Arc<String>` - The identifier for the service.
     /// * `F` - The factory for creating the service.
     /// * `LF` - The listener factory for the service.
-    CreateAndDeploy(Arc<String>, F, LF),
+    PrepareAndCommit(Arc<String>, F, LF),
 
-    /// Aborts the staging process, removing any staged service that hasn't been deployed.
+    /// Aborts the precommit process, removing any precommitted service that hasn't been deployed.
     ///
-    /// This is useful for cleaning up staged services that are no longer needed or
+    /// This is useful for cleaning up precommitted services that are no longer needed or
     /// were prepared incorrectly.
     ///
     /// # Arguments
-    /// * `Arc<String>` - The identifier for the staged service to abort.
-    AbortStaging(Arc<String>),
+    /// * `Arc<String>` - The identifier for the precommitted service to abort.
+    Abort(Arc<String>),
 
     /// Removes a deployed service entirely.
     ///
@@ -363,7 +367,7 @@ pub enum WorkerDirective<F, LF> {
     ///
     /// # Arguments
     /// * `Arc<String>` - The identifier for the service to remove.
-    RemoveService(Arc<String>),
+    Remove(Arc<String>),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -380,47 +384,51 @@ pub enum CommandError<SE, LE> {
     PreviousHandlerNotExist,
 }
 
-impl<SE, LE> From<WorkerDirectiveError> for CommandError<SE, LE> {
-    fn from(value: WorkerDirectiveError) -> Self {
+impl<SE, LE> From<ServiceCommandError> for CommandError<SE, LE> {
+    fn from(value: ServiceCommandError) -> Self {
         match value {
-            WorkerDirectiveError::SiteLookupFailed => Self::SiteNotExist,
-            WorkerDirectiveError::ServiceNotStaged => Self::PreparationNotExist,
-            WorkerDirectiveError::ServiceNotDeployed => Self::PreviousHandlerNotExist,
+            ServiceCommandError::SiteLookupFailed => Self::SiteNotExist,
+            ServiceCommandError::ServiceNotStaged => Self::PreparationNotExist,
+            ServiceCommandError::ServiceNotDeployed => Self::PreviousHandlerNotExist,
         }
     }
 }
 
-/// Represents a task encapsulating a worker directive and a channel for its execution result.
+/// Represents a task encapsulating a [`ServiceCommand`] and a channel for its execution result.
 ///
-/// This struct combines a [`WorkerDirective`](WorkerDirective) with a mechanism to send back the
+/// This struct combines a [`ServiceCommand`] with a mechanism to send back the
 /// result of its execution. It's used to queue tasks for the worker thread to process and
 /// allows for asynchronous communication of the task's outcome.
 ///
 /// # Type Parameters
 ///
-/// * `F`: The type of the service factory used in the [`WorkerDirective`](WorkerDirective).
-/// * `LF`: The type of the listener factory used in the [`WorkerDirective`](WorkerDirective).
-pub struct WorkerDirectiveTask<F, LF> {
-    cmd: WorkerDirective<F, LF>,
+/// * `F`: The type of the service factory used in the [`ServiceCommand`].
+/// * `LF`: The type of the listener factory used in the [`ServiceCommand`].
+pub struct ServiceCommandTask<F, LF> {
+    cmd: ServiceCommand<F, LF>,
     result: OSender<Result<(), AnyError>>,
 }
 
-impl<F, LF> WorkerDirectiveTask<F, LF> {
-    pub fn new(cmd: WorkerDirective<F, LF>) -> (Self, OReceiver<Result<(), AnyError>>) {
+impl<F, LF> ServiceCommandTask<F, LF> {
+    pub fn new(cmd: ServiceCommand<F, LF>) -> (Self, OReceiver<Result<(), AnyError>>) {
         let (tx, rx) = ochannel();
         (Self { cmd, result: tx }, rx)
     }
 }
 
+/// A trait for executing service commands within a `ServiceExecutor`.
+///
+/// This trait defines the interface for executing various service-related commands,
+/// such as staging, updating, or removing services.
 pub trait Execute<A, S> {
     type Error: Into<AnyError>;
     fn execute(
         self,
-        controller: &WorkerManager<S>,
+        controller: &ServiceExecutor<S>,
     ) -> impl std::future::Future<Output = Result<(), Self::Error>>;
 }
 
-impl<F, LF, A, E, S> Execute<A, S> for WorkerDirective<F, LF>
+impl<F, LF, A, E, S> Execute<A, S> for ServiceCommand<F, LF>
 where
     F: AsyncMakeService<Service = S>,
     F::Error: Debug + Send + Sync + 'static,
@@ -433,22 +441,22 @@ where
     A: 'static,
 {
     type Error = CommandError<F::Error, LF::Error>;
-    async fn execute(self, controller: &WorkerManager<S>) -> Result<(), Self::Error> {
+    async fn execute(self, controller: &ServiceExecutor<S>) -> Result<(), Self::Error> {
         match self {
-            WorkerDirective::StageService(name, factory) => {
+            ServiceCommand::Precommit(name, factory) => {
                 let current_svc = controller.get_svc(&name);
                 let svc = factory
                     .make_via_ref(current_svc.as_deref())
                     .await
                     .map_err(CommandError::BuildService)?;
-                controller.stage_svc(name, svc);
+                controller.precommit_svc(name, svc);
                 Ok(())
             }
-            WorkerDirective::UpdateDeployedWithStaged(name) => {
-                controller.update_deployed_with_staged(&name)?;
+            ServiceCommand::Update(name) => {
+                controller.update_with_precommitted_svc(&name)?;
                 Ok(())
             }
-            WorkerDirective::DeployNewFromStaged(name, listener_factory) => {
+            ServiceCommand::Commit(name, listener_factory) => {
                 let listener = listener_factory
                     .make()
                     .await
@@ -457,22 +465,22 @@ where
                 monoio::spawn(serve(listener, hdr, stop));
                 Ok(())
             }
-            WorkerDirective::CreateAndDeploy(name, factory, listener_factory) => {
+            ServiceCommand::PrepareAndCommit(name, factory, listener_factory) => {
                 let svc = factory.make().await.map_err(CommandError::BuildService)?;
                 let listener = listener_factory
                     .make()
                     .await
                     .map_err(CommandError::BuildListener)?;
-                controller.stage_svc(name.clone(), svc);
+                controller.precommit_svc(name.clone(), svc);
                 let (hdr, stop) = controller.deploy_staged_service(&name)?;
                 monoio::spawn(serve(listener, hdr, stop));
                 Ok(())
             }
-            WorkerDirective::AbortStaging(name) => {
+            ServiceCommand::Abort(name) => {
                 controller.abort(&name)?;
                 Ok(())
             }
-            WorkerDirective::RemoveService(name) => {
+            ServiceCommand::Remove(name) => {
                 controller.remove(&name)?;
                 Ok(())
             }
@@ -480,10 +488,10 @@ where
     }
 }
 
-impl<S> WorkerManager<S> {
+impl<S> ServiceExecutor<S> {
     /// Runs the main control loop for the worker thread.
     ///
-    /// This method continuously processes incoming [`WorkerDirective`]s and executes
+    /// This method continuously processes incoming [`ServiceCommand`]s and executes
     /// the corresponding actions on the managed services.
     ///
     /// # Type Parameters
@@ -494,12 +502,12 @@ impl<S> WorkerManager<S> {
     ///
     /// # Arguments
     ///
-    /// * `rx`: A receiver channel for `Update`s containing [`WorkerDirective`]s
+    /// * `rx`: A receiver channel for `Update`s containing [`ServiceCommand`]s
     ///
     /// This method will run until the receiver channel is closed.
-    pub async fn run_controller<F, LF, A>(&self, mut rx: Receiver<WorkerDirectiveTask<F, LF>>)
+    pub async fn run<F, LF, A>(&self, mut rx: Receiver<ServiceCommandTask<F, LF>>)
     where
-        WorkerDirective<F, LF>: Execute<A, S>,
+        ServiceCommand<F, LF>: Execute<A, S>,
     {
         while let Some(upd) = rx.next().await {
             if let Err(e) = upd

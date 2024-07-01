@@ -99,7 +99,7 @@ struct HttpSeal;
 /// }
 /// ```
 ///
-/// The `HttpHandler` trait is automatically implemented for types
+/// The [`HttpHandler`] trait is automatically implemented for types
 /// that implement the [`Service`] trait with
 /// request type `(Request<B>, CX)` and return type
 /// [`ResponseWithContinue`].

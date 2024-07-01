@@ -4,23 +4,23 @@ use futures_channel::{
     mpsc::{channel, Receiver, Sender},
     oneshot::{Receiver as OReceiver, Sender as OSender},
 };
-use futures_util::sink::SinkExt;
+use futures_util::SinkExt;
 use monoio::{blocking::DefaultThreadPool, utils::bind_to_cpu_set};
 use service_async::AsyncMakeService;
 use tracing::warn;
 
 use super::{
-    Execute, ResultGroup, RuntimeWrapper, WorkerDirective, WorkerDirectiveTask, WorkerManager,
+    Execute, ResultGroup, RuntimeWrapper, ServiceCommand, ServiceCommandTask, ServiceExecutor,
 };
 use crate::{config::RuntimeConfig, AnyError};
 
 pub type JoinHandlesWithOutput<FNO> = (Vec<(JoinHandle<()>, OSender<()>)>, Vec<FNO>);
 
-/// Orchestrates and manages a fleet of worker threads, each running a [`WorkerManager`].
+/// Orchestrates and manages a fleet of worker threads, each running a [`ServiceExecutor`].
 ///
-/// The `WorkerFleetOrchestrator` is responsible for:
+/// The [`WorkerManager`] is responsible for:
 /// - Spawning and initializing worker threads
-/// - Distributing [`WorkerDirective`]s to all workers
+/// - Distributing [`ServiceCommand`]s to all workers
 /// - Collecting and aggregating results from worker operations
 /// - Managing the lifecycle of worker threads
 ///
@@ -29,46 +29,45 @@ pub type JoinHandlesWithOutput<FNO> = (Vec<(JoinHandle<()>, OSender<()>)>, Vec<F
 ///
 /// # Type Parameters
 ///
-/// * `F`: The type of the service factory used in [`WorkerDirective`]s.
-/// * `LF`: The type of the listener factory used in [`WorkerDirective`]s.
+/// * `F`: The type of the service factory used in [`ServiceCommand`]s.
+/// * `LF`: The type of the listener factory used in [`ServiceCommand`]s.
 ///
 /// # Fields
 ///
 /// * `runtime_config`: Configuration for the runtime environment of worker threads.
 /// * `thread_pool`: An optional thread pool for executing blocking operations.
-/// * `workers`: A collection of channels to communicate with individual [`WorkerManager`]s.
+/// * `workers`: A collection of channels to communicate with individual [`ServiceExecutor`]s.
 ///
 /// # Worker Thread Management
 ///
-/// The orchestrator spawns worker threads based on the `runtime_config`. Each worker thread:
-/// - Runs its own [`WorkerManager`] instance
+/// The manager spawns worker threads based on the `runtime_config`. Each worker thread:
+/// - Runs its own [`ServiceExecutor`] instance
 /// - Can be optionally bound to a specific CPU core for improved performance
-/// - Receives [`WorkerDirective`]s through a dedicated channel
+/// - Receives [`ServiceCommand`]s through a dedicated channel
 ///
 /// # Usage
 ///
-/// Typically, a `WorkerFleetOrchestrator` is created once at application startup.
+/// Typically, a `WorkerManager` is created once at application startup.
 ///
-/// After initialization, [`WorkerDirective`]s can be broadcast to all workers.
+/// After initialization, [`ServiceCommand`]s can be broadcast to all workers.
 ///
 /// # Thread Safety
 ///
-/// While the `WorkerFleetOrchestrator` itself is not thread-safe and should be used from a single
+/// While the `WorkerManager` itself is not thread-safe and should be used from a single
 /// thread, it manages communication with multiple worker threads in a thread-safe manner using
 /// channels.
-
-pub struct WorkerFleetOrchestrator<F, LF> {
+pub struct WorkerManager<F, LF> {
     runtime_config: RuntimeConfig,
     thread_pool: Option<Box<DefaultThreadPool>>,
-    workers: Vec<Sender<WorkerDirectiveTask<F, LF>>>,
+    workers: Vec<Sender<ServiceCommandTask<F, LF>>>,
 }
 
-impl<F, LF> WorkerFleetOrchestrator<F, LF>
+impl<F, LF> WorkerManager<F, LF>
 where
     F: Send + 'static,
     LF: Send + 'static,
 {
-    /// Spawns worker threads asynchronously, each running a [`WorkerManager`].
+    /// Spawns worker threads asynchronously, each running a [`ServiceExecutor`].
     ///
     /// This method initializes the worker threads based on the `runtime_config` and
     /// returns handles to these threads along with channels to signal their termination.
@@ -86,14 +85,14 @@ where
     pub fn spawn_workers_async<A>(&mut self) -> Vec<(JoinHandle<()>, OSender<()>)>
     where
         F: AsyncMakeService,
-        WorkerDirective<F, LF>: Execute<A, F::Service>,
+        ServiceCommand<F, LF>: Execute<A, F::Service>,
     {
         self.spawn_workers_inner(
             |mut finish_rx, rx, _worker_id, _pre_f| {
                 move |mut runtime: RuntimeWrapper| {
-                    let worker_controller = WorkerManager::<F::Service>::default();
+                    let worker_controller = ServiceExecutor::<F::Service>::default();
                     runtime.block_on(async move {
-                        worker_controller.run_controller(rx).await;
+                        worker_controller.run(rx).await;
                         finish_rx.close();
                     });
                 }
@@ -131,17 +130,17 @@ where
     ) -> JoinHandlesWithOutput<FNO>
     where
         F: AsyncMakeService,
-        WorkerDirective<F, LF>: Execute<A, F::Service>,
+        ServiceCommand<F, LF>: Execute<A, F::Service>,
         FN: Fn(usize) -> (FNL, FNO),
         FNL: Fn() + Send + 'static,
     {
         self.spawn_workers_inner(
             |mut finish_rx, rx, _worker_id, pre_f| {
                 move |mut runtime: RuntimeWrapper| {
-                    let worker_controller = WorkerManager::<F::Service>::default();
+                    let worker_controller = ServiceExecutor::<F::Service>::default();
                     runtime.block_on(async move {
                         pre_f();
-                        worker_controller.run_controller(rx).await;
+                        worker_controller.run(rx).await;
                         finish_rx.close();
                     });
                 }
@@ -159,7 +158,7 @@ where
         pre_f: FN,
     ) -> JoinHandlesWithOutput<FNO>
     where
-        S: Fn(OReceiver<()>, Receiver<WorkerDirectiveTask<F, LF>>, usize, FNL) -> SO,
+        S: Fn(OReceiver<()>, Receiver<ServiceCommandTask<F, LF>>, usize, FNL) -> SO,
         SO: FnOnce(RuntimeWrapper) + Send + 'static,
         FN: Fn(usize) -> (FNL, FNO),
         FNL: Fn() + Send + 'static,
@@ -203,15 +202,16 @@ where
             .collect();
         (out, pre_out)
     }
-    /// Dispatches a worker directive to all managed workers and collects their results.
+
+    /// Dispatches a [`ServiceCommand`] to all managed workers and collects their results.
     ///
-    /// This method is a key part of the worker fleet orchestration, allowing for synchronized
-    /// operations across all worker threads. It demonstrates how the [`WorkerFleetOrchestrator`]
-    /// coordinates actions defined by [`WorkerDirective`]s across multiple [`WorkerManager`]s.
+    /// This method is a crucial part of worker coordination, enabling synchronized
+    /// operations across all worker threads. It demonstrates how the [`WorkerManager`]
+    /// orchestrates actions defined by [`ServiceCommand`]s across multiple worker threads.
     ///
     /// # Arguments
     ///
-    /// * `cmd` - The [`WorkerDirective`] to be dispatched to all workers.
+    /// * `cmd` - The [`ServiceCommand`] to be dispatched to all workers.
     ///
     /// # Type Parameters
     ///
@@ -222,21 +222,16 @@ where
     ///
     /// Returns a [`ResultGroup`] containing the results from all workers. Each result is
     /// either a success (`Ok(())`) or an error (`Err(AnyError)`).
-    ///
-    /// # Notes
-    ///   implement `Clone` efficiently.
-    /// - The method waits for all workers to complete the directive before returning, making it a
-    ///   synchronization point in your application.
-    pub async fn dispatch_directive(
+    pub async fn dispatch_service_command(
         &mut self,
-        cmd: WorkerDirective<F, LF>,
+        cmd: ServiceCommand<F, LF>,
     ) -> ResultGroup<(), AnyError>
     where
-        WorkerDirective<F, LF>: Clone,
+        ServiceCommand<F, LF>: Clone,
     {
         let mut results = Vec::with_capacity(self.workers.len());
         for sender in self.workers.iter_mut() {
-            let (upd, rx) = WorkerDirectiveTask::new(cmd.clone());
+            let (upd, rx) = ServiceCommandTask::new(cmd.clone());
             match sender.feed(upd).await {
                 Ok(_) => match rx.await {
                     Ok(r) => results.push(r),
@@ -249,7 +244,7 @@ where
     }
 }
 
-impl<F, LF> WorkerFleetOrchestrator<F, LF> {
+impl<F, LF> WorkerManager<F, LF> {
     pub fn new(runtime_config: RuntimeConfig) -> Self {
         let thread_pool = runtime_config
             .thread_pool

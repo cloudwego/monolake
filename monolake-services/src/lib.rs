@@ -21,16 +21,16 @@
 //!
 //! #### Request Handlers
 //!
-//! - [`ConnectionPersistenceHandler`](http::handlers::connection_persistence): Manages HTTP
-//!   connection persistence and keep-alive behavior. It ensures proper handling of connection
-//!   lifecycles across different HTTP versions.
+//! - [`ConnectionReuseHandler`](http::handlers::connection_persistence): Manages HTTP connection
+//!   persistence and keep-alive behavior. It ensures proper handling of connection lifecycles
+//!   across different HTTP versions.
 //!
 //! - [`ContentHandler`](http::handlers::content_handler): Handles content encoding and decoding for
 //!   requests and responses. It supports various compression methods and ensures efficient data
 //!   transfer.
 //!
-//! - [`RoutingHandler`](http::handlers::route): Directs requests to appropriate handlers based on
-//!   predefined rules. It allows for flexible URL-based routing and request dispatching.
+//! - [`RewriteAndRouteHandler`](http::handlers::route): Directs requests to appropriate handlers
+//!   based on predefined rules. It allows for flexible URL-based routing and request dispatching.
 //!
 //! - [`UpstreamHandler`](http::handlers::upstream): Manages proxying of requests to upstream
 //!   servers. It supports load balancing, connection pooling, and error handling for backend
@@ -108,8 +108,8 @@
 //!
 //! ```ignore
 //! use monolake_services::{
-//!     HttpCoreService, HttpVersionDetect, ConnectionPersistenceHandler,
-//!     ContentHandler, RoutingHandler, UpstreamHandler, UnifiedTlsService,
+//!     HttpCoreService, HttpVersionDetect, ConnectionReuseHandler,
+//!     ContentHandler, RewriteAndRouteHandler, UpstreamHandler, UnifiedTlsService,
 //!     ProxyProtocolService, HyperCoreService
 //! };
 //! use service_async::{layer::FactoryLayer, stack::FactoryStack};
@@ -120,9 +120,9 @@
 //!
 //! let stack = FactoryStack::new(config)
 //!     .push(UpstreamHandler::layer())
-//!     .push(RoutingHandler::layer())
+//!     .push(RewriteAndRouteHandler::layer())
 //!     .push(ContentHandler::layer())
-//!     .push(ConnectionPersistenceHandler::layer())
+//!     .push(ConnectionReuseHandler::layer())
 //!     .push(HyperCoreService::layer());
 //!     .push(HttpVersionDetect::layer())
 //!     .push(UnifiedTlsService::layer())

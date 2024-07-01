@@ -7,8 +7,9 @@
 //!
 //! # Key Components
 //!
-//! - [`RoutingHandler`]: The main service component responsible for routing requests.
-//! - [`RoutingHandlerFactory`]: A factory for creating and updating `RoutingHandler` instances.
+//! - [`RewriteAndRouteHandler`]: The main service component responsible for routing requests.
+//! - [`RewriteAndRouteHandlerFactory`]: A factory for creating and updating
+//!   `RewriteAndRouteHandler` instances.
 //! - [`RouteConfig`]: Configuration structure for defining routes and their associated upstreams.
 //! - [`Upstream`]: Represents an upstream server configuration.
 //!
@@ -16,7 +17,7 @@
 //!
 //! The routing system is built around the following workflow:
 //!
-//! 1. A `RoutingHandler` is created by its factory, initialized with a set of routes.
+//! 1. A `RewriteAndRouteHandler` is created by its factory, initialized with a set of routes.
 //! 2. Incoming requests are matched against these routes using a [`matchit::Router`].
 //! 3. When a match is found, an upstream server is selected (with support for load balancing).
 //! 4. The request is rewritten as necessary for the selected upstream.
@@ -33,7 +34,7 @@
 //!         core::HttpCoreService,
 //!         detect::HttpVersionDetect,
 //!         handlers::{
-//!             route::RouteConfig, ConnectionPersistenceHandler, ContentHandler, RoutingHandler,
+//!             route::RouteConfig, ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler,
 //!             UpstreamHandler,
 //!         },
 //!         HttpServerTimeout,
@@ -60,8 +61,8 @@
 //! let stacks = FactoryStack::new(config)
 //!     .replace(UpstreamHandler::factory(Default::default()))
 //!     .push(ContentHandler::layer())
-//!     .push(RoutingHandler::layer())
-//!     .push(ConnectionPersistenceHandler::layer())
+//!     .push(RewriteAndRouteHandler::layer())
+//!     .push(ConnectionReuseHandler::layer())
 //!     .push(HttpCoreService::layer())
 //!     .push(HttpVersionDetect::layer());
 //!
@@ -113,7 +114,7 @@ use crate::http::generate_response;
 /// A handler that routes incoming requests to appropriate upstream servers based on configured
 /// routes.
 ///
-/// [`RoutingHandler`] is responsible for matching incoming request paths against a set of
+/// [`RewriteAndRouteHandler`] is responsible for matching incoming request paths against a set of
 /// predefined routes, selecting an appropriate upstream server, and forwarding the request to that
 /// server. It implements the `Service` trait from the `service_async` crate, providing an
 /// asynchronous request handling mechanism.
@@ -129,7 +130,7 @@ use crate::http::generate_response;
 ///
 /// # Usage
 ///
-/// This handler is typically created using the [`RoutingHandlerFactory`], which allows for
+/// This handler is typically created using the [`RewriteAndRouteHandlerFactory`], which allows for
 /// dynamic creation and updates of the routing configuration. It can be integrated into a
 /// service stack using the `layer` method, enabling composition with other services.
 ///
@@ -150,12 +151,12 @@ use crate::http::generate_response;
 /// This handler uses [`matchit::Router`] for efficient path matching, which is generally
 /// faster than iterative matching for a large number of routes.
 #[derive(Clone)]
-pub struct RoutingHandler<H> {
+pub struct RewriteAndRouteHandler<H> {
     inner: H,
     router: Router<RouteConfig>,
 }
 
-impl<H, CX, B> Service<(Request<B>, CX)> for RoutingHandler<H>
+impl<H, CX, B> Service<(Request<B>, CX)> for RewriteAndRouteHandler<H>
 where
     H: HttpHandler<CX, B>,
     H::Body: FixedBody,
@@ -192,13 +193,13 @@ where
     }
 }
 
-/// Factory for creating [`RoutingHandler`] instances.
+/// Factory for creating [`RewriteAndRouteHandler`] instances.
 ///
 /// This factory implements the [`MakeService`] &
 /// [`AsyncMakeService`] trait, allowing for dynamic creation and updates of
-/// `RoutingHandler` instances. It's designed to work with the `service_async` crate's compositional
-/// model.
-pub struct RoutingHandlerFactory<F> {
+/// `RewriteAndRouteHandler` instances. It's designed to work with the `service_async` crate's
+/// compositional model.
+pub struct RewriteAndRouteHandlerFactory<F> {
     inner: F,
     routes: Vec<RouteConfig>,
 }
@@ -213,8 +214,8 @@ pub enum RoutingFactoryError<E> {
     Router(#[from] matchit::InsertError),
 }
 
-impl<F: MakeService> MakeService for RoutingHandlerFactory<F> {
-    type Service = RoutingHandler<F::Service>;
+impl<F: MakeService> MakeService for RewriteAndRouteHandlerFactory<F> {
+    type Service = RewriteAndRouteHandler<F::Service>;
     type Error = RoutingFactoryError<F::Error>;
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
@@ -225,7 +226,7 @@ impl<F: MakeService> MakeService for RoutingHandlerFactory<F> {
                 return Err(RoutingFactoryError::EmptyUpstream);
             }
         }
-        Ok(RoutingHandler {
+        Ok(RewriteAndRouteHandler {
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
@@ -235,11 +236,11 @@ impl<F: MakeService> MakeService for RoutingHandlerFactory<F> {
     }
 }
 
-impl<F: AsyncMakeService> AsyncMakeService for RoutingHandlerFactory<F>
+impl<F: AsyncMakeService> AsyncMakeService for RewriteAndRouteHandlerFactory<F>
 where
     F::Error: Into<AnyError>,
 {
-    type Service = RoutingHandler<F::Service>;
+    type Service = RewriteAndRouteHandler<F::Service>;
     type Error = RoutingFactoryError<F::Error>;
 
     async fn make_via_ref(
@@ -253,7 +254,7 @@ where
                 return Err(RoutingFactoryError::EmptyUpstream);
             }
         }
-        Ok(RoutingHandler {
+        Ok(RewriteAndRouteHandler {
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
@@ -353,14 +354,14 @@ pub enum Endpoint {
     Unix(std::path::PathBuf),
 }
 
-impl<F> RoutingHandler<F> {
-    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = RoutingHandlerFactory<F>>
+impl<F> RewriteAndRouteHandler<F> {
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = RewriteAndRouteHandlerFactory<F>>
     where
         C: Param<Vec<RouteConfig>>,
     {
         layer_fn(|c: &C, inner| {
             let routes = c.param();
-            RoutingHandlerFactory { inner, routes }
+            RewriteAndRouteHandlerFactory { inner, routes }
         })
     }
 }

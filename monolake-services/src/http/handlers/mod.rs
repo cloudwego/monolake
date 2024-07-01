@@ -9,13 +9,13 @@
 //!
 //! - [`HttpCoreService`](crate::http::HttpCoreService): Core service responsible for handling
 //!   HTTP/1.1 and HTTP/2 connections, decoding requests, and encoding responses.
-//! - [`ConnectionPersistenceHandler`]: Manages HTTP connection persistence and keep-alive behavior
-//!   across different HTTP versions.
+//! - [`ConnectionReuseHandler`]: Manages HTTP connection persistence and keep-alive behavior across
+//!   different HTTP versions.
 //! - [`ContentHandler`]: Handles content encoding and decoding for both requests and responses.
 //! - [`UpstreamHandler`]: Manages proxying of requests to upstream servers, including load
 //!   balancing and error handling.
-//! - [`RoutingHandler`]: Handles request routing based on predefined rules, directing requests to
-//!   appropriate handlers or upstream servers.
+//! - [`RewriteAndRouteHandler`]: Handles request routing based on predefined rules, directing
+//!   requests to appropriate handlers or upstream servers.
 //!
 //! # Optional Components
 //!
@@ -63,7 +63,7 @@
 //!         core::HttpCoreService,
 //!         detect::HttpVersionDetect,
 //!         handlers::{
-//!             route::RouteConfig, ConnectionPersistenceHandler, ContentHandler, RoutingHandler,
+//!             route::RouteConfig, ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler,
 //!             UpstreamHandler,
 //!         },
 //!         HttpServerTimeout,
@@ -90,8 +90,8 @@
 //! let stacks = FactoryStack::new(config)
 //!     .replace(UpstreamHandler::factory(Default::default()))
 //!     .push(ContentHandler::layer())
-//!     .push(RoutingHandler::layer())
-//!     .push(ConnectionPersistenceHandler::layer())
+//!     .push(RewriteAndRouteHandler::layer())
+//!     .push(ConnectionReuseHandler::layer())
 //!     .push(HttpCoreService::layer())
 //!     .push(HttpVersionDetect::layer());
 //!
@@ -120,9 +120,9 @@ pub mod openid;
 pub mod route;
 pub mod upstream;
 
-pub use connection_persistence::ConnectionPersistenceHandler;
+pub use connection_persistence::ConnectionReuseHandler;
 pub use content_handler::ContentHandler;
 #[cfg(feature = "openid")]
 pub use openid::OpenIdHandler;
-pub use route::{RoutingFactoryError, RoutingHandler};
+pub use route::{RewriteAndRouteHandler, RoutingFactoryError};
 pub use upstream::UpstreamHandler;

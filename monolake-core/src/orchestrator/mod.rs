@@ -6,10 +6,10 @@
 //!
 //! # Key Components
 //!
-//! - [`WorkerFleetOrchestrator`]: Manages the entire fleet of worker threads.
-//! - [`WorkerManager`]: Handles service lifecycle within a single worker thread.
-//! - [`ServiceDeploymentManager`]: Manages the deployment and updates of individual services.
-//! - [`WorkerDirective`]: Represents actions to be performed on services.
+//! - [`WorkerManager`]: Manages the entire fleet of worker threads.
+//! - [`ServiceExecutor`]: Handles service lifecycle within a single worker thread.
+//! - [`ServiceDeploymentContainer`]: Manages the deployment and updates of individual services.
+//! - [`ServiceCommand`]: Represents actions to be performed on services.
 //! - [`ResultGroup`]: Aggregates results from operations across multiple workers.
 //!
 //! # Deployment Models
@@ -17,12 +17,12 @@
 //! This module supports two deployment models:
 //!
 //! 1. Two-Stage Deployment: For updating services with state preservation.
-//!    - Stage a service using [`WorkerDirective::StageService`].
-//!    - Update or deploy using [`WorkerDirective::UpdateDeployedWithStaged`] or
-//!      [`WorkerDirective::DeployNewFromStaged`].
+//!    - Precommit a service using [`Precommit`](ServiceCommand::Precommit).
+//!    - Update or commit using [`Update`](ServiceCommand::Update) or
+//!      [`Commit`](ServiceCommand::Commit).
 //!
 //! 2. Single-Stage Deployment: For initial deployments or stateless updates.
-//!    - Deploy in one step using [`WorkerDirective::CreateAndDeploy`].
+//!    - Deploy in one step using [`PrepareAndCommit`](ServiceCommand::PrepareAndCommit).
 //!
 //! # Service Lifecycle
 //!
@@ -43,19 +43,19 @@ use tracing::{debug, error, info, warn};
 use self::runtime::RuntimeWrapper;
 
 mod runtime;
-mod worker_fleet_orchestrator;
+mod service_executor;
 mod worker_manager;
 
-pub use worker_fleet_orchestrator::{JoinHandlesWithOutput, WorkerFleetOrchestrator};
-pub use worker_manager::{
-    Execute, ServiceDeploymentManager, ServiceSlot, WorkerDirective, WorkerDirectiveTask,
-    WorkerManager,
+pub use service_executor::{
+    Execute, ServiceCommand, ServiceCommandTask, ServiceDeploymentContainer, ServiceExecutor,
+    ServiceSlot,
 };
+pub use worker_manager::{JoinHandlesWithOutput, WorkerManager};
 
 /// A collection of results from multiple worker operations.
 ///
 /// [`ResultGroup`] is typically used to aggregate the results of dispatching
-/// a [`WorkerDirective`] to multiple workers in a [`WorkerFleetOrchestrator`].
+/// a [`ServiceCommand`] to multiple workers in a [`WorkerManager`].
 /// It provides a convenient way to handle and process multiple results as a single unit.
 pub struct ResultGroup<T, E>(Vec<Result<T, E>>);
 
@@ -80,6 +80,18 @@ impl<E> ResultGroup<(), E> {
     }
 }
 
+/// Serves incoming connections using the provided listener and service.
+///
+/// This function runs a loop that continuously accepts new connections and handles them
+/// using the provided service. It can be gracefully stopped using the provided `stop` channel.
+///
+/// # Behavior
+///
+/// The function will run until one of the following occurs:
+/// - The `stop` channel is triggered, indicating a graceful shutdown.
+/// - The listener closes, indicating no more incoming connections.
+///
+/// For each accepted connection, a new task is spawned to handle it using the provided service.
 pub async fn serve<S, Svc, A, E>(mut listener: S, handler: ServiceSlot<Svc>, mut stop: OSender<()>)
 where
     S: Stream<Item = Result<A, E>> + 'static,

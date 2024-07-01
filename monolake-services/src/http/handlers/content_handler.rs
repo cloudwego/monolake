@@ -27,7 +27,7 @@
 //!         core::HttpCoreService,
 //!         detect::HttpVersionDetect,
 //!         handlers::{
-//!             route::RouteConfig, ConnectionPersistenceHandler, ContentHandler, RoutingHandler,
+//!             route::RouteConfig, ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler,
 //!             UpstreamHandler,
 //!         },
 //!         HttpServerTimeout,
@@ -54,8 +54,8 @@
 //! let stacks = FactoryStack::new(config)
 //!     .replace(UpstreamHandler::factory(Default::default()))
 //!     .push(ContentHandler::layer())
-//!     .push(RoutingHandler::layer())
-//!     .push(ConnectionPersistenceHandler::layer())
+//!     .push(RewriteAndRouteHandler::layer())
+//!     .push(ConnectionReuseHandler::layer())
 //!     .push(HttpCoreService::layer())
 //!     .push(HttpVersionDetect::layer());
 //!
