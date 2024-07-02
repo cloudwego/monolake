@@ -3,16 +3,12 @@ if [ -z "${MONOLAKE_HOME+set}" ]; then
 fi
 
 cd $MONOLAKE_HOME/client
+sudo yum -y install gcc git openssl-devel zlib-devel
 
-# download curl
-wget https://curl.se/download/curl-8.3.0.zip
-unzip curl-8.3.0.zip
-cd curl-8.3.0
-./configure --prefix=$HOME/curl --with-openssl
-make
-sudo make install
+# download curl: it is installed by default
 
 # download wrk2
+cd $HOME
 git clone https://github.com/giltene/wrk2
 cd wrk2
 make WITH_OPENSSL=/usr

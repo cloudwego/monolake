@@ -11,7 +11,10 @@ if [ -z "${MONOLAKE_BENCHMARK_SERVER_IP+set}" ]; then
     export MONOLAKE_BENCHMARK_SERVER_IP=localhost
 fi
 
-cd $MONOLAKE_HOME/benchmark/client/wrk2
+cd $HOME/wrk2
 
 # http proxy for traefik
-./wrk 'http://$MONOLAKE_BENCHMARK_PROXY_IP:8200/server2' -d 1m -c 10 -t 2; ./wrk 'http://$MONOLAKE_BENCHMARK_PROXY_IP:8200/server3' -d 1m -c 10 -t 2; ./wrk 'http://$MONOLAKE_BENCHMARK_PROXY_IP:8200/server4' -d 1m -c 10 -t 2; ./wrk 'http://$MONOLAKE_BENCHMARK_PROXY_IP:8200/server5' -d 1m -c 10 -t 2
+./wrk -d 1m -c 10 -t 2 -R 2000 http://$MONOLAKE_BENCHMARK_PROXY_IP:8300/server2
+./wrk -d 1m -c 10 -t 2 -R 2000 http://$MONOLAKE_BENCHMARK_PROXY_IP:8300/server3
+./wrk -d 1m -c 10 -t 2 -R 2000 http://$MONOLAKE_BENCHMARK_PROXY_IP:8300/server4
+./wrk -d 1m -c 10 -t 2 -R 2000 http://$MONOLAKE_BENCHMARK_PROXY_IP:8300/server5

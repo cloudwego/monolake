@@ -9,13 +9,20 @@ if [ -z "${MONOLAKE_BENCHMARK_SERVER_IP+set}" ]; then
 fi
 
 # verify server is ready
-curl -k http://$MONOLAKE_BENCHMARK_SERVER_IP
+curl -k http://$MONOLAKE_BENCHMARK_SERVER_IP:10082
 
-# verify server tls is ready
-curl -k https://$MONOLAKE_BENCHMARK_SERVER_IP
+# verify (nginx) proxy is ready
+curl -k http://$MONOLAKE_BENCHMARK_PROXY_IP:8100/server2
+# curl -k http://$MONOLAKE_BENCHMARK_PROXY_IP:8200
+# verify (traefik) proxy is ready
+curl -k http://$MONOLAKE_BENCHMARK_PROXY_IP:8300/server2
+# verify (monolake) proxy is ready
+curl -k http://$MONOLAKE_BENCHMARK_PROXY_IP:8402
 
-# verify proxy is ready
-curl -k http://$MONOLAKE_BENCHMARK_PROXY_IP:8000
-
-# verify proxy tls is ready
-curl -k https://$MONOLAKE_BENCHMARK_PROXY_IP:6443
+# verify (nginx) tls proxy is ready
+curl -k https://$MONOLAKE_BENCHMARK_PROXY_IP:8443/server2
+# curl -k https://$MONOLAKE_BENCHMARK_PROXY_IP:7443
+# verify (traefik) tls proxy is ready
+curl -k https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server2
+# verify (monolake) tls proxy is ready
+curl -k https://$MONOLAKE_BENCHMARK_PROXY_IP:6442

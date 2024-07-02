@@ -1,2 +1,2 @@
 # stop nginx proxy service
-kill -15 $(ps aux | grep 'nginx' | awk '{print $2}')
+sudo kill -15 $(ps aux | grep 'nginx' | awk '{print $2}')
