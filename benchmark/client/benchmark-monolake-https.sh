@@ -14,13 +14,13 @@ fi
 cd $HOME/wrk2
 
 # https proxy for monolake
-./wrk -d 1m -c 10 -t 2 -R 2000 https://$MONOLAKE_BENCHMARK_PROXY_IP:6442
-./wrk -d 1m -c 10 -t 2 -R 2000 https://$MONOLAKE_BENCHMARK_PROXY_IP:6443
-./wrk -d 1m -c 10 -t 2 -R 2000 https://$MONOLAKE_BENCHMARK_PROXY_IP:6444
-./wrk -d 1m -c 10 -t 2 -R 2000 https://$MONOLAKE_BENCHMARK_PROXY_IP:6445
+./wrk -d 1m -c 1000 -t 20 -R 2000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6442 > https-result-4c-monolake-tiny.txt
+./wrk -d 1m -c 1000 -t 20 -R 2000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6443 > https-result-4c-monolake-small.txt
+./wrk -d 1m -c 1000 -t 20 -R 2000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6444 > https-result-4c-monolake-medium.txt
+./wrk -d 1m -c 1000 -t 20 -R 2000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6445 > https-result-4c-monolake-large.txt
 
 # https proxy for haproxy (not used)
-# ./wrk -d 1m -c 10 -t 2 -R 2000 https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server2
-# ./wrk -d 1m -c 10 -t 2 -R 2000 https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server3
-# ./wrk -d 1m -c 10 -t 2 -R 2000 https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server4
-# ./wrk -d 1m -c 10 -t 2 -R 2000 https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server5
+# ./wrk -d 1m -c 1000 -t 20 -R 2000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server2 > https-result-4c-haproxy-tiny.txt
+# ./wrk -d 1m -c 1000 -t 20 -R 2000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server3 > https-result-4c-haproxy-small.txt
+# ./wrk -d 1m -c 1000 -t 20 -R 2000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server4 > https-result-4c-haproxy-medium.txt
+# ./wrk -d 1m -c 1000 -t 20 -R 2000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server5 > https-result-4c-haproxy-large.txt

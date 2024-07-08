@@ -14,7 +14,7 @@ fi
 cd $HOME/wrk2
 
 # http proxy for nginx
-./wrk -d 1m -c 10 -t 2 -R 2000 http://$MONOLAKE_BENCHMARK_PROXY_IP:8100/server2
-./wrk -d 1m -c 10 -t 2 -R 2000 http://$MONOLAKE_BENCHMARK_PROXY_IP:8100/server3
-./wrk -d 1m -c 10 -t 2 -R 2000 http://$MONOLAKE_BENCHMARK_PROXY_IP:8100/server4
-./wrk -d 1m -c 10 -t 2 -R 2000 http://$MONOLAKE_BENCHMARK_PROXY_IP:8100/server5
+./wrk -d 1m -c 1000 -t 20 -R 2000 --latency http://$MONOLAKE_BENCHMARK_PROXY_IP:8100/server2 > http-result-4c-nginx-tiny.txt
+./wrk -d 1m -c 1000 -t 20 -R 2000 --latency http://$MONOLAKE_BENCHMARK_PROXY_IP:8100/server3 > http-result-4c-nginx-small.txt
+./wrk -d 1m -c 1000 -t 20 -R 2000 --latency http://$MONOLAKE_BENCHMARK_PROXY_IP:8100/server4 > http-result-4c-nginx-medium.txt
+./wrk -d 1m -c 1000 -t 20 -R 2000 --latency http://$MONOLAKE_BENCHMARK_PROXY_IP:8100/server5 > http-result-4c-nginx-large.txt

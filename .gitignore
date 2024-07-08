@@ -6,3 +6,6 @@
 
 /examples/certs
 /docs/cloudwego.github.io
+/benchmark/visualization/*.dat
+/benchmark/visualization/*.png
+/benchmark/visualization/*.txt

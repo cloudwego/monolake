@@ -1,5 +1,8 @@
 # verify if proxy and server are ready and running; run this dcript from client
 
+#export MONOLAKE_BENCHMARK_PROXY_IP=ec2-52-15-182-194.us-east-2.compute.amazonaws.com
+#export MONOLAKE_BENCHMARK_SERVER_IP=ec2-3-129-244-251.us-east-2.compute.amazonaws.com
+
 if [ -z "${MONOLAKE_BENCHMARK_PROXY_IP+set}" ]; then
     export MONOLAKE_BENCHMARK_PROXY_IP=localhost
 fi
