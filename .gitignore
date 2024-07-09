@@ -9,3 +9,4 @@
 /benchmark/visualization/*.dat
 /benchmark/visualization/*.png
 /benchmark/visualization/*.txt
+/benchmark/visualization/*.csv

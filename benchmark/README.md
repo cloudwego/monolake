@@ -109,10 +109,9 @@ proxy/update-server-ip.sh contain scripts to update server ip in the proxy confi
 
 ```bash
 cd $MONOLAKE_HOME/benchmark/proxy
-echo "please copy and paste following commands and run manually to replace server ip in proxy services config file"
-echo "sed -i -e 's/127.0.0.1/${MONOLAKE_BENCHMARK_SERVER_IP}/g' nginx/nginx.conf"
-echo "sed -i -e 's/127.0.0.1/${MONOLAKE_BENCHMARK_SERVER_IP}/g' monolake/monolake.toml"
-echo "sed -i -e 's/127.0.0.1/${MONOLAKE_BENCHMARK_SERVER_IP}/g' traefik/traefik-dynamic.toml"
+sed -i -e 's/127.0.0.1/${MONOLAKE_BENCHMARK_SERVER_IP}/g' nginx/nginx.conf
+sed -i -e 's/127.0.0.1/${MONOLAKE_BENCHMARK_SERVER_IP}/g' monolake/monolake.toml
+sed -i -e 's/127.0.0.1/${MONOLAKE_BENCHMARK_SERVER_IP}/g' traefik/traefik-dynamic.toml
 ```
 
 ### Runtime Environment Variables
@@ -154,3 +153,47 @@ client/benchmark-monolake-http.sh
 ```
 
 Before run the benchmark, make sure MONOLAKE_BENCHMARK_SERVER_IP and MONOLAKE_BENCHMARK_PROXY_IP are set correctly.
+
+## Visualize the result
+
+### Collect the data
+
+#### Collect performance data
+
+Run performance-collect.sh on the machine which need performance data. The script can be run on client, proxy and server. For example
+
+```bash
+./performance-collect.sh wrk # client
+./performance-collect.sh monolake # proxy
+./performance-collect.sh nginx # server
+```
+
+#### Collect latency data
+
+When we run benchmark using wrk2, the latency data is already generated and saved to local files.
+
+### Plot the data
+
+gnuplot is used to plot the data and the results are in .png image format. gnuplot needs to be installed. User may also copy the data to another machine with gnuplot installed, and plot the result.
+
+#### Plot performance data
+
+performance-plot.sh will be used to plot the performance data. The results are 4 .png image files: cpu-mem-usage-<process>.png, tcp-count-<process>.png, performance-metrices-<process>.png, thread-count-<process>.png. The script can be run for client, proxy and server. For example
+
+```bash
+./performance-plot.sh wrk # client
+./performance-plot.sh monolake # proxy
+./performance-plot.sh nginx # server
+```
+
+#### Plot latency data
+
+There are some scripts to plot latency data in visualization/ directory. For example
+
+```bash
+./monolake-http-latency-plot.sh
+./monolake-https-latency-plot.sh
+./all-http-latency-plot.sh
+```
+
+After running the scripts the results are in .png image format.
