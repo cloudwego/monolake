@@ -8,7 +8,7 @@ A client and a server will be setup on separated machines and traffic will go th
 
 Basic test tool is wrk2 and it is installed on client machine. Nginx will be setup on server machine as web backend. Different proxy programs (monolake, nginx, traefik) will be installed and tested to compare.
 
-![1719423798184](images/README/1719423798184.png)
+![network-topology](images/README/network-topology.png)
 
 We plan to benchmark monolake for 2 cases. The first case is monolake on a 4 core machine as proxy, another case is monolake on a 16 core machine.
 
@@ -20,13 +20,13 @@ Reference aws ec2 id for server machine: standard aws linux image on c6a.2xlarge
 
 The server machine should be configured with some security group like this:
 
-![1719962764833](images/README/1719962764833.png)
+![server-security-group](images/README/server-security-group.png)
 
 Reference aws ec2 id for proxy service machine: standard aws linux image on c5a.xlarge (4 cores) and c6a.4xlarge (16 cores)
 
 The proxy machine should be configured with some security group like this:
 
-![1719962777261](images/README/1719962777261.png)
+![proxy-security-group](images/README/proxy-security-group.png)
 
 ## Setup
 
