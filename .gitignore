@@ -10,3 +10,5 @@
 /benchmark/visualization/*.png
 /benchmark/visualization/*.txt
 /benchmark/visualization/*.csv
+/benchmark/visualization/*.log
+/benchmark/*.log

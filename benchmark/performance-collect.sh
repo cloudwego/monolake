@@ -2,8 +2,11 @@
 
 # process id to monitor
 p_name=$1
-# pid=`/bin/ps -fu $USER| grep "$p_name" | grep -v "grep" | awk '{print $2}'`
-pid=`pidof $p_name`
+pid=`pidof $p_name | awk 'NF>1{print $NF}'`
+if [ -z $pid ]; then
+  pid=`/bin/ps -A | grep "$p_name" | grep -v "grep" | awk '{print $1}'`
+  # pid=`/bin/ps -fu $USER| grep "$p_name" | grep -v "grep" | awk '{print $2}'`
+fi
 echo "pid=$pid"
 
 if [ -z $1 ]; then
@@ -28,7 +31,6 @@ csv_filename="${1}-performance.csv"
 
 
 echo "Writing data to CSV file $csv_filename..."
-rm -f $csv_filename
 touch $csv_filename
 
 # write CSV headers
