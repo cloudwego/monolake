@@ -1,6 +1,6 @@
-export client_url=ec2-52-15-84-38.us-east-2.compute.amazonaws.com
-export proxy_url=ec2-3-145-174-117.us-east-2.compute.amazonaws.com
-export server_url=ec2-18-117-161-226.us-east-2.compute.amazonaws.com
+export client_url=ec2-18-116-241-44.us-east-2.compute.amazonaws.com
+export proxy_url=ec2-18-226-87-157.us-east-2.compute.amazonaws.com
+export server_url=ec2-3-133-91-193.us-east-2.compute.amazonaws.com
 
 #manual update proxy configurations
 #ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${proxy_url} -t 'cd ~/monolake/benchmark/proxy; MONOLAKE_BENCHMARK_SERVER_IP=${server_url} ./update-server-ip.sh; bash -l'

@@ -197,3 +197,150 @@ There are some scripts to plot latency data in visualization/ directory. For exa
 ```
 
 After running the scripts the results are in .png image format.
+
+## Pipeline
+
+We can simplify the test to pipeline scripts.
+
+Some steps are manual steps.
+
+* Setup: running setup-once.sh in the directories.
+* Update server-ip in the configuration files: running benchmark/proxy/update-server-ip.sh and follow the sed commands
+* Avoid ssh access prompt: ssh to client/proxy service/server once
+* Correct URLs: replace in all benchmark-pipeline-xxx.sh and pipeline-xxx.sh
+
+```bash
+export client_url=ec2-18-116-241-44.us-east-2.compute.amazonaws.com
+export proxy_url=ec2-18-226-87-157.us-east-2.compute.amazonaws.com
+export server_url=ec2-3-133-91-193.us-east-2.compute.amazonaws.com
+```
+
+Then user can use benchmark-pipeline.sh to run all test in one script. User may need type "exit" to quit some finished jobs and go to the next step. Finally, user will get the results and visualized images.
+
+```bash
+export client_url=ec2-18-116-241-44.us-east-2.compute.amazonaws.com
+export proxy_url=ec2-18-226-87-157.us-east-2.compute.amazonaws.com
+export server_url=ec2-3-133-91-193.us-east-2.compute.amazonaws.com
+
+# manual update proxy configurations
+echo "make sure proxy configurations are updated manually"
+# ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${proxy_url} -t 'cd ~/monolake/benchmark/proxy; MONOLAKE_BENCHMARK_SERVER_IP=${server_url} ./update-server-ip.sh; bash -l'
+
+# start server
+echo "start server"
+osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-server.sh"'
+sleep 5
+
+# then start proxy nginx
+echo "start proxy nginx"
+osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-proxy-nginx.sh"'
+sleep 5
+
+ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${client_url} -t 'rm -f monolake/benchmark/wrk-performance.csv'
+
+# start client nginx
+echo "start client nginx"
+osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-client-nginx.sh"'
+sleep 2
+
+echo "start client-metrics-collect"
+ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${client_url} -t 'cd monolake/benchmark; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; echo "Please type exit to continue"; bash -l'
+
+#stop proxy nginx
+echo "stop proxy nginx"
+ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${proxy_url} -t 'cd ~/monolake/benchmark/proxy; ./stop-nginx.sh'
+sleep 2
+
+# then start proxy traefik
+echo "start proxy traefik"
+osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-proxy-traefik.sh"'
+sleep 5
+
+# start client traefik
+echo "start client"
+osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-client-traefik.sh"'
+sleep 2
+
+echo "start client-metrics-collect"
+ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${client_url} -t 'cd monolake/benchmark; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; echo "Please type exit to continue"; bash -l'
+
+#stop proxy traefik
+echo "stop proxy traefik"
+ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${proxy_url} -t 'cd ~/monolake/benchmark/proxy; ./stop-traefik.sh'
+sleep 2
+
+# then start proxy monolake
+echo "start proxy monolake"
+osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-proxy-monolake.sh"'
+sleep 5
+
+# start client
+echo "start client"
+osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-client-monolake.sh"'
+sleep 2
+
+echo "start client-metrics-collect"
+ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${client_url} -t 'cd monolake/benchmark; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; ~/monolake/benchmark/performance-collect.sh wrk; echo "Please type exit to continue"; bash -l'
+
+#stop proxy monolake
+echo "stop proxy monolake"
+ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${proxy_url} -t 'cd ~/monolake/benchmark/proxy; ./stop-monolake.sh'
+sleep 2
+
+#stop server
+echo "stop server"
+ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${server_url} -t 'sudo service nginx stop'
+sleep 2
+
+echo "visualize"
+cd visualization/
+
+# copy collected data from client
+echo "copy collected data from client"
+scp -i $HOME/ssh/monolake-benchmark.pem ec2-user@${client_url}:wrk-performance.csv .
+scp -i $HOME/ssh/monolake-benchmark.pem ec2-user@${client_url}:"wrk2/*.txt" .
+
+#copy collected data from server
+echo "copy collected data from server"
+scp -i $HOME/ssh/monolake-benchmark.pem ec2-user@${server_url}:nginx-performance.csv ./server-performance.csv
+
+#copy collected data from proxy
+echo "copy collected data from proxy"
+scp -i $HOME/ssh/monolake-benchmark.pem ec2-user@${proxy_url}:nginx-performance.csv .
+scp -i $HOME/ssh/monolake-benchmark.pem ec2-user@${proxy_url}:traefik-performance.csv .
+scp -i $HOME/ssh/monolake-benchmark.pem ec2-user@${proxy_url}:monolake-performance.csv .
+
+#plot data
+echo "plot data"
+./performance-plot.sh nginx
+./performance-plot.sh traefik
+./performance-plot.sh monolake
+./performance-plot.sh server
+./performance-plot.sh wrk
+./nginx-http-latency-plot.sh
+./traefik-http-latency-plot.sh
+./monolake-http-latency-plot.sh
+./all-http-latency-plot.sh
+./nginx-https-latency-plot.sh
+./traefik-https-latency-plot.sh
+./monolake-https-latency-plot.sh
+./all-https-latency-plot.sh
+```
+
+The visualized result example:
+
+Client/wrk perfomance:
+
+![performance-metrices-wrk](images/README/performance-metrices-wrk.png)
+
+Proxy service/nginx performance:
+
+![performance-metrices-nginx](images/README/performance-metrices-nginx.png)
+
+Server performance:
+
+![performance-metrices-server](images/README/performance-metrices-server.png)
+
+Client/wrk2 proxy server/nginx latency:
+
+![nginx-http-latency](images/README/nginx-http-latency.png)
