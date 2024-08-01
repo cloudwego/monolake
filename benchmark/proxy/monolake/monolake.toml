@@ -1,7 +1,7 @@
 [runtime]
 # runtime_type = "legacy"
-worker_threads = 2
-entries = 4096
+worker_threads = 4
+entries = 8192
 
 [servers.server_basic2]
     name = "monolake.cloudwego.io"

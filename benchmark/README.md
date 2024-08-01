@@ -198,29 +198,39 @@ There are some scripts to plot latency data in visualization/ directory. For exa
 
 After running the scripts the results are in .png image format.
 
-## Pipeline
+## Pipeline/Automation
 
-We can simplify the test to pipeline scripts.
+We can simplify the test to pipeline/automation scripts.
 
 Some steps are manual steps.
 
-* Setup: running setup-once.sh in the directories.
-* Update server-ip in the configuration files: running benchmark/proxy/update-server-ip.sh and follow the sed commands
+* Correct URLs/IPs: replace in all benchmark-pipeline-xxx.sh and pipeline-xxx.sh
 * Avoid ssh access prompt: ssh to client/proxy service/server once
-* Correct URLs: replace in all benchmark-pipeline-xxx.sh and pipeline-xxx.sh
+* Setup: running setup-once.sh in the directories
+* Update server-ip in the configuration files: running benchmark/proxy/update-server-ip.sh and follow the sed commands
 
 ```bash
-export client_url=ec2-18-116-241-44.us-east-2.compute.amazonaws.com
-export proxy_url=ec2-18-226-87-157.us-east-2.compute.amazonaws.com
-export server_url=ec2-3-133-91-193.us-east-2.compute.amazonaws.com
+export client_url=3.133.229.116
+export proxy_url=3.19.41.190
+export server_url=3.22.140.218
+export proxy_private_url=172.31.7.16
+export server_private_url=172.31.22.170
 ```
 
-Then user can use benchmark-pipeline.sh to run all test in one script. User may need type "exit" to quit some finished jobs and go to the next step. Finally, user will get the results and visualized images.
+Then user can use benchmark-pipeline.sh to run all test in one script. User may need type "exit" to quit some finished jobs and go to the next step. User can early input "exit" when "Writing data to CSV file wrk-performance.csv..." prompts. Finally, user will get the results and visualized images.
+
+
+Pipeline scripts contain plot scripts, so it is better to run on a host machine with GUI. Following pipeline scripts runs on OS X host and gnuplot is installed on it. If user wants to run pipeline scripts on linux/ubuntu host, please install gnuplot and use gnome-terminal as termainal tool. User may directly use non pipeline scripts on AWS EC2 linux machines.
 
 ```bash
-export client_url=ec2-18-116-241-44.us-east-2.compute.amazonaws.com
-export proxy_url=ec2-18-226-87-157.us-east-2.compute.amazonaws.com
-export server_url=ec2-3-133-91-193.us-east-2.compute.amazonaws.com
+# new_terminal=`osascript -e 'tell app "Terminal" to do script $1'`
+# new_terminal='gnome-terminal -- $1'
+
+export client_url=3.133.229.116
+export proxy_url=3.19.41.190
+export server_url=3.22.140.218
+export proxy_private_url=172.31.7.16
+export server_private_url=172.31.22.170
 
 # manual update proxy configurations
 echo "make sure proxy configurations are updated manually"
@@ -228,19 +238,19 @@ echo "make sure proxy configurations are updated manually"
 
 # start server
 echo "start server"
-osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-server.sh"'
+osascript -e 'tell app "Terminal" to do script "~/code/monolake/benchmark/pipeline-server.sh"'
 sleep 5
 
 # then start proxy nginx
 echo "start proxy nginx"
-osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-proxy-nginx.sh"'
+osascript -e 'tell app "Terminal" to do script "~/code/monolake/benchmark/pipeline-proxy-nginx.sh"'
 sleep 5
 
 ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${client_url} -t 'rm -f monolake/benchmark/wrk-performance.csv'
 
 # start client nginx
 echo "start client nginx"
-osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-client-nginx.sh"'
+osascript -e 'tell app "Terminal" to do script "~/code/monolake/benchmark/pipeline-client-nginx.sh"'
 sleep 2
 
 echo "start client-metrics-collect"
@@ -253,12 +263,12 @@ sleep 2
 
 # then start proxy traefik
 echo "start proxy traefik"
-osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-proxy-traefik.sh"'
+osascript -e 'tell app "Terminal" to do script "~/code/monolake/benchmark/pipeline-proxy-traefik.sh"'
 sleep 5
 
 # start client traefik
 echo "start client"
-osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-client-traefik.sh"'
+osascript -e 'tell app "Terminal" to do script "~/code/monolake/benchmark/pipeline-client-traefik.sh"'
 sleep 2
 
 echo "start client-metrics-collect"
@@ -271,12 +281,12 @@ sleep 2
 
 # then start proxy monolake
 echo "start proxy monolake"
-osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-proxy-monolake.sh"'
+osascript -e 'tell app "Terminal" to do script "~/code/monolake/benchmark/pipeline-proxy-monolake.sh"'
 sleep 5
 
 # start client
 echo "start client"
-osascript -e 'tell app "Terminal" to do script "/Users/bytedance/code/monolake/benchmark/pipeline-client-monolake.sh"'
+osascript -e 'tell app "Terminal" to do script "~/code/monolake/benchmark/pipeline-client-monolake.sh"'
 sleep 2
 
 echo "start client-metrics-collect"
