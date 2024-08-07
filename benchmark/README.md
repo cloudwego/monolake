@@ -219,7 +219,6 @@ export server_private_url=172.31.22.170
 
 Then user can use benchmark-pipeline.sh to run all test in one script. User may need type "exit" to quit some finished jobs and go to the next step. User can early input "exit" when "Writing data to CSV file wrk-performance.csv..." prompts. Finally, user will get the results and visualized images.
 
-
 Pipeline scripts contain plot scripts, so it is better to run on a host machine with GUI. Following pipeline scripts runs on OS X host and gnuplot is installed on it. If user wants to run pipeline scripts on linux/ubuntu host, please install gnuplot and use gnome-terminal as termainal tool. User may directly use non pipeline scripts on AWS EC2 linux machines.
 
 ```bash
@@ -339,18 +338,23 @@ echo "plot data"
 
 The visualized result example:
 
-Client/wrk perfomance:
+Proxy service/monolake system performance:
 
-![performance-metrices-wrk](images/README/performance-metrices-wrk.png)
+![performance-metrices-monolake](images/README/performance-metrices-monolake.png)
 
-Proxy service/nginx performance:
+Client/wrk2 http through proxy services latency:
 
-![performance-metrices-nginx](images/README/performance-metrices-nginx.png)
+![all-http-latency](images/README/all-http-latency.png)
 
-Server performance:
+Client/wrk2 https through proxy services latency:
 
-![performance-metrices-server](images/README/performance-metrices-server.png)
+![all-latency-https](images/README/all-latency-https.png)
 
-Client/wrk2 proxy server/nginx latency:
+Throughput and requests per second compare:
 
-![nginx-http-latency](images/README/nginx-http-latency.png)
+![proxies-performance](images/README/proxies-performance.png)
+
+Throughput and requests per second compare by payload size:
+
+![proxies-performance-rotated](images/README/proxies-performance-rotated.png)
+

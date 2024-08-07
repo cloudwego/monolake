@@ -90,5 +90,6 @@ message $IndividualFilePlotCommands
     echo "set key top left"
     echo "set style line 1 lt 1 lw 3 pt 3 linecolor rgb \"red\""
     echo "plot $IndividualFilePlotCommands"
+	echo "set yr [GPVAL_DATA_Y_MIN:GPVAL_DATA_Y_MAX]"
+	echo "replot"
 ) | gnuplot
-

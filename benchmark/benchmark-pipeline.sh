@@ -110,3 +110,4 @@ echo "plot data"
 ./traefik-https-latency-plot.sh
 ./monolake-https-latency-plot.sh
 ./all-https-latency-plot.sh
+./proxies-performance-plot.sh

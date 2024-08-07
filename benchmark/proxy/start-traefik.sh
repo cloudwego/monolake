@@ -5,4 +5,6 @@ if [ -z "${MONOLAKE_HOME+set}" ]; then
 fi
 
 cd $MONOLAKE_HOME/benchmark/proxy/traefik/
+rm -f *log*
+
 ./traefik --configFile=traefik-static.toml &

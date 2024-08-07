@@ -1,5 +1,5 @@
 [log]
-  level = "DEBUG"
+  level = "ERROR"
   filePath = "log-file.log"
 
 [accessLog]
@@ -13,7 +13,7 @@
 [api]
   # insecure = true
   # dashboard = false
-  debug = true
+  debug = false
 
 [entryPoints]
   [entryPoints.web]

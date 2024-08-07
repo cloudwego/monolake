@@ -19,4 +19,4 @@ mkdir examples/certs && openssl req -x509 -newkey rsa:2048 -keyout examples/cert
 
 # build monolake
 cd $MONOLAKE_HOME
-cargo build
+cargo build --release
