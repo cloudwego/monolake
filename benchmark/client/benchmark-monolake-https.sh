@@ -14,10 +14,15 @@ fi
 cd $HOME/wrk2
 
 # https proxy for monolake
-./wrk -d 1m -c 1447 -t 20 -R 70000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6442 > https-result-4c-monolake-tiny.txt
-./wrk -d 1m -c 1447 -t 20 -R 62000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6443 > https-result-4c-monolake-small.txt
-./wrk -d 1m -c 1447 -t 20 -R 60000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6444 > https-result-4c-monolake-medium.txt
-./wrk -d 1m -c 1447 -t 20 -R 6000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6445 > https-result-4c-monolake-large.txt
+./wrk -d 1m -c 640 -t 64 -R 160000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6442 > https-result-4c-monolake-tiny.txt
+./wrk -d 1m -c 640 -t 64 -R 140000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6443 > https-result-4c-monolake-small.txt
+./wrk -d 1m -c 640 -t 64 -R 80000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6444 > https-result-4c-monolake-medium.txt
+./wrk -d 1m -c 640 -t 64 -R 9000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6445 > https-result-4c-monolake-large.txt
+
+# ./wrk -d 1m -c 1447 -t 20 -R 70000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6442 > https-result-4c-monolake-tiny.txt
+# ./wrk -d 1m -c 1447 -t 20 -R 62000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6443 > https-result-4c-monolake-small.txt
+# ./wrk -d 1m -c 1447 -t 20 -R 60000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6444 > https-result-4c-monolake-medium.txt
+# ./wrk -d 1m -c 1447 -t 20 -R 6000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6445 > https-result-4c-monolake-large.txt
 
 # ./wrk -d 1m -c 1000 -t 20 -R 2000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6442 > https-result-4c-monolake-tiny.txt
 # ./wrk -d 1m -c 1000 -t 20 -R 2000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:6443 > https-result-4c-monolake-small.txt

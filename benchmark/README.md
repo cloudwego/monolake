@@ -154,6 +154,12 @@ client/benchmark-monolake-http.sh
 
 Before run the benchmark, make sure MONOLAKE_BENCHMARK_SERVER_IP and MONOLAKE_BENCHMARK_PROXY_IP are set correctly.
 
+Check connections for down stream and up stream connections:
+
+```bash
+netstat -tn | grep ESTAB | grep <down/up-stream-ip> | wc -l
+```
+
 ## Visualize the result
 
 ### Collect the data
@@ -211,9 +217,9 @@ Some steps are manual steps.
 
 ```bash
 export client_url=3.133.229.116
-export proxy_url=3.19.41.190
+export proxy_url=18.217.152.113
 export server_url=3.22.140.218
-export proxy_private_url=172.31.7.16
+export proxy_private_url=172.31.2.253
 export server_private_url=172.31.22.170
 ```
 
@@ -226,9 +232,9 @@ Pipeline scripts contain plot scripts, so it is better to run on a host machine 
 # new_terminal='gnome-terminal -- $1'
 
 export client_url=3.133.229.116
-export proxy_url=3.19.41.190
+export proxy_url=18.217.152.113
 export server_url=3.22.140.218
-export proxy_private_url=172.31.7.16
+export proxy_private_url=172.31.2.253
 export server_private_url=172.31.22.170
 
 # manual update proxy configurations
@@ -350,47 +356,48 @@ Client/wrk2 https through proxy services latency:
 
 ![all-latency-https](images/README/all-latency-https.png)
 
-Throughput (in 100K) and requests per second compare:
+Throughput and requests per second compare:
 
-| Case                            | Requests/sec | Transfer 100K/sec | Server Error | Timeout |
-|---------------------------------|--------------|-------------------|--------------|---------|
-| http-result-4c-monolake-tiny    |     74601.55 |           2424.00 |         4165 |       0 |
-| http-result-4c-monolake-small   |     69203.64 |          22976.00 |         3186 |       0 |
-| http-result-4c-monolake-medium  |     65039.26 |          36922.00 |         2906 |       0 |
-| http-result-4c-monolake-large   |      7099.66 |         112640.00 |            0 |    1094 |
-| http-result-4c-nginx-tiny       |     29030.12 |           1011.00 |            0 |       0 |
-| http-result-4c-nginx-small      |     29119.82 |           9742.00 |            0 |       0 |
-| http-result-4c-nginx-medium     |     27937.16 |          15935.00 |            0 |       0 |
-| http-result-4c-nginx-large      |      6855.93 |         108544.00 |            0 |      13 |
-| http-result-4c-traefik-tiny     |      1789.44 |                58 |            0 |       0 |
-| http-result-4c-traefik-small    |      1788.20 |            594.00 |            0 |       0 |
-| http-result-4c-traefik-medium   |      1787.00 |           1015.00 |            0 |       0 |
-| http-result-4c-traefik-large    |      2639.14 |          41810.00 |          773 |   10476 |
-| https-result-4c-monolake-tiny   |     60646.01 |           1971.00 |         2729 |      52 |
-| https-result-4c-monolake-small  |     55679.08 |          18484.00 |         2910 |      63 |
-| https-result-4c-monolake-medium |     52831.08 |          29990.00 |         2496 |      12 |
-| https-result-4c-monolake-large  |      5143.48 |          81602.00 |            0 |      12 |
-| https-result-4c-nginx-tiny      |     25844.51 |            900.00 |            0 |     243 |
-| https-result-4c-nginx-small     |     23697.78 |           7928.00 |            0 |      41 |
-| https-result-4c-nginx-medium    |     19677.77 |          11223.00 |          162 |       0 |
-| https-result-4c-nginx-large     |      4192.26 |          66454.00 |            0 |     150 |
-| https-result-4c-traefik-tiny    |      1479.39 |                48 |          209 |    4224 |
-| https-result-4c-traefik-small   |      1692.79 |            562.00 |           25 |    1409 |
-| https-result-4c-traefik-medium  |      2428.48 |           1379.00 |           82 |    1007 |
-| https-result-4c-traefik-large   |      2892.87 |          45837.00 |           64 |    1891 |
 
+| Case                            | Requests/sec | Transfer/sec  | Server Error | Timeout |
+|---------------------------------|--------------|---------------|--------------|---------|
+| http-result-4c-monolake-tiny    |    160969.16 |   54892953.60 |            0 |       0 |
+| http-result-4c-monolake-small   |    154858.08 |  539523809.28 |            0 |       0 |
+| http-result-4c-monolake-medium  |     90215.55 | 1030792151.04 |            0 |       0 |
+| http-result-4c-monolake-large   |      9190.98 | 1524713390.08 |            0 |     374 |
+| http-result-4c-nginx-tiny       |    190923.94 |   69688360.96 |            0 |       0 |
+| http-result-4c-nginx-small      |    179160.28 |  628495482.88 |            0 |       0 |
+| http-result-4c-nginx-medium     |    114646.49 | 1320702443.52 |            0 |       0 |
+| http-result-4c-nginx-large      |      9306.86 | 1546188226.56 |            0 |      29 |
+| http-result-4c-traefik-tiny     |      9985.18 |    3407872.00 |            0 |       0 |
+| http-result-4c-traefik-small    |      5133.71 |   17720934.40 |         3016 |     326 |
+| http-result-4c-traefik-medium   |     11988.72 |  137688514.56 |            0 |       0 |
+| http-result-4c-traefik-large    |      9078.24 | 1503238553.60 |            0 |     117 |
+| https-result-4c-monolake-tiny   |    143351.22 |   48884613.12 |            0 |       0 |
+| https-result-4c-monolake-small  |    121503.00 |  423320616.96 |            0 |       0 |
+| https-result-4c-monolake-medium |     67396.11 |  774048317.44 |            0 |       0 |
+| https-result-4c-monolake-large  |      8023.95 | 1331439861.76 |            0 |       0 |
+| https-result-4c-nginx-tiny      |    130013.41 |   47458549.76 |            0 |       0 |
+| https-result-4c-nginx-small     |    117888.48 |  413547888.64 |            0 |       0 |
+| https-result-4c-nginx-medium    |     66158.46 |  761412976.64 |            0 |       0 |
+| https-result-4c-nginx-large     |      8040.46 | 1331439861.76 |            0 |       0 |
+| https-result-4c-traefik-tiny    |      9927.86 |    3386900.48 |            0 |       0 |
+| https-result-4c-traefik-small   |     11931.26 |   41565552.64 |            0 |       0 |
+| https-result-4c-traefik-medium  |     13899.86 |  159645696.00 |            0 |       0 |
+| https-result-4c-traefik-large   |      7787.11 | 1288490188.80 |            0 |       0 |
 
 ![proxies-performance](images/README/proxies-performance.png)
 
-Throughput (in 100K) and requests per second compare by payload size:
+Throughput and requests per second compare by payload size:
 
-| Case                     | Tiny Requests/sec | Small Requests/sec | Medium Requests/sec | Large Requests/sec | Tiny Transfer/sec | Small Transfer/sec | Medium Transfer/sec | Large Transfer/sec | Case                     |
-|--------------------------|-------------------|--------------------|---------------------|--------------------|-------------------|--------------------|---------------------|--------------------|--------------------------|
-| http-result-4c-monolake  |          74601.55 |           69203.64 |            65039.26 |            7099.66 |           2424.00 |           22976.00 |            36922.00 |          112640.00 | http-result-4c-monolake  |
-| http-result-4c-nginx     |          29030.12 |           29119.82 |            27937.16 |            6855.93 |           1011.00 |            9742.00 |            15935.00 |          108544.00 | http-result-4c-nginx     |
-| http-result-4c-traefik   |           1789.44 |            1788.20 |             1787.00 |            2639.14 |                58 |             594.00 |             1015.00 |           41810.00 | http-result-4c-traefik   |
-| https-result-4c-monolake |          60646.01 |           55679.08 |            52831.08 |            5143.48 |           1971.00 |           18484.00 |            29990.00 |           81602.00 | https-result-4c-monolake |
-| https-result-4c-nginx    |          25844.51 |           23697.78 |            19677.77 |            4192.26 |            900.00 |            7928.00 |            11223.00 |           66454.00 | https-result-4c-nginx    |
-| https-result-4c-traefik  |           1479.39 |            1692.79 |             2428.48 |            2892.87 |                48 |             562.00 |             1379.00 |           45837.00 | https-result-4c-traefik  |
+
+| Case                     | Tiny Requests/sec | Small Requests/sec | Medium Requests/sec | Large Requests/sec | Tiny Transfer/sec | Small Transfer/sec | Medium Transfer/sec | Large Transfer/sec |
+|--------------------------|-------------------|--------------------|---------------------|--------------------|-------------------|--------------------|---------------------|--------------------|
+| http-result-4c-monolake  |         160969.16 |          154858.08 |            90215.55 |            9190.98 |       54892953.60 |       539523809.28 |       1030792151.04 |      1524713390.08 |
+| http-result-4c-nginx     |         190923.94 |          179160.28 |           114646.49 |            9306.86 |       69688360.96 |       628495482.88 |       1320702443.52 |      1546188226.56 |
+| http-result-4c-traefik   |           9985.18 |            5133.71 |            11988.72 |            9078.24 |        3407872.00 |        17720934.40 |        137688514.56 |      1503238553.60 |
+| https-result-4c-monolake |         143351.22 |          121503.00 |            67396.11 |            8023.95 |       48884613.12 |       423320616.96 |        774048317.44 |      1331439861.76 |
+| https-result-4c-nginx    |         130013.41 |          117888.48 |            66158.46 |            8040.46 |       47458549.76 |       413547888.64 |        761412976.64 |      1331439861.76 |
+| https-result-4c-traefik  |           9927.86 |           11931.26 |            13899.86 |            7787.11 |        3386900.48 |        41565552.64 |        159645696.00 |      1288490188.80 |
 
 ![proxies-performance-rotated](images/README/proxies-performance-rotated.png)

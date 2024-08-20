@@ -1,6 +1,6 @@
 import csv
 
-in_filed_name = ['Case', 'Requests/sec', 'Transfer/sec', 'Server Error', 'Timeout']
+in_filed_name = ['Case', 'Requests/sec', 'Transfer 10K/sec', 'Server Error', 'Timeout']
 
 csv_filename = "proxies-performance.csv"
 with open(csv_filename, 'r') as csvfile:

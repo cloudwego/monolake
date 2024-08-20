@@ -14,10 +14,15 @@ fi
 cd $HOME/wrk2
 
 # https proxy for traefik
-./wrk -d 1m -c 1447 -t 20 -R 1800 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server2 > https-result-4c-traefik-tiny.txt
-./wrk -d 1m -c 1447 -t 20 -R 1800 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server3 > https-result-4c-traefik-small.txt
-./wrk -d 1m -c 1447 -t 20 -R 2800 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server4 > https-result-4c-traefik-medium.txt
-./wrk -d 1m -c 1200 -t 20 -R 3600 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server5 > https-result-4c-traefik-large.txt
+./wrk -d 1m -c 640 -t 64 -R 10000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server2 > https-result-4c-traefik-tiny.txt
+./wrk -d 1m -c 640 -t 64 -R 12000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server3 > https-result-4c-traefik-small.txt
+./wrk -d 1m -c 640 -t 64 -R 14000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server4 > https-result-4c-traefik-medium.txt
+./wrk -d 1m -c 640 -t 64 -R 11000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server5 > https-result-4c-traefik-large.txt
+
+# ./wrk -d 1m -c 1447 -t 20 -R 1800 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server2 > https-result-4c-traefik-tiny.txt
+# ./wrk -d 1m -c 1447 -t 20 -R 1800 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server3 > https-result-4c-traefik-small.txt
+# ./wrk -d 1m -c 1447 -t 20 -R 2800 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server4 > https-result-4c-traefik-medium.txt
+# ./wrk -d 1m -c 1200 -t 20 -R 3600 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server5 > https-result-4c-traefik-large.txt
 
 # ./wrk -d 1m -c 1500 -t 20 -R 20000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server2 > https-result-4c-traefik-tiny.txt
 # ./wrk -d 1m -c 1500 -t 20 -R 20000 --latency https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server3 > https-result-4c-traefik-small.txt
