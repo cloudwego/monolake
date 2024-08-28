@@ -5,7 +5,7 @@ use monolake_core::{
     listener::ListenerBuilder,
 };
 use monolake_services::{
-    http::{handlers::route::RouteConfig, HttpServerTimeout},
+    http::{handlers::route::RouteConfig, HttpServerTimeout, Protocol},
     thrift::ttheader::ThriftServerTimeout,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -35,6 +35,7 @@ pub struct ServerConfig {
     pub tls: monolake_services::tls::TlsConfig,
     pub routes: Vec<RouteConfig>,
     pub http_server_timeout: HttpServerTimeout,
+    pub protocol: Protocol,
     pub thrift_server_timeout: ThriftServerTimeout,
     #[cfg(feature = "openid")]
     pub auth_config: Option<AuthConfig>,
@@ -48,6 +49,8 @@ pub struct ServerUserConfig {
     pub tls: Option<TlsUserConfig>,
     pub routes: Vec<RouteConfig>,
     pub http_timeout: Option<HttpTimeout>,
+    #[serde(default = "Protocol::default")]
+    pub protocol: Protocol,
     pub thrift_timeout: Option<ThriftTimeout>,
 }
 
@@ -174,6 +177,7 @@ impl Config {
                                 .server_message_timeout_sec
                                 .map(Duration::from_secs),
                         },
+                        protocol: server.protocol,
                         #[cfg(feature = "openid")]
                         auth_config: None,
                     },

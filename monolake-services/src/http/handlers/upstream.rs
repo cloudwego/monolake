@@ -63,7 +63,7 @@ use monoio_http::common::{
 use monoio_transports::connectors::{TlsConnector, TlsStream};
 use monoio_transports::{
     connectors::{Connector, TcpConnector},
-    http::H1Connector,
+    http::{HttpConnection, HttpConnector},
 };
 use monolake_core::{
     context::{PeerAddr, RemoteAddr},
@@ -73,11 +73,11 @@ use monolake_core::{
 use service_async::{AsyncMakeService, MakeService, ParamMaybeRef, ParamRef, Service};
 use tracing::{debug, info};
 
-use crate::http::generate_response;
+use crate::http::{generate_response, Protocol};
 
-type HttpConnector = H1Connector<TcpConnector, SocketAddr, TcpStream>;
+type PooledHttpConnector = HttpConnector<TcpConnector, SocketAddr, TcpStream>;
 #[cfg(feature = "tls")]
-type HttpsConnector = H1Connector<
+type PooledHttpsConnector = HttpConnector<
     TlsConnector<TcpConnector>,
     monoio_transports::connectors::TcpTlsAddr,
     TlsStream<TcpStream>,
@@ -91,23 +91,12 @@ type HttpsConnector = H1Connector<
 ///
 /// For implementation details and example usage, see the
 /// [module level documentation](crate::http::handlers::upstream).
-#[derive(Clone)]
+#[derive(Default)]
 pub struct UpstreamHandler {
-    connector: HttpConnector,
+    http_connector: PooledHttpConnector,
     #[cfg(feature = "tls")]
-    tls_connector: HttpsConnector,
+    https_connector: PooledHttpsConnector,
     pub http_upstream_timeout: HttpUpstreamTimeout,
-}
-
-impl Default for UpstreamHandler {
-    fn default() -> Self {
-        Self {
-            connector: HttpConnector::default().with_default_pool(),
-            #[cfg(feature = "tls")]
-            tls_connector: HttpsConnector::default().with_default_pool(),
-            http_upstream_timeout: Default::default(),
-        }
-    }
 }
 
 impl UpstreamHandler {
@@ -120,17 +109,21 @@ impl UpstreamHandler {
     }
 
     #[cfg(feature = "tls")]
-    pub fn new(connector: HttpConnector, tls_connector: HttpsConnector) -> Self {
+    pub fn new(connector: PooledHttpConnector, tls_connector: PooledHttpsConnector) -> Self {
         UpstreamHandler {
-            connector,
-            tls_connector,
+            http_connector: connector,
+            https_connector: tls_connector,
             http_upstream_timeout: Default::default(),
         }
     }
 
-    pub const fn factory(http_upstream_timeout: HttpUpstreamTimeout) -> UpstreamHandlerFactory {
+    pub const fn factory(
+        http_upstream_timeout: HttpUpstreamTimeout,
+        protocol: Protocol,
+    ) -> UpstreamHandlerFactory {
         UpstreamHandlerFactory {
             http_upstream_timeout,
+            protocol,
         }
     }
 }
@@ -138,7 +131,8 @@ impl UpstreamHandler {
 impl<CX, B> Service<(Request<B>, CX)> for UpstreamHandler
 where
     CX: ParamRef<PeerAddr> + ParamMaybeRef<Option<RemoteAddr>>,
-    B: Body,
+    // B: Body,
+    B: Body<Data = Bytes, Error = HttpError>,
     HttpError: From<B::Error>,
 {
     type Response = ResponseWithContinue<HttpBody>;
@@ -157,10 +151,10 @@ where
 impl UpstreamHandler {
     async fn send_http_request<B>(
         &self,
-        req: Request<B>,
+        mut req: Request<B>,
     ) -> Result<ResponseWithContinue<HttpBody>, Infallible>
     where
-        B: Body,
+        B: Body<Data = Bytes, Error = HttpError>,
         HttpError: From<B::Error>,
     {
         let Some(host) = req.uri().host() else {
@@ -180,8 +174,19 @@ impl UpstreamHandler {
             return Ok((generate_response(StatusCode::BAD_REQUEST, true), true));
         };
         debug!("key: {:?}", key);
-        let mut conn = match self.connector.connect(key).await {
-            Ok(conn) => conn,
+        let mut conn = match self.http_connector.connect(key).await {
+            Ok(conn) => {
+                match &conn {
+                    HttpConnection::Http1(_) => {
+                        *req.version_mut() = http::Version::HTTP_11;
+                    }
+                    HttpConnection::Http2(_) => {
+                        *req.version_mut() = http::Version::HTTP_2;
+                        req.headers_mut().remove(http::header::HOST);
+                    }
+                }
+                conn
+            }
             Err(e) => {
                 info!("connect upstream error: {:?}", e);
                 return Ok((generate_response(StatusCode::BAD_GATEWAY, true), true));
@@ -202,7 +207,7 @@ impl UpstreamHandler {
         req: Request<B>,
     ) -> Result<ResponseWithContinue<HttpBody>, Infallible>
     where
-        B: Body,
+        B: Body<Data = Bytes, Error = HttpError>,
         HttpError: From<B::Error>,
     {
         let key = match req.uri().try_into() {
@@ -215,7 +220,8 @@ impl UpstreamHandler {
         debug!("key: {:?}", key);
         let connect = match self.http_upstream_timeout.connect_timeout {
             Some(connect_timeout) => {
-                match monoio::time::timeout(connect_timeout, self.tls_connector.connect(key)).await
+                match monoio::time::timeout(connect_timeout, self.https_connector.connect(key))
+                    .await
                 {
                     Ok(x) => x,
                     Err(_) => {
@@ -224,7 +230,7 @@ impl UpstreamHandler {
                     }
                 }
             }
-            None => self.tls_connector.connect(key).await,
+            None => self.https_connector.connect(key).await,
         };
 
         let mut conn = match connect {
@@ -246,12 +252,17 @@ impl UpstreamHandler {
 
 pub struct UpstreamHandlerFactory {
     http_upstream_timeout: HttpUpstreamTimeout,
+    protocol: Protocol,
 }
 
 impl UpstreamHandlerFactory {
-    pub fn new(http_upstream_timeout: HttpUpstreamTimeout) -> UpstreamHandlerFactory {
+    pub fn new(
+        http_upstream_timeout: HttpUpstreamTimeout,
+        protocol: Protocol,
+    ) -> UpstreamHandlerFactory {
         UpstreamHandlerFactory {
             http_upstream_timeout,
+            protocol,
         }
     }
 }
@@ -262,11 +273,38 @@ impl MakeService for UpstreamHandlerFactory {
     type Error = Infallible;
 
     fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        let http_connector = HttpConnector::default().with_default_pool();
+        let http_connector = match self.protocol {
+            Protocol::HTTP2 => PooledHttpConnector::build_tcp_http2_only(),
+            Protocol::HTTP11 => {
+                // No support for upgrades to HTTP/2
+                PooledHttpConnector::build_tcp_http1_only()
+            }
+            Protocol::Auto => {
+                // Default to HTTP/1.1
+                PooledHttpConnector::default()
+            }
+        };
+
+        #[cfg(feature = "tls")]
+        let https_connector = match self.protocol {
+            Protocol::HTTP2 => {
+                // ALPN advertised with h2
+                PooledHttpsConnector::build_tls_http2_only()
+            }
+            Protocol::HTTP11 => {
+                // ALPN advertised with http1.1
+                PooledHttpsConnector::build_tls_http1_only()
+            }
+            Protocol::Auto => {
+                // ALPN advertised with h2/http1.1
+                PooledHttpsConnector::default()
+            }
+        };
+
         Ok(UpstreamHandler {
-            connector: http_connector,
+            http_connector,
             #[cfg(feature = "tls")]
-            tls_connector: HttpsConnector::default().with_default_pool(),
+            https_connector,
             http_upstream_timeout: self.http_upstream_timeout,
         })
     }
@@ -280,11 +318,11 @@ impl AsyncMakeService for UpstreamHandlerFactory {
         &self,
         _old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
-        let http_connector = HttpConnector::default().with_default_pool();
+        let http_connector = PooledHttpConnector::default();
         Ok(UpstreamHandler {
-            connector: http_connector,
+            http_connector,
             #[cfg(feature = "tls")]
-            tls_connector: HttpsConnector::default().with_default_pool(),
+            https_connector: PooledHttpsConnector::default(),
             http_upstream_timeout: self.http_upstream_timeout,
         })
     }

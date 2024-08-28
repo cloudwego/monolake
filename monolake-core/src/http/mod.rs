@@ -103,7 +103,6 @@ struct HttpSeal;
 /// that implement the [`Service`] trait with
 /// request type `(Request<B>, CX)` and return type
 /// [`ResponseWithContinue`].
-
 #[allow(private_bounds)]
 pub trait HttpHandler<CX, B>: SealedT<HttpSeal, (CX, B)> {
     type Body;

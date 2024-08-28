@@ -52,7 +52,10 @@
 //!
 //! let config = DummyConfig;
 //! let stacks = FactoryStack::new(config)
-//!     .replace(UpstreamHandler::factory(Default::default()))
+//!     .replace(UpstreamHandler::factory(
+//!         Default::default(),
+//!         Default::default(),
+//!     ))
 //!     .push(ContentHandler::layer())
 //!     .push(RewriteAndRouteHandler::layer())
 //!     .push(ConnectionReuseHandler::layer())

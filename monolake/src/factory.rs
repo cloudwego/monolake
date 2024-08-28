@@ -16,6 +16,7 @@ use monolake_services::{
         handlers::{
             ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler, UpstreamHandler,
         },
+        Protocol,
     },
     tcp::Accept,
     thrift::{handlers::ProxyHandler as TProxyHandler, ttheader::TtheaderCoreService},
@@ -39,8 +40,9 @@ pub fn l7_factory(
 > {
     match config.proxy_type {
         crate::config::ProxyType::Http => {
+            let protocol: Protocol = config.param();
             let stacks = FactoryStack::new(config.clone())
-                .replace(UpstreamHandler::factory(Default::default()))
+                .replace(UpstreamHandler::factory(Default::default(), protocol))
                 .push(ContentHandler::layer())
                 .push(RewriteAndRouteHandler::layer());
 

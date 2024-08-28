@@ -42,6 +42,7 @@
 //! - The modular design allows for easy extension and customization of HTTP handling behavior
 //! - Custom handlers can be implemented and integrated into the `HttpCoreService`
 use http::HeaderValue;
+use serde::{Deserialize, Serialize};
 
 pub use self::core::{HttpCoreService, HttpServerTimeout};
 pub mod handlers;
@@ -57,3 +58,12 @@ pub(crate) const CLOSE_VALUE: HeaderValue = HeaderValue::from_static(CLOSE);
 #[allow(clippy::declare_interior_mutable_const)]
 pub(crate) const KEEPALIVE_VALUE: HeaderValue = HeaderValue::from_static(KEEPALIVE);
 pub(crate) use util::generate_response;
+
+#[derive(Debug, Copy, Clone, Default, Deserialize, Serialize)]
+#[serde(tag = "type", content = "value", rename_all = "snake_case")]
+pub enum Protocol {
+    HTTP2,
+    HTTP11,
+    #[default]
+    Auto,
+}

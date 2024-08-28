@@ -1,7 +1,10 @@
 use certain_map::Param;
 #[cfg(feature = "openid")]
 use monolake_services::http::handlers::openid::OpenIdConfig;
-use monolake_services::{http::HttpServerTimeout, thrift::ttheader::ThriftServerTimeout};
+use monolake_services::{
+    http::{HttpServerTimeout, Protocol},
+    thrift::ttheader::ThriftServerTimeout,
+};
 
 use super::{RouteConfig, ServerConfig};
 
@@ -36,5 +39,12 @@ impl Param<Vec<RouteConfig>> for ServerConfig {
 impl Param<monolake_services::tls::TlsConfig> for ServerConfig {
     fn param(&self) -> monolake_services::tls::TlsConfig {
         self.tls.clone()
+    }
+}
+
+impl Param<Protocol> for ServerConfig {
+    #[inline]
+    fn param(&self) -> Protocol {
+        self.protocol
     }
 }

@@ -59,7 +59,10 @@
 //!
 //! let config = DummyConfig;
 //! let stacks = FactoryStack::new(config)
-//!     .replace(UpstreamHandler::factory(Default::default()))
+//!     .replace(UpstreamHandler::factory(
+//!         Default::default(),
+//!         Default::default(),
+//!     ))
 //!     .push(ContentHandler::layer())
 //!     .push(RewriteAndRouteHandler::layer())
 //!     .push(ConnectionReuseHandler::layer())
@@ -94,7 +97,7 @@
 //! - Support for more advanced routing patterns (e.g., regex-based routing).
 //! - Enhanced metrics and logging for better observability.
 //! - Integration with service discovery systems for dynamic upstream management.
-use http::{uri::Scheme, HeaderValue, Request, StatusCode, Version};
+use http::{uri::Scheme, HeaderValue, Request, StatusCode};
 use matchit::Router;
 use monoio_http::common::body::FixedBody;
 use monolake_core::{
@@ -322,12 +325,6 @@ pub struct Upstream {
     /// If not specified, it defaults to a value provided by the `default_weight` function.
     #[serde(default = "default_weight")]
     pub weight: u16,
-
-    /// The HTTP version to use when communicating with this upstream.
-    ///
-    /// If not specified, it defaults to the value provided by `HttpVersion::default`.
-    #[serde(default = "HttpVersion::default")]
-    pub version: HttpVersion,
 }
 
 /// Represents different types of endpoints for upstream servers.
@@ -372,9 +369,6 @@ fn rewrite_request<B>(request: &mut Request<B>, upstream: &Upstream) {
         _ => unimplemented!("not implement"),
     };
 
-    let endpoint_version = upstream.version.convert_to_http_version();
-    *request.version_mut() = endpoint_version;
-
     if let Some(authority) = remote.authority() {
         let header_value =
             HeaderValue::from_str(authority.as_str()).unwrap_or(HeaderValue::from_static(""));
@@ -384,19 +378,11 @@ fn rewrite_request<B>(request: &mut Request<B>, upstream: &Upstream) {
             header_value
         );
 
-        match endpoint_version {
-            Version::HTTP_11 => request.headers_mut().remove(http::header::HOST),
-            Version::HTTP_2 => request.headers_mut().remove(http::header::HOST),
-            _ => unimplemented!(),
-        };
+        request.headers_mut().remove(http::header::HOST);
 
-        if upstream.version.convert_to_http_version() == Version::HTTP_2 {
-            request.headers_mut().remove(http::header::HOST);
-        } else {
-            request
-                .headers_mut()
-                .insert(http::header::HOST, header_value);
-        }
+        request
+            .headers_mut()
+            .insert(http::header::HOST, header_value);
 
         let scheme = match remote.scheme() {
             Some(scheme) => scheme.to_owned(),
@@ -448,7 +434,6 @@ mod tests {
             upstreams: Vec::from([Upstream {
                 endpoint: Endpoint::Uri(format!("http://test{n}.endpoint").parse().unwrap()),
                 weight: Default::default(),
-                version: HttpVersion::HTTP1_1,
             }]),
         })
     }

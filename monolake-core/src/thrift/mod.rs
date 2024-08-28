@@ -68,7 +68,6 @@ struct ThriftSeal;
 /// The `ThriftHandler` trait is automatically implemented for types that implement the `Service`
 /// trait with request type `(ThriftRequest<ThriftBody>, CX)` and response type
 /// `ThriftResponse<ThriftBody>`.
-
 #[allow(private_bounds)]
 pub trait ThriftHandler<CX>: SealedT<ThriftSeal, CX> {
     type Error;
