@@ -1,10 +1,10 @@
-FILES="http-result-4c-monolake-tiny.txt http-result-4c-monolake-small.txt http-result-4c-monolake-medium.txt http-result-4c-monolake-large.txt http-result-4c-nginx-tiny.txt http-result-4c-nginx-small.txt http-result-4c-nginx-medium.txt http-result-4c-nginx-large.txt http-result-4c-traefik-tiny.txt http-result-4c-traefik-small.txt http-result-4c-traefik-medium.txt http-result-4c-traefik-large.txt https-result-4c-monolake-tiny.txt https-result-4c-monolake-small.txt https-result-4c-monolake-medium.txt https-result-4c-monolake-large.txt https-result-4c-nginx-tiny.txt https-result-4c-nginx-small.txt https-result-4c-nginx-medium.txt https-result-4c-nginx-large.txt https-result-4c-traefik-tiny.txt https-result-4c-traefik-small.txt https-result-4c-traefik-medium.txt https-result-4c-traefik-large.txt"
+FILES="http-result-4c-monolake-tiny.txt http-result-4c-monolake-small.txt http-result-4c-monolake-medium.txt http-result-4c-monolake-large.txt http-result-4c-nginx-tiny.txt http-result-4c-nginx-small.txt http-result-4c-nginx-medium.txt http-result-4c-nginx-large.txt http-result-4c-traefik-tiny.txt http-result-4c-traefik-small.txt http-result-4c-traefik-medium.txt http-result-4c-traefik-large.txt http-result-4c-envoy-tiny.txt http-result-4c-envoy-small.txt http-result-4c-envoy-medium.txt http-result-4c-envoy-large.txt https-result-4c-monolake-tiny.txt https-result-4c-monolake-small.txt https-result-4c-monolake-medium.txt https-result-4c-monolake-large.txt https-result-4c-nginx-tiny.txt https-result-4c-nginx-small.txt https-result-4c-nginx-medium.txt https-result-4c-nginx-large.txt https-result-4c-traefik-tiny.txt https-result-4c-traefik-small.txt https-result-4c-traefik-medium.txt https-result-4c-traefik-large.txt https-result-4c-envoy-tiny.txt https-result-4c-envoy-small.txt https-result-4c-envoy-medium.txt https-result-4c-envoy-large.txt"
 csv_filename="proxies-performance.csv"
-output_filename0="proxies-performance-boxes.png"
+# output_filename0="proxies-performance-boxes.png"
 output_filename1="proxies-performance.png"
 csv_filename2="proxies-performance-rotated.csv"
 output_filename2="proxies-performance-rotated.png"
-output_filename3="proxies-performance-rotated-boxes.png"
+# output_filename3="proxies-performance-rotated-boxes.png"
 
 echo "Case,Requests/sec,Transfer/sec,Server Error,Timeout" > $csv_filename
 
@@ -85,14 +85,15 @@ gnuplot <<- EOF
     # "t " - legend labels
     #
     # Proxy Services Performance
-    set output "$output_filename1"
-    set title "Proxy Services Performance"
-    plot "$csv_filename" using 2:xticlabels(1) with lines smooth unique lw 2 lt rgb "#4848d6" t "Requests/sec",\
-         "$csv_filename" using 3:xticlabels(1) with lines smooth unique lw 2 lt rgb "#b40000" t "Transfer 10KB/sec", \
-         "$csv_filename" using 4:xticlabels(1) with lines smooth unique lw 2 lt rgb "#ed8004" t "Server Error", \
-         "$csv_filename" using 5:xticlabels(1) with lines smooth unique lw 2 lt rgb "#48d65b" t "Timeout",
+    # set output "$output_filename1"
+    # set title "Proxy Services Performance"
+    # plot "$csv_filename" using 2:xticlabels(1) with lines smooth unique lw 2 lt rgb "#4848d6" t "Requests/sec",\
+    #      "$csv_filename" using 3:xticlabels(1) with lines smooth unique lw 2 lt rgb "#b40000" t "Transfer 10KB/sec", \
+    #      "$csv_filename" using 4:xticlabels(1) with lines smooth unique lw 2 lt rgb "#ed8004" t "Server Error", \
+    #      "$csv_filename" using 5:xticlabels(1) with lines smooth unique lw 2 lt rgb "#48d65b" t "Timeout",
 
-    set output "$output_filename0"
+    # set output "$output_filename0"
+    set output "$output_filename1"
     set yrange [1000:*]
     set logscale y
     set ytics format "%.0s%c"
@@ -150,19 +151,20 @@ gnuplot <<- EOF
     # "t " - legend labels
     #
     # Proxy Services Performance
+    # set output "$output_filename2"
+    # set title "Proxy Services Performance By Payload"
+
+    # plot "$csv_filename2" using 2:xticlabels(1) with lines smooth unique lw 2 lt rgb "#ff0000" t "Tiny Requests/sec",\
+    #      "$csv_filename2" using 3:xticlabels(1) with lines smooth unique lw 2 lt rgb "#00ff00" t "Small Requests/sec", \
+    #      "$csv_filename2" using 4:xticlabels(1) with lines smooth unique lw 2 lt rgb "#0000ff" t "Medium Requests/sec", \
+    #      "$csv_filename2" using 5:xticlabels(1) with lines smooth unique lw 2 lt rgb "#000000" t "Large Requests/sec", \
+    #      "$csv_filename2" using 6:xticlabels(1) with lines smooth unique lw 2 lt rgb "#800000" t "Tiny Transfer 10KB/sec",\
+    #      "$csv_filename2" using 7:xticlabels(1) with lines smooth unique lw 2 lt rgb "#008000" t "Small Transfer 10KB/sec", \
+    #      "$csv_filename2" using 8:xticlabels(1) with lines smooth unique lw 2 lt rgb "#000080" t "Medium Transfer 10KB/sec", \
+    #      "$csv_filename2" using 9:xticlabels(1) with lines smooth unique lw 2 lt rgb "#808080" t "Large Transfer 10KB/sec",
+
+    # set output "$output_filename3"
     set output "$output_filename2"
-    set title "Proxy Services Performance By Payload"
-
-    plot "$csv_filename2" using 2:xticlabels(1) with lines smooth unique lw 2 lt rgb "#ff0000" t "Tiny Requests/sec",\
-         "$csv_filename2" using 3:xticlabels(1) with lines smooth unique lw 2 lt rgb "#00ff00" t "Small Requests/sec", \
-         "$csv_filename2" using 4:xticlabels(1) with lines smooth unique lw 2 lt rgb "#0000ff" t "Medium Requests/sec", \
-         "$csv_filename2" using 5:xticlabels(1) with lines smooth unique lw 2 lt rgb "#000000" t "Large Requests/sec", \
-         "$csv_filename2" using 6:xticlabels(1) with lines smooth unique lw 2 lt rgb "#800000" t "Tiny Transfer 10KB/sec",\
-         "$csv_filename2" using 7:xticlabels(1) with lines smooth unique lw 2 lt rgb "#008000" t "Small Transfer 10KB/sec", \
-         "$csv_filename2" using 8:xticlabels(1) with lines smooth unique lw 2 lt rgb "#000080" t "Medium Transfer 10KB/sec", \
-         "$csv_filename2" using 9:xticlabels(1) with lines smooth unique lw 2 lt rgb "#808080" t "Large Transfer 10KB/sec",
-
-    set output "$output_filename3"
     set title "Proxy Services Performance By Proxy"
 
     set yrange [1000:*]

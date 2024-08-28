@@ -12,5 +12,5 @@ proxy_cmd='export MONOLAKE_BENCHMARK_PROXY_IP='
 proxy_cmd+=$proxy_private_url
 proxy_cmd+='; export MONOLAKE_BENCHMARK_SERVER_IP='
 proxy_cmd+=$server_private_url
-proxy_cmd+='; ~/monolake/benchmark/proxy/start-traefik.sh; sleep 3; rm -f ~/traefik-performance.csv; ~/monolake/benchmark/performance-collect.sh traefik; echo "Please type exit to continue"; bash -l'
+proxy_cmd+='; ~/monolake/benchmark/proxy/start-envoy.sh; sleep 3; rm -f ~/envoy-performance.csv; sudo ~/monolake/benchmark/performance-collect.sh envoy; echo "Please type exit to continue"; bash -l'
 ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${proxy_url} -t $proxy_cmd

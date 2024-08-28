@@ -9,5 +9,5 @@ client_cmd='cd ~/monolake/benchmark/client; export MONOLAKE_BENCHMARK_PROXY_IP='
 client_cmd+=$proxy_private_url
 client_cmd+='; export MONOLAKE_BENCHMARK_SERVER_IP='
 client_cmd+=$server_private_url
-client_cmd+='; ./benchmark-traefik-http.sh; ./benchmark-traefik-https.sh; echo "Please type exit to continue"; bash -l'
+client_cmd+='; ./benchmark-envoy-http.sh; ./benchmark-envoy-https.sh; echo "Please type exit to continue"; bash -l'
 ssh -i $HOME/ssh/monolake-benchmark.pem ec2-user@${client_url} -t $client_cmd

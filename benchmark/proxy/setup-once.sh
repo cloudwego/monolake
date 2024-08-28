@@ -8,3 +8,4 @@ cd $MONOLAKE_HOME/benchmark/proxy
 ./monolake/setup-once.sh
 ./nginx/setup-once.sh
 ./traefik/setup-once.sh
+./envoy/setup-once.sh

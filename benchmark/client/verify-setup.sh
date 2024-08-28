@@ -21,6 +21,8 @@ curl -k http://$MONOLAKE_BENCHMARK_PROXY_IP:8100/server2
 curl -k http://$MONOLAKE_BENCHMARK_PROXY_IP:8300/server2
 # verify (monolake) proxy is ready
 curl -k http://$MONOLAKE_BENCHMARK_PROXY_IP:8402
+# verify (envoy) proxy is ready
+curl -k http://$MONOLAKE_BENCHMARK_PROXY_IP:8500/server2/
 
 # verify (nginx) tls proxy is ready
 curl -k https://$MONOLAKE_BENCHMARK_PROXY_IP:8443/server2
@@ -29,3 +31,5 @@ curl -k https://$MONOLAKE_BENCHMARK_PROXY_IP:8443/server2
 curl -k https://$MONOLAKE_BENCHMARK_PROXY_IP:9443/server2
 # verify (monolake) tls proxy is ready
 curl -k https://$MONOLAKE_BENCHMARK_PROXY_IP:6442
+# verify (envoy) tls proxy is ready
+curl -k https://$MONOLAKE_BENCHMARK_PROXY_IP:5443/server2/
