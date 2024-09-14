@@ -183,19 +183,19 @@ where
                 let handler = std::thread::Builder::new()
                     .name(format!("monolake-worker-{worker_id}"))
                     .spawn(move || {
+                        // bind thread to cpu core
+                        if let Some(cores) = cores {
+                            let core = worker_id % cores;
+                            if let Err(e) = bind_to_cpu_set([core]) {
+                                warn!("bind thread {worker_id} to core {core} failed: {e}");
+                            }
+                        }
                         f(RuntimeWrapper::new(
                             runtime_config.as_ref(),
                             thread_pool.map(|p| p as Box<_>),
                         ))
                     })
                     .expect("start worker thread {worker_id} failed");
-                // bind thread to cpu core
-                if let Some(cores) = cores {
-                    let core = worker_id % cores;
-                    if let Err(e) = bind_to_cpu_set([core]) {
-                        warn!("bind thread {worker_id} to core {core} failed: {e}");
-                    }
-                }
                 self.workers.push(tx);
                 (handler, finish_tx)
             })

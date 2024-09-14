@@ -115,7 +115,7 @@ fn default_workers() -> usize {
 }
 
 define_const!(default_entries, DEFAULT_ENTRIES, u32);
-define_const!(default_cpu_affinity, true, bool);
+define_const!(default_cpu_affinity, false, bool);
 
 // #[cfg(test)]
 // mod tests {
