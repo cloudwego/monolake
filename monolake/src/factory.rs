@@ -24,7 +24,7 @@ use service_async::{stack::FactoryStack, ArcMakeService, Service};
 
 use crate::{
     config::ServerConfig,
-    context::{EmptyContext, FullContext},
+    context::{Context, FullContext},
 };
 
 /// Create a new factory for l7 proxy.
@@ -60,7 +60,7 @@ pub fn l7_factory(
 
             stacks
                 .check_make_svc::<(TcpStream, FullContext)>()
-                .push(ContextService::<EmptyContext, _>::layer())
+                .push(ContextService::<Context, _>::layer())
                 .check_make_svc::<(TcpStream, AcceptedAddr)>()
                 .into_boxed_service()
                 .into_arc_factory()
@@ -77,7 +77,7 @@ pub fn l7_factory(
 
             stacks
                 .check_make_svc::<(TcpStream, FullContext)>()
-                .push(ContextService::<EmptyContext, _>::layer())
+                .push(ContextService::<Context, _>::layer())
                 .check_make_svc::<(TcpStream, AcceptedAddr)>()
                 .into_boxed_service()
                 .into_arc_factory()

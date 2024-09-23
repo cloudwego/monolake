@@ -66,6 +66,7 @@
 use std::{convert::Infallible, fmt::Debug, pin::Pin, time::Duration};
 
 use bytes::Bytes;
+use certain_map::{Attach, Fork};
 use futures::{stream::FuturesUnordered, StreamExt};
 use http::StatusCode;
 use monoio::io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent, Split, Splitable};
@@ -114,12 +115,19 @@ impl<H> HttpCoreService<H> {
         }
     }
 
-    async fn h1_svc<S, CX>(&self, stream: S, ctx: CX)
+    async fn h1_svc<S, CXIn, CXStore, CXState, Err>(&self, stream: S, ctx: CXIn)
     where
+        CXIn: ParamRef<PeerAddr> + Fork<Store = CXStore, State = CXState>,
+        CXStore: 'static,
+        for<'a> CXState: Attach<CXStore>,
+        for<'a> H: HttpHandler<
+            <CXState as Attach<CXStore>>::Hdr<'a>,
+            HttpBody,
+            Body = HttpBody,
+            Error = Err,
+        >,
+        Err: Into<AnyError> + Debug,
         S: Split + AsyncReadRent + AsyncWriteRent,
-        H: HttpHandler<CX, HttpBody, Body = HttpBody>,
-        H::Error: Into<AnyError> + Debug,
-        CX: ParamRef<PeerAddr> + Clone,
     {
         let (reader, writer) = stream.into_split();
         let mut decoder = RequestDecoder::new(reader);
@@ -161,10 +169,14 @@ impl<H> HttpCoreService<H> {
                 }
             };
 
+            // fork ctx
+            let (mut store, state) = ctx.fork();
+            let forked_ctx = unsafe { state.attach(&mut store) };
+
             // handle request and reply response
             // 1. do these things simultaneously: read body and send + handle request
             let mut acc_fut = AccompanyPair::new(
-                self.handler_chain.handle(req, ctx.clone()),
+                self.handler_chain.handle(req, forked_ctx),
                 decoder.fill_payload(),
             );
             let res = unsafe { Pin::new_unchecked(&mut acc_fut) }.await;
@@ -272,12 +284,19 @@ impl<H> HttpCoreService<H> {
         }
     }
 
-    async fn h2_svc<S, CX>(&self, stream: S, ctx: CX)
+    async fn h2_svc<S, CXIn, CXStore, CXState, Err>(&self, stream: S, ctx: CXIn)
     where
+        CXIn: ParamRef<PeerAddr> + Fork<Store = CXStore, State = CXState>,
+        CXStore: 'static,
+        for<'a> CXState: Attach<CXStore>,
+        for<'a> H: HttpHandler<
+            <CXState as Attach<CXStore>>::Hdr<'a>,
+            HttpBody,
+            Body = HttpBody,
+            Error = Err,
+        >,
+        Err: Into<AnyError> + Debug,
         S: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
-        H: HttpHandler<CX, HttpBody, Body = HttpBody>,
-        H::Error: Into<AnyError> + Debug,
-        CX: ParamRef<PeerAddr> + Clone,
     {
         let mut connection = match monoio_http::h2::server::Builder::new()
             .initial_window_size(1_000_000)
@@ -316,13 +335,15 @@ impl<H> HttpCoreService<H> {
         });
 
         loop {
-            let ctx = ctx.clone();
             monoio::select! {
                  Some(Ok((request, response_handle))) = rx.recv() => {
-                         let request = HttpBody::request(request);
-                         backend_resp_stream.push( async move {
-                             (self.handler_chain.handle(request, ctx).await, response_handle)
-                         });
+                        let request = HttpBody::request(request);
+                        // fork ctx
+                        let (mut store, state) = ctx.fork();
+                        backend_resp_stream.push(async move {
+                            let forked_ctx = unsafe { state.attach(&mut store) };
+                            (self.handler_chain.handle(request, forked_ctx).await, response_handle)
+                        });
                  }
                  Some(result) = backend_resp_stream.next() => {
                      match result {
@@ -354,19 +375,23 @@ impl<H> HttpCoreService<H> {
     }
 }
 
-impl<H, Stream, CX> Service<HttpAccept<Stream, CX>> for HttpCoreService<H>
+impl<H, Stream, CXIn, CXStore, CXState, Err> Service<HttpAccept<Stream, CXIn>>
+    for HttpCoreService<H>
 where
+    CXIn: ParamRef<PeerAddr> + Fork<Store = CXStore, State = CXState>,
+    CXStore: 'static,
+    for<'a> CXState: Attach<CXStore>,
+    for<'a> H:
+        HttpHandler<<CXState as Attach<CXStore>>::Hdr<'a>, HttpBody, Body = HttpBody, Error = Err>,
     Stream: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
-    H: HttpHandler<CX, HttpBody, Body = HttpBody>,
-    H::Error: Into<AnyError> + Debug,
-    CX: ParamRef<PeerAddr> + Clone,
+    Err: Into<AnyError> + Debug,
 {
     type Response = ();
     type Error = Infallible;
 
     async fn call(
         &self,
-        incoming_stream: HttpAccept<Stream, CX>,
+        incoming_stream: HttpAccept<Stream, CXIn>,
     ) -> Result<Self::Response, Self::Error> {
         let (use_h2, stream, ctx) = incoming_stream;
         if use_h2 {

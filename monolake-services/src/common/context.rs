@@ -38,6 +38,9 @@
 //!
 //! In this example, `ContextService` is used to transform an `EmptyContext` into a `FullContext`
 //! by setting the `peer_addr` field.
+use std::marker::PhantomData;
+
+use certain_map::Handler;
 use monolake_core::{context::PeerAddr, listener::AcceptedAddr};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
@@ -45,45 +48,71 @@ use service_async::{
 };
 
 /// A service to insert Context into the request processing pipeline, compatible with `certain_map`.
-#[derive(Debug, Clone, Copy)]
-pub struct ContextService<CX, T> {
+#[derive(Debug)]
+pub struct ContextService<CXStore, T> {
     pub inner: T,
-    pub ctx: CX,
+    pub ctx: PhantomData<CXStore>,
 }
 
-impl<R, T, CX> Service<(R, AcceptedAddr)> for ContextService<CX, T>
+unsafe impl<CXStore, T: Send> Send for ContextService<CXStore, T> {}
+unsafe impl<CXStore, T: Sync> Sync for ContextService<CXStore, T> {}
+
+// Manually impl Clone because CXStore does not have to impl Clone.
+impl<CXStore, T> Clone for ContextService<CXStore, T>
 where
-    T: Service<(R, CX::Transformed)>,
-    CX: ParamSet<PeerAddr> + Clone,
+    T: Clone,
 {
-    type Response = T::Response;
-    type Error = T::Error;
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            ctx: PhantomData,
+        }
+    }
+}
+
+// Manually impl Copy because CXStore does not have to impl Copy.
+impl<CXStore, T> Copy for ContextService<CXStore, T> where T: Copy {}
+
+impl<R, T, CXStore, Resp, Err> Service<(R, AcceptedAddr)> for ContextService<CXStore, T>
+where
+    CXStore: Default + Handler,
+    // HRTB is your friend!
+    // Please pay attention to when to use bound associated types and when to use associated types
+    // directly(here `Transformed` is not bound but `Response` and `Error` are).
+    for<'a> CXStore::Hdr<'a>: ParamSet<PeerAddr>,
+    for<'a> T: Service<
+        (R, <CXStore::Hdr<'a> as ParamSet<PeerAddr>>::Transformed),
+        Response = Resp,
+        Error = Err,
+    >,
+{
+    type Response = Resp;
+    type Error = Err;
 
     async fn call(&self, (req, addr): (R, AcceptedAddr)) -> Result<Self::Response, Self::Error> {
-        let ctx = self.ctx.clone().param_set(PeerAddr(addr));
-        self.inner.call((req, ctx)).await
+        let mut store = CXStore::default();
+        let hdr = store.handler();
+        let hdr = hdr.param_set(PeerAddr(addr));
+        self.inner.call((req, hdr)).await
     }
 }
 
 impl<CX, F> ContextService<CX, F> {
-    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self>
-    where
-        CX: Default,
-    {
+    pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self> {
         layer_fn(|_: &C, inner| ContextService {
             inner,
-            ctx: Default::default(),
+            ctx: PhantomData,
         })
     }
 }
 
-impl<CX: Clone, F: MakeService> MakeService for ContextService<CX, F> {
-    type Service = ContextService<CX, F::Service>;
+impl<CXStore, F: MakeService> MakeService for ContextService<CXStore, F> {
+    type Service = ContextService<CXStore, F::Service>;
     type Error = F::Error;
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(ContextService {
-            ctx: self.ctx.clone(),
+            ctx: PhantomData,
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
@@ -92,8 +121,8 @@ impl<CX: Clone, F: MakeService> MakeService for ContextService<CX, F> {
     }
 }
 
-impl<CX: Clone, F: AsyncMakeService> AsyncMakeService for ContextService<CX, F> {
-    type Service = ContextService<CX, F::Service>;
+impl<CXStore, F: AsyncMakeService> AsyncMakeService for ContextService<CXStore, F> {
+    type Service = ContextService<CXStore, F::Service>;
     type Error = F::Error;
 
     async fn make_via_ref(
@@ -101,7 +130,7 @@ impl<CX: Clone, F: AsyncMakeService> AsyncMakeService for ContextService<CX, F> 
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         Ok(ContextService {
-            ctx: self.ctx.clone(),
+            ctx: PhantomData,
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))

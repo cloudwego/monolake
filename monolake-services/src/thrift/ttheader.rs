@@ -54,6 +54,7 @@
 
 use std::{convert::Infallible, fmt::Debug, time::Duration};
 
+use certain_map::{Attach, Fork};
 use monoio::io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent};
 use monoio_codec::Framed;
 use monoio_thrift::codec::ttheader::{RawPayloadCodec, TTHeaderPayloadCodec};
@@ -84,14 +85,21 @@ impl<H> TtheaderCoreService<H> {
             thrift_timeout,
         }
     }
+}
 
-    async fn svc<S, CX>(&self, stream: S, ctx: CX)
-    where
-        S: AsyncReadRent + AsyncWriteRent,
-        H: ThriftHandler<CX>,
-        H::Error: Into<AnyError> + Debug,
-        CX: ParamRef<PeerAddr> + Clone,
-    {
+impl<H, Stream, CXIn, CXStore, CXState, ERR> Service<(Stream, CXIn)> for TtheaderCoreService<H>
+where
+    CXIn: ParamRef<PeerAddr> + Fork<Store = CXStore, State = CXState>,
+    CXStore: 'static,
+    for<'a> CXState: Attach<CXStore>,
+    for<'a> H: ThriftHandler<<CXState as Attach<CXStore>>::Hdr<'a>, Error = ERR>,
+    ERR: Into<AnyError> + Debug,
+    Stream: AsyncReadRent + AsyncWriteRent + Unpin + 'static,
+{
+    type Response = ();
+    type Error = Infallible;
+
+    async fn call(&self, (stream, ctx): (Stream, CXIn)) -> Result<Self::Response, Self::Error> {
         let mut codec = Framed::new(stream, TTHeaderPayloadCodec::new(RawPayloadCodec::new()));
         loop {
             if let Some(keepalive_timeout) = self.thrift_timeout.keepalive_timeout {
@@ -150,8 +158,12 @@ impl<H> TtheaderCoreService<H> {
                 }
             };
 
+            // fork ctx
+            let (mut store, state) = ctx.fork();
+            let forked_ctx = unsafe { state.attach(&mut store) };
+
             // handle request and reply response
-            match self.handler_chain.handle(req, ctx.clone()).await {
+            match self.handler_chain.handle(req, forked_ctx).await {
                 Ok(resp) => {
                     if let Err(e) = codec.send_and_flush(resp).await {
                         warn!("error when reply client: {e}");
@@ -173,21 +185,6 @@ impl<H> TtheaderCoreService<H> {
                 }
             }
         }
-    }
-}
-
-impl<H, Stream, CX> Service<(Stream, CX)> for TtheaderCoreService<H>
-where
-    Stream: AsyncReadRent + AsyncWriteRent + Unpin + 'static,
-    H: ThriftHandler<CX>,
-    H::Error: Into<AnyError> + Debug,
-    CX: ParamRef<PeerAddr> + Clone,
-{
-    type Response = ();
-    type Error = Infallible;
-
-    async fn call(&self, incoming_stream: (Stream, CX)) -> Result<Self::Response, Self::Error> {
-        self.svc(incoming_stream.0, incoming_stream.1).await;
         Ok(())
     }
 }

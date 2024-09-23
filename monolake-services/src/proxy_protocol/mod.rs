@@ -47,7 +47,7 @@ use crate::tcp::Accept;
 
 // Ref: https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 // V1 max length is 107-byte.
-const V1HEADER: &[u8; 6] = &[b'P', b'R', b'O', b'X', b'Y', b' '];
+const V1HEADER: &[u8; 6] = b"PROXY ";
 // V2 max length is 14+216 = 230 bytes.
 const V2HEADER: &[u8; 12] = &[
     0x0D, 0x0A, 0x0D, 0x0A, 0x00, 0x0D, 0x0A, 0x51, 0x55, 0x49, 0x54, 0x0A,

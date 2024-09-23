@@ -241,9 +241,9 @@ checksum = "099a5357d84c4c61eb35fc8eafa9a79a902c2f76911e5747ced4e032edd8d9b4"
 
 [[package]]
 name = "certain-map"
-version = "0.2.4"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eef8cfdce330246c0d5ae6a910ed263951f2fe43e0abaed7d5744d3ddb771ef6"
+checksum = "11f1b5b96a08e1e03db13759f4c55f48debd8376c6367cdac79adba88c712390"
 dependencies = [
  "certain-map-macros",
  "param",
@@ -251,9 +251,9 @@ dependencies = [
 
 [[package]]
 name = "certain-map-macros"
-version = "0.2.3"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87e8e7991daf33cd9aae128c7a1eaff7678d20b310f0f19ae19a1e407b1be02c"
+checksum = "6a1ad2809d9730ff9a1877968e3ab1f02ba056d0200321d6f63764a5f02b77d9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1474,6 +1474,7 @@ version = "0.3.2"
 dependencies = [
  "anyhow",
  "bytes",
+ "certain-map",
  "cookie",
  "futures",
  "http 1.1.0",
