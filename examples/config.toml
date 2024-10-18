@@ -9,7 +9,7 @@ listener = { type = "socket", value = "0.0.0.0:8080" }
 
 [[servers.demo_basic.routes]]
 path = '/'
-protocol = "http2
+protocol = "http2"
 upstreams = [{ endpoint = { type = "uri", value = "https://www.bytedance.com/" } }]
 
 [[servers.demo_basic.routes]]

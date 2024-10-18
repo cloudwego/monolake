@@ -8,13 +8,13 @@ cd certs || exit
 
 openssl genrsa -out rootCA.key 4096
 openssl req -x509 -new -nodes -sha512 -days 3650 \
--subj "/C=CN/ST=Shanghai/L=Shanghai/O=Monoio/OU=TLSDemo/CN=monoio-ca" \
+-subj "/C=CN/ST=Shanghai/L=Shanghai/O=Monoio/OU=TLSDemo/CN=monolake-ca" \
 -key rootCA.key \
 -out rootCA.crt
 
 openssl genrsa -out server.key 4096
 openssl req -sha512 -new \
--subj "/C=CN/ST=Shanghai/L=Shanghai/O=Monoio/OU=TLSDemoServer/CN=monoio.rs" \
+-subj "/C=CN/ST=Shanghai/L=Shanghai/O=Monoio/OU=TLSDemoServer/CN=monolake.rs" \
 -key server.key \
 -out server.csr
 
@@ -26,7 +26,7 @@ extendedKeyUsage=serverAuth
 subjectAltName=@alt_names
 
 [alt_names]
-DNS.1=gateway.monoio.rs
+DNS.1=gateway.monolake.rs
 EOF
 
 openssl x509 -req -sha512 -days 3650 \
