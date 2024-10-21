@@ -178,6 +178,10 @@ where
             Ok(route) => {
                 let route = route.value;
                 tracing::info!("the route id: {}", route.id);
+                if route.upstreams.len() == 1 {
+                    rewrite_request(&mut request, &route.upstreams[0]);
+                    return self.inner.handle(request, ctx).await;
+                }
                 use rand::seq::SliceRandom;
                 let upstream = route
                     .upstreams
