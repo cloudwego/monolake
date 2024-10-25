@@ -41,11 +41,12 @@ pub fn l7_factory(
 > {
     match config.proxy_type {
         crate::config::ProxyType::Http => {
-            let protocol: HttpVersion = config.param();
+            let version: HttpVersion = config.param();
             let http_upstream_timeout: HttpUpstreamTimeout = config.param();
+            let enable_content_handler = config.http_opt_handlers.content_handler;
             let stacks = FactoryStack::new(config.clone())
-                .replace(UpstreamHandler::factory(http_upstream_timeout, protocol))
-                .push(ContentHandler::layer())
+                .replace(UpstreamHandler::factory(http_upstream_timeout, version))
+                .push(ContentHandler::opt_layer(enable_content_handler))
                 .push(RewriteAndRouteHandler::layer());
 
             #[cfg(feature = "openid")]

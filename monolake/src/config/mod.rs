@@ -40,6 +40,7 @@ pub struct ServerConfig {
     pub http_server_timeout: HttpServerTimeout,
     pub http_upstream_timeout: HttpUpstreamTimeout,
     pub upstream_http_version: HttpVersion,
+    pub http_opt_handlers: HttpOptHandlers,
     pub thrift_server_timeout: ThriftServerTimeout,
     #[cfg(feature = "openid")]
     pub auth_config: Option<AuthConfig>,
@@ -55,6 +56,8 @@ pub struct ServerUserConfig {
     pub http_timeout: Option<HttpTimeout>,
     #[serde(default = "HttpVersion::default")]
     pub upstream_http_version: HttpVersion,
+    #[serde(default)]
+    pub http_opt_handlers: HttpOptHandlers,
     pub thrift_timeout: Option<ThriftTimeout>,
 }
 
@@ -99,6 +102,12 @@ pub enum TlsStack {
     #[default]
     Rustls,
     NativeTls,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct HttpOptHandlers {
+    // Enable content handler in the handler chain
+    pub content_handler: bool,
 }
 
 #[cfg(feature = "openid")]
@@ -197,6 +206,7 @@ impl Config {
                         upstream_http_version: server.upstream_http_version,
                         #[cfg(feature = "openid")]
                         auth_config: None,
+                        http_opt_handlers: server.http_opt_handlers,
                     },
                     listener,
                 },

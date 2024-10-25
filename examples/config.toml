@@ -7,6 +7,7 @@ entries = 1024
 name = "gateway.monolake.rs"
 listener = { type = "socket", value = "0.0.0.0:8080" }
 upstream_http_version = "http2"
+http_opt_handlers = { content_handler = true }
 
 [[servers.demo_basic.routes]]
 path = '/'

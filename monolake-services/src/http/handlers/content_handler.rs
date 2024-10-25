@@ -204,4 +204,16 @@ impl<F> ContentHandler<F> {
     pub fn layer<C>() -> impl FactoryLayer<C, F, Factory = Self> {
         layer_fn(|_: &C, inner| Self { inner })
     }
+
+    /// Returns a factory layer for the `ContentHandler`.
+    ///
+    /// This allows the 'ContentHandler to be selectively enabled or
+    /// disabled based on a configuration at runtime.
+    pub fn opt_layer<C>(enabled: bool) -> Option<impl FactoryLayer<C, F, Factory = Self>> {
+        if enabled {
+            Some(layer_fn(|_: &C, inner| Self { inner }))
+        } else {
+            None
+        }
+    }
 }
