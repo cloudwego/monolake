@@ -4,12 +4,12 @@ worker_threads = 2
 entries = 1024
 
 [servers.demo_basic]
-name = "gateway.monoio.rs"
+name = "gateway.monolake.rs"
 listener = { type = "socket", value = "0.0.0.0:8080" }
+upstream_http_version = "http2"
 
 [[servers.demo_basic.routes]]
 path = '/'
-protocol = "http2"
 upstreams = [{ endpoint = { type = "uri", value = "https://www.bytedance.com/" } }]
 
 [[servers.demo_basic.routes]]
@@ -19,8 +19,10 @@ upstreams = [{ endpoint = { type = "uri", value = "https://github.com/" } }]
 
 [servers.demo_tls]
 tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key" }
-name = "gateway.monoio.rs"
+name = "gateway.monolake.rs"
 listener = { type = "socket", value = "0.0.0.0:8081" }
+upstream_http_version = "http11"
+http_timeout = { server_keepalive_timeout_sec = 60, upstream_connect_timeout_sec = 2, upstream_read_timeout_sec = 2 }
 
 [[servers.demo_tls.routes]]
 path = '/'
@@ -32,7 +34,7 @@ upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:8080" } }]
 
 
 [servers.demo_uds]
-name = "gateway.monoio.rs"
+name = "gateway.monolake.rs"
 listener = { type = "unix", value = "/tmp/monolake.sock" }
 
 [[servers.demo_uds.routes]]
@@ -52,7 +54,7 @@ path = '/{*p}'
 
 [servers.demo_rustls]
 tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key", stack = "rustls" }
-name = "gateway.monoio.rs"
+name = "gateway.monolake.rs"
 listener = { type = "socket", value = "0.0.0.0:8082" }
 
 [[servers.demo_rustls.routes]]
@@ -64,7 +66,7 @@ upstreams = [
 
 [servers.demo_native_tls]
 tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key", stack = "native_tls" }
-name = "gateway.monoio.rs"
+name = "gateway.monolake.rs"
 listener = { type = "socket", value = "0.0.0.0:8083" }
 
 [[servers.demo_native_tls.routes]]

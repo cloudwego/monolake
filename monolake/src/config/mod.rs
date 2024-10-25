@@ -5,7 +5,10 @@ use monolake_core::{
     listener::ListenerBuilder,
 };
 use monolake_services::{
-    http::{handlers::route::RouteConfig, HttpServerTimeout, Protocol},
+    http::{
+        handlers::{route::RouteConfig, upstream::HttpUpstreamTimeout},
+        HttpServerTimeout, HttpVersion,
+    },
     thrift::ttheader::ThriftServerTimeout,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -35,7 +38,8 @@ pub struct ServerConfig {
     pub tls: monolake_services::tls::TlsConfig,
     pub routes: Vec<RouteConfig>,
     pub http_server_timeout: HttpServerTimeout,
-    pub protocol: Protocol,
+    pub http_upstream_timeout: HttpUpstreamTimeout,
+    pub upstream_http_version: HttpVersion,
     pub thrift_server_timeout: ThriftServerTimeout,
     #[cfg(feature = "openid")]
     pub auth_config: Option<AuthConfig>,
@@ -49,8 +53,8 @@ pub struct ServerUserConfig {
     pub tls: Option<TlsUserConfig>,
     pub routes: Vec<RouteConfig>,
     pub http_timeout: Option<HttpTimeout>,
-    #[serde(default = "Protocol::default")]
-    pub protocol: Protocol,
+    #[serde(default = "HttpVersion::default")]
+    pub upstream_http_version: HttpVersion,
     pub thrift_timeout: Option<ThriftTimeout>,
 }
 
@@ -73,6 +77,11 @@ pub struct HttpTimeout {
     // Receiving full body timeout.
     // Like Nginx `client_body_timeout`
     server_read_body_timeout_sec: Option<u64>,
+    // Connect timeout
+    // Like Nginx 'proxy_connect_timeout'
+    upstream_connect_timeout_sec: Option<u64>,
+    // Read response timeout
+    upstream_read_timeout_sec: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -169,6 +178,14 @@ impl Config {
                                 .server_read_body_timeout_sec
                                 .map(Duration::from_secs),
                         },
+                        http_upstream_timeout: HttpUpstreamTimeout {
+                            connect_timeout: server_http_timeout
+                                .upstream_connect_timeout_sec
+                                .map(Duration::from_secs),
+                            read_timeout: server_http_timeout
+                                .upstream_read_timeout_sec
+                                .map(Duration::from_secs),
+                        },
                         thrift_server_timeout: ThriftServerTimeout {
                             keepalive_timeout: server_thrift_timeout
                                 .server_keepalive_timeout_sec
@@ -177,7 +194,7 @@ impl Config {
                                 .server_message_timeout_sec
                                 .map(Duration::from_secs),
                         },
-                        protocol: server.protocol,
+                        upstream_http_version: server.upstream_http_version,
                         #[cfg(feature = "openid")]
                         auth_config: None,
                     },

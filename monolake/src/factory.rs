@@ -14,9 +14,10 @@ use monolake_services::{
         core::HttpCoreService,
         detect::HttpVersionDetect,
         handlers::{
-            ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler, UpstreamHandler,
+            upstream::HttpUpstreamTimeout, ConnectionReuseHandler, ContentHandler,
+            RewriteAndRouteHandler, UpstreamHandler,
         },
-        Protocol,
+        HttpVersion,
     },
     tcp::Accept,
     thrift::{handlers::ProxyHandler as TProxyHandler, ttheader::TtheaderCoreService},
@@ -40,9 +41,10 @@ pub fn l7_factory(
 > {
     match config.proxy_type {
         crate::config::ProxyType::Http => {
-            let protocol: Protocol = config.param();
+            let protocol: HttpVersion = config.param();
+            let http_upstream_timeout: HttpUpstreamTimeout = config.param();
             let stacks = FactoryStack::new(config.clone())
-                .replace(UpstreamHandler::factory(Default::default(), protocol))
+                .replace(UpstreamHandler::factory(http_upstream_timeout, protocol))
                 .push(ContentHandler::layer())
                 .push(RewriteAndRouteHandler::layer());
 

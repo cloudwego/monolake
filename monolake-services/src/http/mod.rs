@@ -60,10 +60,10 @@ pub(crate) const KEEPALIVE_VALUE: HeaderValue = HeaderValue::from_static(KEEPALI
 pub(crate) use util::generate_response;
 
 #[derive(Debug, Copy, Clone, Default, Deserialize, Serialize)]
-#[serde(tag = "type", content = "value", rename_all = "snake_case")]
-pub enum Protocol {
-    HTTP2,
-    HTTP11,
+#[serde(rename_all = "lowercase")]
+pub enum HttpVersion {
+    Http2,
+    Http11,
     #[default]
     Auto,
 }

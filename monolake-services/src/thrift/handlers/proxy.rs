@@ -100,7 +100,6 @@ impl<C, E> ConnectorMapper<C, E> for ThriftConnectorMapper {
 /// It manages connections to upstream servers using a connection pool for efficiency.
 /// For implementation details and example usage, see the
 /// [module level documentation](crate::thrift::handlers::proxy).
-
 pub struct ProxyHandler {
     connector: PoolThriftConnector,
     routes: Vec<RouteConfig>,

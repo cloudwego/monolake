@@ -2,7 +2,7 @@ use certain_map::Param;
 #[cfg(feature = "openid")]
 use monolake_services::http::handlers::openid::OpenIdConfig;
 use monolake_services::{
-    http::{HttpServerTimeout, Protocol},
+    http::{handlers::upstream::HttpUpstreamTimeout, HttpServerTimeout, HttpVersion},
     thrift::ttheader::ThriftServerTimeout,
 };
 
@@ -12,6 +12,13 @@ impl Param<HttpServerTimeout> for ServerConfig {
     #[inline]
     fn param(&self) -> HttpServerTimeout {
         self.http_server_timeout
+    }
+}
+
+impl Param<HttpUpstreamTimeout> for ServerConfig {
+    #[inline]
+    fn param(&self) -> HttpUpstreamTimeout {
+        self.http_upstream_timeout
     }
 }
 
@@ -42,9 +49,9 @@ impl Param<monolake_services::tls::TlsConfig> for ServerConfig {
     }
 }
 
-impl Param<Protocol> for ServerConfig {
+impl Param<HttpVersion> for ServerConfig {
     #[inline]
-    fn param(&self) -> Protocol {
-        self.protocol
+    fn param(&self) -> HttpVersion {
+        self.upstream_http_version
     }
 }
