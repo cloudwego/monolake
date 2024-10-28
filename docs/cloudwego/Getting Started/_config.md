@@ -5,6 +5,7 @@ weight: 2
 keywords: ["Monolake", "Rust", "Proxy", "Configuration"]
 description: "This page provides a brief guide for Monolake configuration"
 ---
+
 ## Configuration
 
 This chapter provides a brief guide for Monolake configuration.
