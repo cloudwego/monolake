@@ -16,28 +16,28 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
+      - name: Checkout-Sources
         uses: actions/checkout@v2
-      - name: Install toolchain
+      - name: Install-Toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: ${{ env.TOOLCHAIN_PROFILE }}
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           override: true
-      - name: Build Proxy
+      - name: Build-Proxy
         run: |
           sudo apt-get install -y pkg-config
           cargo build --verbose
       - name: Cache
         uses: Swatinem/rust-cache@v1
-      - name: Run proxy
+      - name: Run-Proxy
         run: |
           cd examples/ && 
           ./gen_cert.sh &&
           cp certs/server.key certs/key.pem &&
           cp certs/server.crt certs/cert.pem &&
           sudo bash -c "ulimit -Sl 512 && ulimit -Hl 512 && sudo -u runner RUSTUP_TOOLCHAIN=nightly RUST_LOG=NONE /home/runner/.cargo/bin/cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml &"
-      - name: Install Run Server
+      - name: Install-Run-Server
         run: |
           sudo apt-get update &&
           sudo apt-get install -y openssl nginx &&
@@ -50,18 +50,18 @@ jobs:
           sudo systemctl enable nginx &&
           sudo systemctl start nginx &&
           sleep 2
-      - name: Checkout client
+      - name: Checkout-Client
         uses: actions/checkout@v2
         with:
           repository: 'giltene/wrk2'
           path: 'wrk2'
-      - name: Build client
+      - name: Build-Client
         run: |
           sudo apt-get -y install gcc make git libssl-dev zlib1g-dev &&
           cd wrk2 &&
           make WITH_OPENSSL=/usr &&
           sleep 2
-      - name: Run client
+      - name: Run-Client
         run: |
           cd wrk2 &&
           curl -vvv http://localhost:8402 &&
