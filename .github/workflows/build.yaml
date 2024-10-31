@@ -31,20 +31,30 @@ jobs:
           cp certs/server.key certs/key.pem &&
           cp certs/server.crt certs/cert.pem &&
           cd ..
-      - name: Install-Run-Server
+      - name: Install-Nginx
+        uses: nyurik/action-setup-nginx@v1
+        id: nginx
+        with:
+          port: 8042
+          conf-file-text: ./benchmark/server/nginx-web.conf
+      - name: Test-Nginx  
         run: |
-          sudo apt-get update &&
-          sudo apt-get install -y openssl nginx &&
-          sudo cp ./benchmark/server/nginx-web.conf /etc/nginx/nginx.conf &&
-          sudo cp -r ./benchmark/server/webroot/* /usr/share/nginx/html/ &&
-          cat examples/certs/server.key examples/certs/server.pkcs8 > ./combined.pem &&
-          sudo mv ./combined.pem /etc/nginx/ &&
-          sudo cp examples/certs/cert.pem /etc/nginx/ &&
-          sudo systemctl enable nginx &&
-          sudo systemctl start nginx &&
-          curl -vvv http://localhost:80 &&
-          curl -vvv http://localhost:8402 &&
+          curl -vvv http://localhost:${{ steps.nginx.outputs.port }}/ &&
           sleep 2
+      # - name: Install-Run-Server
+      #   run: |
+      #     sudo apt-get update &&
+      #     sudo apt-get install -y openssl nginx &&
+      #     sudo cp ./benchmark/server/nginx-web.conf /etc/nginx/nginx.conf &&
+      #     sudo cp -r ./benchmark/server/webroot/* /usr/share/nginx/html/ &&
+      #     cat examples/certs/server.key examples/certs/server.pkcs8 > ./combined.pem &&
+      #     sudo mv ./combined.pem /etc/nginx/ &&
+      #     sudo cp examples/certs/cert.pem /etc/nginx/ &&
+      #     sudo systemctl enable nginx &&
+      #     sudo systemctl start nginx &&
+      #     curl -vvv http://localhost:80/ &&
+      #     curl -vvv http://localhost:8402/ &&
+      #     sleep 2
       - name: Build-Proxy
         run: |
           sudo apt-get install -y pkg-config &&
