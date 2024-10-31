@@ -24,12 +24,6 @@ jobs:
           profile: ${{ env.TOOLCHAIN_PROFILE }}
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           override: true
-      - name: Build-Proxy
-        run: |
-          sudo apt-get install -y pkg-config
-          cargo build --verbose
-      - name: Cache
-        uses: Swatinem/rust-cache@v1
       - name: Setup-Certs
         run: |
           cd examples/ && 
@@ -48,9 +42,16 @@ jobs:
           sudo cp examples/certs/cert.pem /etc/nginx/ &&
           sudo systemctl enable nginx &&
           sudo systemctl start nginx &&
-          cd .. &&
+          curl -vvv http://localhost:80 &&
           curl -vvv http://localhost:8402 &&
           sleep 2
+      - name: Build-Proxy
+        run: |
+          sudo apt-get install -y pkg-config &&
+          cargo build --verbose &&
+          cd ..
+      - name: Cache
+        uses: Swatinem/rust-cache@v1
       - name: Checkout-Client
         uses: actions/checkout@v2
         with:
