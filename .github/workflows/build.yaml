@@ -32,10 +32,11 @@ jobs:
         uses: Swatinem/rust-cache@v1
       - name: Setup-Certs
         run: |
-          cd /home/runner/work/monolake/examples/ && 
+          cd examples/ && 
           ./gen_cert.sh &&
           cp certs/server.key certs/key.pem &&
-          cp certs/server.crt certs/cert.pem
+          cp certs/server.crt certs/cert.pem &&
+          cd ..
       - name: Run-Proxy
         uses: actions-rs/cargo@v1
         with:
