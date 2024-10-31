@@ -49,6 +49,7 @@ jobs:
           sudo systemctl enable nginx &&
           sudo systemctl start nginx &&
           cd .. &&
+          curl -vvv http://localhost:8402 &&
           sleep 2
       - name: Checkout-Client
         uses: actions/checkout@v2
@@ -66,9 +67,6 @@ jobs:
         run: |
           cd monolake &&
           RUSTUP_TOOLCHAIN=nightly RUST_LOG=NONE cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml &
-      - name: Run-Client
-        run: |
-          curl -vvv http://localhost:8402 &&
           cd ../wrk2 &&
           ./wrk -d 1m -c 640 -t 64 -R 200000 --latency http://localhost:8402 &&
           sleep 2
