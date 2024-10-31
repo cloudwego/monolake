@@ -306,9 +306,9 @@ dependencies = [
 
 [[package]]
 name = "certain-map-macros"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a1ad2809d9730ff9a1877968e3ab1f02ba056d0200321d6f63764a5f02b77d9"
+checksum = "78ec280313ff7439b2922993efa31521917eb82eda03bac19291ccde0b546db8"
 dependencies = [
  "proc-macro2",
  "quote",
