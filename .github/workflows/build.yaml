@@ -41,7 +41,6 @@ jobs:
         run: |
           sudo apt-get update &&
           sudo apt-get install -y openssl nginx &&
-          cd /home/runner/work/monolake &&
           sudo cp ./benchmark/server/nginx-web.conf /etc/nginx/nginx.conf &&
           sudo cp -r ./benchmark/server/webroot/* /usr/share/nginx/html/ &&
           cat examples/certs/server.key examples/certs/server.pkcs8 > ./combined.pem &&
@@ -49,7 +48,7 @@ jobs:
           sudo cp examples/certs/cert.pem /etc/nginx/ &&
           sudo systemctl enable nginx &&
           sudo systemctl start nginx &&
-          cd /home/runner/work &&
+          cd .. &&
           sleep 2
       - name: Checkout-Client
         uses: actions/checkout@v2
@@ -61,7 +60,7 @@ jobs:
           sudo apt-get -y install gcc make git libssl-dev zlib1g-dev &&
           cd wrk2 &&
           make WITH_OPENSSL=/usr &&
-          cd /home/runner/work &&
+          cd .. &&
           sleep 2
       - name: Run-Proxy
         uses: actions-rs/cargo@v1
@@ -71,6 +70,6 @@ jobs:
       - name: Run-Client
         run: |
           curl -vvv http://localhost:8402 &&
-          cd wrk2 &&
+          cd ../wrk2 &&
           ./wrk -d 1m -c 640 -t 64 -R 200000 --latency http://localhost:8402 &&
           sleep 2
