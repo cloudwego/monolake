@@ -73,11 +73,24 @@ jobs:
           make WITH_OPENSSL=/usr &&
           cd .. &&
           sleep 2
+      # - name: Run-Proxy
+      #   run: |
+      #     cd monolake &&
+      #     RUSTUP_TOOLCHAIN=nightly RUST_LOG=NONE cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml & 
+      #     sleep 2 &&
+      #     curl -vvv http://localhost:10082/ &&
+      #     curl -vvv http://localhost:8402/ &&
+      #     cd ../wrk2 &&
+      #     ./wrk -d 1m -c 640 -t 64 -R 200000 --latency http://localhost:8402 &&
+      #     sleep 2
       - name: Run-Proxy
+        uses: actions-rs/cargo@v1
+        with:
+          command: ex.
+          args: "--package monolake -- -c benchmark/proxy/monolake/monolake.toml"
+      - name: Run-Client-Proxy-Server
         run: |
-          cd monolake &&
-          RUSTUP_TOOLCHAIN=nightly RUST_LOG=NONE cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml & 
-          sleep 2 &&
+          sleep 2
           curl -vvv http://localhost:10082/ &&
           curl -vvv http://localhost:8402/ &&
           cd ../wrk2 &&
