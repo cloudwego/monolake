@@ -65,7 +65,7 @@ jobs:
       - name: Run-Proxy
         run: |
           cd monolake &&
-          sudo bash -c "ulimit -Sl 512 && ulimit -Hl 512 && sudo -u runner RUSTUP_TOOLCHAIN=nightly RUST_LOG=NONE /home/runner/.cargo/bin/cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml &"
+          RUSTUP_TOOLCHAIN=nightly RUST_LOG=NONE cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml &
       - name: Run-Client
         run: |
           curl -vvv http://localhost:8402 &&
