@@ -67,7 +67,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: "run"
-          args: "--package monolake -- -c benchmark/proxy/monolake/monolake.toml" &
+          args: "--package monolake -- -c benchmark/proxy/monolake/monolake.toml"
       - name: Run-Client
         run: |
           curl -vvv http://localhost:8402 &&
