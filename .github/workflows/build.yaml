@@ -63,10 +63,9 @@ jobs:
           cd .. &&
           sleep 2
       - name: Run-Proxy
-        uses: actions-rs/cargo@v1
-        with:
-          command: "run"
-          args: "--package monolake -- -c benchmark/proxy/monolake/monolake.toml"
+        run: |
+          cd monolake &&
+          sudo bash -c "ulimit -Sl 512 && ulimit -Hl 512 && sudo -u runner RUSTUP_TOOLCHAIN=nightly RUST_LOG=NONE /home/runner/.cargo/bin/cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml &"
       - name: Run-Client
         run: |
           curl -vvv http://localhost:8402 &&
