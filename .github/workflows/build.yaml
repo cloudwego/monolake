@@ -41,9 +41,9 @@ jobs:
         run: |
           sudo apt-get update &&
           sudo apt-get install -y openssl nginx &&
+          cd /home/runner/work/monolake &&
           sudo cp ./benchmark/server/nginx-web.conf /etc/nginx/nginx.conf &&
           sudo cp -r ./benchmark/server/webroot/* /usr/share/nginx/html/ &&
-          cd /home/runner/work/monolake &&
           cat examples/certs/server.key examples/certs/server.pkcs8 > ./combined.pem &&
           sudo mv ./combined.pem /etc/nginx/ &&
           sudo cp examples/certs/cert.pem /etc/nginx/ &&
