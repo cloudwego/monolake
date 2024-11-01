@@ -36,5 +36,5 @@ openssl x509 -req -sha512 -days 3650 \
 -out server.crt
 
 # Convert files
-rm rootCA.srl server.csr v3.ext
+rm -f rootCA.srl server.csr v3.ext
 openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in server.key -out server.pkcs8

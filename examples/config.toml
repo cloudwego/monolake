@@ -1,21 +1,23 @@
 [runtime]
-# runtime_type = "legacy"
+runtime_type = "io_uring"
 worker_threads = 2
 entries = 1024
 
 [servers.demo_basic]
 name = "gateway.monolake.rs"
 listener = { type = "socket", value = "0.0.0.0:8080" }
-upstream_http_version = "http2"
+upstream_http_version = "http11"
 http_opt_handlers = { content_handler = true }
 
+# front-end HTTP, back-end HTTP
 [[servers.demo_basic.routes]]
 path = '/'
-upstreams = [{ endpoint = { type = "uri", value = "https://www.bytedance.com/" } }]
+upstreams = [{ endpoint = { type = "uri", value = "http://ifconfig.me/" } }]
 
+# front-end HTTP, back-end HTTPS
 [[servers.demo_basic.routes]]
-path = '/github'
-upstreams = [{ endpoint = { type = "uri", value = "https://github.com/" } }]
+path = '/example'
+upstreams = [{ endpoint = { type = "uri", value = "https://example.com/" } }]
 
 
 [servers.demo_tls]
@@ -58,10 +60,18 @@ tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key", 
 name = "gateway.monolake.rs"
 listener = { type = "socket", value = "0.0.0.0:8082" }
 
+# front-end HTTPS, back-end HTTP
 [[servers.demo_rustls.routes]]
 path = '/'
 upstreams = [
-    { endpoint = { type = "uri", value = "https://www.wikipedia.org" } },
+    { endpoint = { type = "uri", value = "http://ifconfig.me" } },
+]
+
+# front-end HTTPS, back-end HTTPS
+[[servers.demo_rustls.routes]]
+path = '/example'
+upstreams = [
+    { endpoint = { type = "uri", value = "https://example.com" } },
 ]
 
 
@@ -70,11 +80,19 @@ tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key", 
 name = "gateway.monolake.rs"
 listener = { type = "socket", value = "0.0.0.0:8083" }
 
+# front-end HTTPS, back-end HTTP
 [[servers.demo_native_tls.routes]]
-upstreams = [
-    { endpoint = { type = "uri", value = "https://www.wikipedia.org" } },
-]
 path = '/'
+upstreams = [
+    { endpoint = { type = "uri", value = "http://ifconfig.me" } },
+]
+
+# front-end HTTPS, back-end HTTPS
+[[servers.demo_native_tls.routes]]
+path = '/example'
+upstreams = [
+    { endpoint = { type = "uri", value = "https://example.com" } },
+]
 
 
 [servers.demo_timeout]
