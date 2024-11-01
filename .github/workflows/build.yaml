@@ -92,9 +92,10 @@ jobs:
       #     command: run
       #     args: "--package monolake -- -c benchmark/proxy/monolake/monolake.toml"
       - name: Run-Client-Proxy-Server
+        working-directory: wrk2
         run: |
           sleep 2
           curl -vvv http://localhost:8402/ &&
-          cd ../wrk2 &&
+          # cd ../wrk2 &&
           ./wrk -d 1m -c 640 -t 64 -R 200000 --latency http://localhost:8402 &&
           sleep 2
