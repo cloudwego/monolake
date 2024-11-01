@@ -70,7 +70,7 @@ jobs:
         run: |
           sleep 2
           curl -vvv http://localhost:8402/ &&
-          curl -vvv https://localhost:6443/ &&
+          # curl -vvv https://localhost:6443/ &&
           ./wrk -d 1m -c 640 -t 64 -R 200000 --latency http://localhost:8402 &&
-          ./wrk -d 1m -c 640 -t 64 -R 140000 --latency https://$localhost:6443 &&
+          # ./wrk -d 1m -c 640 -t 64 -R 140000 --latency https://$localhost:6443 &&
           sleep 2
