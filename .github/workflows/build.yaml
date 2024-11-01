@@ -78,7 +78,7 @@ jobs:
         run: |
           # cd monolake &&
           # RUSTUP_TOOLCHAIN=nightly RUST_LOG=NONE cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml & 
-          RUST_LOG=NONE cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml & 
+          RUST_LOG=DEBUG /home/runner/.cargo/bin/cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml & 
           sleep 2 &&
           curl -vvv http://localhost:10082/ &&
           curl -vvv http://localhost:8402/ &&
