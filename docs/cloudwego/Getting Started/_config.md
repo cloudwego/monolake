@@ -5,7 +5,6 @@ weight: 2
 keywords: ["Monolake", "Rust", "Proxy", "Configuration"]
 description: "This page provides a brief guide for Monolake configuration"
 ---
-
 ## Configuration
 
 This chapter provides a brief guide for Monolake configuration.
@@ -14,7 +13,7 @@ The configuration file is in .toml format. Basic configuration includes the foll
 
 ### Runtime
 
-This section starts with [runtime]. It defines global run time configurations, including worker threads number and max connection entries. Optionally it may include a field "runtime_type" and it can be assigned to "legacy". Fox example:
+This section starts with [runtime]. It defines global run time configurations, including worker threads number and max connection entries. Optionally it may include a field "runtime_type" and it can be assigned to "legacy" (this is default for non-linux OS). If the host OS is linux, it can be also assigned to "iouring" (this is default for linux OS). For example:
 
 ```markup
 [runtime]
