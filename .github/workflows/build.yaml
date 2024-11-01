@@ -78,9 +78,8 @@ jobs:
         run: |
           # cd monolake &&
           # RUSTUP_TOOLCHAIN=nightly RUST_LOG=NONE cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml & 
-          RUST_LOG=DEBUG /home/runner/.cargo/bin/cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml & 
+          RUST_LOG=DEBUG /home/runner/.cargo/bin/cargo run --package monolake -- -c benchmark/proxy/monolake/monolake.toml & &&
           sleep 2 &&
-          curl -vvv http://localhost:10082/ &&
           curl -vvv http://localhost:8402/ &&
           cd ../wrk2 &&
           ./wrk -d 1m -c 640 -t 64 -R 200000 --latency http://localhost:8402 &&
@@ -93,7 +92,6 @@ jobs:
       # - name: Run-Client-Proxy-Server
       #   run: |
       #     sleep 2
-      #     curl -vvv http://localhost:10082/ &&
       #     curl -vvv http://localhost:8402/ &&
       #     cd ../wrk2 &&
       #     ./wrk -d 1m -c 640 -t 64 -R 200000 --latency http://localhost:8402 &&
