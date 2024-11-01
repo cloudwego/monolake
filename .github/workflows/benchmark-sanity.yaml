@@ -3,7 +3,7 @@ name: benchmark sanity check
 on:
   push:
     branches:
-      - doc-refine
+      - master
     paths-ignore:
       - '**.md'
       - '**.png'
