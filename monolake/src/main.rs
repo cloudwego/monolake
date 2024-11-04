@@ -61,6 +61,8 @@ fn main() -> Result<()> {
         monolake_core::config::RuntimeType::Legacy => {
             monoio::RuntimeBuilder::<monoio::LegacyDriver>::new()
                 .enable_timer()
+                // Since we read file, we need a thread pool to avoid blocking the runtime
+                .attach_thread_pool(Box::new(monoio::blocking::DefaultThreadPool::new(4)))
                 .build()
                 .expect("Failed building the Runtime with LegacyDriver")
                 .block_on(run(runtime_config, &args.config));
