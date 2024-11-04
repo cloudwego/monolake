@@ -1,16 +1,20 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use anyhow::Result;
 use clap::Parser;
 use monolake_core::{
-    config::{RuntimeType, ServiceConfig},
+    config::{RuntimeConfig, RuntimeType},
     listener::ListenerBuilder,
-    orchestrator::{ServiceCommand, WorkerManager},
+    orchestrator::WorkerManager,
 };
 use service_async::AsyncMakeServiceWrapper;
 use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*, EnvFilter};
 
-use crate::{config::Config, factory::l7_factory, util::print_logo};
+use crate::{
+    config::{manager::StaticFileConfigManager, Config},
+    factory::l7_factory,
+    util::print_logo,
+};
 
 mod config;
 mod context;
@@ -39,35 +43,35 @@ fn main() -> Result<()> {
     print_logo();
 
     let args = Args::parse();
-    let mut config = Config::load(args.config)?;
+    let mut runtime_config = Config::load_runtime_config(&args.config)?;
     #[cfg(target_os = "linux")]
-    if matches!(config.runtime.runtime_type, RuntimeType::IoUring) && !monoio::utils::detect_uring()
+    if matches!(runtime_config.runtime_type, RuntimeType::IoUring) && !monoio::utils::detect_uring()
     {
-        config.runtime.runtime_type = RuntimeType::Legacy;
+        runtime_config.runtime_type = RuntimeType::Legacy;
     }
-    match config.runtime.runtime_type {
+    match runtime_config.runtime_type {
         #[cfg(target_os = "linux")]
         monolake_core::config::RuntimeType::IoUring => {
             monoio::RuntimeBuilder::<monoio::IoUringDriver>::new()
                 .enable_timer()
                 .build()
                 .expect("Failed building the Runtime with IoUringDriver")
-                .block_on(run(config));
+                .block_on(run(runtime_config, &args.config));
         }
         monolake_core::config::RuntimeType::Legacy => {
             monoio::RuntimeBuilder::<monoio::LegacyDriver>::new()
                 .enable_timer()
                 .build()
                 .expect("Failed building the Runtime with LegacyDriver")
-                .block_on(run(config));
+                .block_on(run(runtime_config, &args.config));
         }
     }
     Ok(())
 }
 
-async fn run(config: Config) {
+async fn run(runtime_config: RuntimeConfig, service_config_path: impl AsRef<Path>) {
     // Start workers
-    let mut manager = WorkerManager::new(config.runtime);
+    let mut manager = WorkerManager::new(runtime_config);
     let join_handlers = manager.spawn_workers_async();
     tracing::info!(
         "Start monolake with {:?} runtime, {} worker(s), {} entries and sqpoll {:?}.",
@@ -77,25 +81,22 @@ async fn run(config: Config) {
         manager.config().sqpoll_idle
     );
 
-    // Construct Service Factory and Listener Factory
-    for (name, ServiceConfig { listener, server }) in config.servers.into_iter() {
-        let lis_fac = ListenerBuilder::try_from(listener).expect("build listener failed");
-
-        let svc_fac = l7_factory(server);
-
-        manager
-            .dispatch_service_command(ServiceCommand::PrepareAndCommit(
-                Arc::new(name),
-                AsyncMakeServiceWrapper(svc_fac),
-                AsyncMakeServiceWrapper(Arc::new(lis_fac)),
+    // Create config manager
+    let config_manager = StaticFileConfigManager::new(
+        manager,
+        |config| {
+            AsyncMakeServiceWrapper(Arc::new(
+                ListenerBuilder::try_from(config).expect("build listener failed"),
             ))
-            .await
-            .err()
-            .expect("apply init config failed");
-    }
+        },
+        |config| AsyncMakeServiceWrapper(l7_factory(config)),
+    );
+    config_manager
+        .load_and_watch(&service_config_path)
+        .await
+        .expect("apply init config failed");
     tracing::info!("init config broadcast successfully");
 
-    // TODO(ihciah): run update task or api server to do config update, maybe in xDS protocol
     // Wait for workers
     for (_, mut close) in join_handlers.into_iter() {
         close.cancellation().await;
