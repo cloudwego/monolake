@@ -35,7 +35,7 @@ hyper = [
 monoio = { workspace = true, features = ['splice'] }
 monolake-core = { path = "../monolake-core" }
 monoio-codec = { workspace = true }
-monoio-http = { workspace = true }
+monoio-http = { workspace = true, features = ["encoding"] }
 monoio-thrift = { workspace = true }
 monoio-transports = { workspace = true, features = [
     "logging",
