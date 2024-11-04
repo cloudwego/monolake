@@ -25,7 +25,7 @@
 //!     common::ContextService,
 //!     http::{
 //!         core::HttpCoreService,
-//!         detect::HttpVersionDetect,
+//!         detect::H2Detect,
 //!         handlers::{
 //!             route::RouteConfig, ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler,
 //!             UpstreamHandler,
@@ -60,7 +60,7 @@
 //!     .push(RewriteAndRouteHandler::layer())
 //!     .push(ConnectionReuseHandler::layer())
 //!     .push(HttpCoreService::layer())
-//!     .push(HttpVersionDetect::layer());
+//!     .push(H2Detect::layer());
 //!
 //! // Use the service to handle HTTP requests
 //! ```

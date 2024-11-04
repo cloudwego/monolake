@@ -12,7 +12,7 @@ use monolake_services::{
     common::ContextService,
     http::{
         core::HttpCoreService,
-        detect::HttpVersionDetect,
+        detect::H2Detect,
         handlers::{
             upstream::HttpUpstreamTimeout, ConnectionReuseHandler, ContentHandler,
             RewriteAndRouteHandler, UpstreamHandler,
@@ -55,7 +55,7 @@ pub fn l7_factory(
             let stacks = stacks
                 .push(ConnectionReuseHandler::layer())
                 .push(HttpCoreService::layer())
-                .push(HttpVersionDetect::layer());
+                .push(H2Detect::layer());
 
             #[cfg(feature = "tls")]
             let stacks = stacks.push(monolake_services::tls::UnifiedTlsFactory::layer());
