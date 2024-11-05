@@ -5,13 +5,18 @@ use monolake_core::{
     listener::ListenerBuilder,
 };
 use monolake_services::{
-    http::{handlers::route::RouteConfig, HttpServerTimeout, Protocol},
+    http::{
+        handlers::{route::RouteConfig, upstream::HttpUpstreamTimeout},
+        HttpServerTimeout, HttpVersion,
+    },
     thrift::ttheader::ThriftServerTimeout,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 mod extractor;
+pub mod manager;
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct Config {
     pub runtime: RuntimeConfig,
@@ -35,7 +40,9 @@ pub struct ServerConfig {
     pub tls: monolake_services::tls::TlsConfig,
     pub routes: Vec<RouteConfig>,
     pub http_server_timeout: HttpServerTimeout,
-    pub protocol: Protocol,
+    pub http_upstream_timeout: HttpUpstreamTimeout,
+    pub upstream_http_version: HttpVersion,
+    pub http_opt_handlers: HttpOptHandlers,
     pub thrift_server_timeout: ThriftServerTimeout,
     #[cfg(feature = "openid")]
     pub auth_config: Option<AuthConfig>,
@@ -49,8 +56,10 @@ pub struct ServerUserConfig {
     pub tls: Option<TlsUserConfig>,
     pub routes: Vec<RouteConfig>,
     pub http_timeout: Option<HttpTimeout>,
-    #[serde(default = "Protocol::default")]
-    pub protocol: Protocol,
+    #[serde(default = "HttpVersion::default")]
+    pub upstream_http_version: HttpVersion,
+    #[serde(default)]
+    pub http_opt_handlers: HttpOptHandlers,
     pub thrift_timeout: Option<ThriftTimeout>,
 }
 
@@ -73,6 +82,11 @@ pub struct HttpTimeout {
     // Receiving full body timeout.
     // Like Nginx `client_body_timeout`
     server_read_body_timeout_sec: Option<u64>,
+    // Connect timeout
+    // Like Nginx 'proxy_connect_timeout'
+    upstream_connect_timeout_sec: Option<u64>,
+    // Read response timeout
+    upstream_read_timeout_sec: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -90,6 +104,12 @@ pub enum TlsStack {
     #[default]
     Rustls,
     NativeTls,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct HttpOptHandlers {
+    // Enable content handler in the handler chain
+    pub content_handler: bool,
 }
 
 #[cfg(feature = "openid")]
@@ -115,94 +135,133 @@ impl TryFrom<ListenerConfig> for ListenerBuilder {
 }
 
 impl Config {
+    #[allow(unused)]
     pub fn load(path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        #[derive(Debug, Clone, Serialize, Deserialize)]
-        pub struct UserConfig {
+        #[derive(Deserialize)]
+        struct UserConfig {
             #[serde(default)]
-            pub runtime: RuntimeConfig,
-            pub servers: HashMap<String, ServiceConfig<ListenerConfig, ServerUserConfig>>,
+            runtime: RuntimeConfig,
+            servers: HashMap<String, ServiceConfig<ListenerConfig, ServerUserConfig>>,
         }
         // 1. load from file -> UserConfig
         let file_context = monolake_core::util::file_read_sync(path)?;
-        let user_config = Self::from_slice::<UserConfig>(&file_context)?;
+        let user_config = parse_from_slice::<UserConfig>(&file_context)?;
 
         // 2. UserConfig -> Config
         let UserConfig { runtime, servers } = user_config;
-        let mut servers_new = HashMap::with_capacity(servers.len());
-        for (key, server) in servers.into_iter() {
-            let ServiceConfig { listener, server } = server;
-            #[cfg(feature = "tls")]
-            let tls = match server.tls {
-                Some(inner) => {
-                    let chain = monolake_core::util::file_read_sync(&inner.chain)?;
-                    let key = monolake_core::util::file_read_sync(&inner.key)?;
-                    match inner.stack {
-                        TlsStack::Rustls => {
-                            monolake_services::tls::TlsConfig::Rustls((chain, key)).try_into()?
-                        }
-                        TlsStack::NativeTls => {
-                            monolake_services::tls::TlsConfig::Native((chain, key)).try_into()?
-                        }
-                    }
-                }
-                None => monolake_services::tls::TlsConfig::None,
-            };
-            let server_http_timeout = server.http_timeout.unwrap_or_default();
-            let server_thrift_timeout = server.thrift_timeout.unwrap_or_default();
-            servers_new.insert(
-                key,
-                ServiceConfig {
-                    server: ServerConfig {
-                        name: server.name,
-                        proxy_type: server.proxy_type,
-                        #[cfg(feature = "tls")]
-                        tls,
-                        routes: server.routes,
-                        http_server_timeout: HttpServerTimeout {
-                            keepalive_timeout: server_http_timeout
-                                .server_keepalive_timeout_sec
-                                .map(Duration::from_secs),
-                            read_header_timeout: server_http_timeout
-                                .server_read_header_timeout_sec
-                                .map(Duration::from_secs),
-                            read_body_timeout: server_http_timeout
-                                .server_read_body_timeout_sec
-                                .map(Duration::from_secs),
-                        },
-                        thrift_server_timeout: ThriftServerTimeout {
-                            keepalive_timeout: server_thrift_timeout
-                                .server_keepalive_timeout_sec
-                                .map(Duration::from_secs),
-                            message_timeout: server_thrift_timeout
-                                .server_message_timeout_sec
-                                .map(Duration::from_secs),
-                        },
-                        protocol: server.protocol,
-                        #[cfg(feature = "openid")]
-                        auth_config: None,
-                    },
-                    listener,
-                },
-            );
-        }
+        let servers_new = build_server_config(servers)?;
         Ok(Config {
             runtime,
             servers: servers_new,
         })
     }
 
-    pub fn from_slice<T: DeserializeOwned>(content: &[u8]) -> anyhow::Result<T> {
-        // read first non-space u8
-        let is_json = match content
-            .iter()
-            .find(|&&b| b != b' ' && b != b'\r' && b != b'\n' && b != b'\t')
-        {
-            Some(first) => *first == b'{',
-            None => false,
-        };
-        match is_json {
-            true => serde_json::from_slice::<T>(content).map_err(Into::into),
-            false => toml::from_str::<T>(&String::from_utf8_lossy(content)).map_err(Into::into),
+    pub fn load_runtime_config(path: impl AsRef<Path>) -> anyhow::Result<RuntimeConfig> {
+        #[derive(Deserialize)]
+        struct RuntimeConfigContainer {
+            runtime: RuntimeConfig,
         }
+        let file_content = monolake_core::util::file_read_sync(path)?;
+        let container = parse_from_slice::<RuntimeConfigContainer>(&file_content)?;
+        Ok(container.runtime)
+    }
+
+    pub fn parse_service_config(
+        file_content: &[u8],
+    ) -> anyhow::Result<HashMap<String, ServiceConfig<ListenerConfig, ServerConfig>>> {
+        #[derive(Deserialize)]
+        struct UserConfigContainer {
+            servers: HashMap<String, ServiceConfig<ListenerConfig, ServerUserConfig>>,
+        }
+
+        let container = parse_from_slice::<UserConfigContainer>(file_content)?;
+        build_server_config(container.servers)
+    }
+}
+
+pub fn build_server_config(
+    servers: HashMap<String, ServiceConfig<ListenerConfig, ServerUserConfig>>,
+) -> anyhow::Result<HashMap<String, ServiceConfig<ListenerConfig, ServerConfig>>> {
+    let mut servers_new = HashMap::with_capacity(servers.len());
+    for (key, server) in servers.into_iter() {
+        let ServiceConfig { listener, server } = server;
+        #[cfg(feature = "tls")]
+        let tls = match server.tls {
+            Some(inner) => {
+                let chain = monolake_core::util::file_read_sync(&inner.chain)?;
+                let key = monolake_core::util::file_read_sync(&inner.key)?;
+                match inner.stack {
+                    TlsStack::Rustls => {
+                        monolake_services::tls::TlsConfig::Rustls((chain, key)).try_into()?
+                    }
+                    TlsStack::NativeTls => {
+                        monolake_services::tls::TlsConfig::Native((chain, key)).try_into()?
+                    }
+                }
+            }
+            None => monolake_services::tls::TlsConfig::None,
+        };
+        let server_http_timeout = server.http_timeout.unwrap_or_default();
+        let server_thrift_timeout = server.thrift_timeout.unwrap_or_default();
+        servers_new.insert(
+            key,
+            ServiceConfig {
+                server: ServerConfig {
+                    name: server.name,
+                    proxy_type: server.proxy_type,
+                    #[cfg(feature = "tls")]
+                    tls,
+                    routes: server.routes,
+                    http_server_timeout: HttpServerTimeout {
+                        keepalive_timeout: server_http_timeout
+                            .server_keepalive_timeout_sec
+                            .map(Duration::from_secs),
+                        read_header_timeout: server_http_timeout
+                            .server_read_header_timeout_sec
+                            .map(Duration::from_secs),
+                        read_body_timeout: server_http_timeout
+                            .server_read_body_timeout_sec
+                            .map(Duration::from_secs),
+                    },
+                    http_upstream_timeout: HttpUpstreamTimeout {
+                        connect_timeout: server_http_timeout
+                            .upstream_connect_timeout_sec
+                            .map(Duration::from_secs),
+                        read_timeout: server_http_timeout
+                            .upstream_read_timeout_sec
+                            .map(Duration::from_secs),
+                    },
+                    thrift_server_timeout: ThriftServerTimeout {
+                        keepalive_timeout: server_thrift_timeout
+                            .server_keepalive_timeout_sec
+                            .map(Duration::from_secs),
+                        message_timeout: server_thrift_timeout
+                            .server_message_timeout_sec
+                            .map(Duration::from_secs),
+                    },
+                    upstream_http_version: server.upstream_http_version,
+                    #[cfg(feature = "openid")]
+                    auth_config: None,
+                    http_opt_handlers: server.http_opt_handlers,
+                },
+                listener,
+            },
+        );
+    }
+    Ok(servers_new)
+}
+
+pub fn parse_from_slice<T: DeserializeOwned>(content: &[u8]) -> anyhow::Result<T> {
+    // read first non-space u8
+    let is_json = match content
+        .iter()
+        .find(|&&b| b != b' ' && b != b'\r' && b != b'\n' && b != b'\t')
+    {
+        Some(first) => *first == b'{',
+        None => false,
+    };
+    match is_json {
+        true => serde_json::from_slice::<T>(content).map_err(Into::into),
+        false => toml::from_str::<T>(&String::from_utf8_lossy(content)).map_err(Into::into),
     }
 }

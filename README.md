@@ -46,6 +46,10 @@ RUST_LOG=debug cargo run --package monolake -- -c examples/config.toml
 curl -vvv --cacert examples/certs/rootCA.crt --resolve "gateway.monolake.rs:8082:127.0.0.1"  https://gateway.monolake.rs:8082/
 ```
 
+## Configurations
+
+Please check [Configuration](docs/cloudwego/Getting%20Started/_config.md) for more details.
+
 ## Limitations
 
 1. On Linux 5.6+, both uring and epoll are supported
@@ -55,7 +59,7 @@ curl -vvv --cacert examples/certs/rootCA.crt --resolve "gateway.monolake.rs:8082
 
 ## Call for help
 
-Monoio is a subproject of [CloudWeGo](https://www.cloudwego.io).
+Monolake is a subproject of [CloudWeGo](https://www.cloudwego.io).
 
 Due to the limited resources, any help to make the monolake more mature, reporting issues or  requesting features are welcome. Refer the [Contributing](./CONTRIBUTING.md) documents for the guidelines.
 
@@ -68,4 +72,4 @@ Due to the limited resources, any help to make the monolake more mature, reporti
 
 ## License
 
-Monoio is licensed under the MIT license or Apache license.
+Monolake is licensed under the MIT license or Apache license.

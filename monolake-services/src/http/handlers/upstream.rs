@@ -73,7 +73,7 @@ use monolake_core::{
 use service_async::{AsyncMakeService, MakeService, ParamMaybeRef, ParamRef, Service};
 use tracing::{debug, info};
 
-use crate::http::{generate_response, Protocol};
+use crate::http::{generate_response, HttpVersion};
 
 type PooledHttpConnector = HttpConnector<TcpConnector, SocketAddr, TcpStream>;
 #[cfg(feature = "tls")]
@@ -101,29 +101,34 @@ pub struct UpstreamHandler {
 
 impl UpstreamHandler {
     #[cfg(not(feature = "tls"))]
-    pub fn new(connector: HttpConnector) -> Self {
+    pub fn new(connector: HttpConnector, http_upstream_timeout: HttpUpstreamTimeout) -> Self {
         UpstreamHandler {
-            connector,
             http_upstream_timeout: Default::default(),
+            connector,
+            http_upstream_timeout,
         }
     }
 
     #[cfg(feature = "tls")]
-    pub fn new(connector: PooledHttpConnector, tls_connector: PooledHttpsConnector) -> Self {
+    pub fn new(
+        connector: PooledHttpConnector,
+        tls_connector: PooledHttpsConnector,
+        http_upstream_timeout: HttpUpstreamTimeout,
+    ) -> Self {
         UpstreamHandler {
             http_connector: connector,
             https_connector: tls_connector,
-            http_upstream_timeout: Default::default(),
+            http_upstream_timeout,
         }
     }
 
     pub const fn factory(
         http_upstream_timeout: HttpUpstreamTimeout,
-        protocol: Protocol,
+        version: HttpVersion,
     ) -> UpstreamHandlerFactory {
         UpstreamHandlerFactory {
             http_upstream_timeout,
-            protocol,
+            version,
         }
     }
 }
@@ -252,55 +257,86 @@ impl UpstreamHandler {
 
 pub struct UpstreamHandlerFactory {
     http_upstream_timeout: HttpUpstreamTimeout,
-    protocol: Protocol,
+    version: HttpVersion,
 }
 
 impl UpstreamHandlerFactory {
     pub fn new(
         http_upstream_timeout: HttpUpstreamTimeout,
-        protocol: Protocol,
+        version: HttpVersion,
     ) -> UpstreamHandlerFactory {
         UpstreamHandlerFactory {
             http_upstream_timeout,
-            protocol,
+            version,
         }
     }
 }
 
-// HttpCoreService is a Service and a MakeService.
-impl MakeService for UpstreamHandlerFactory {
-    type Service = UpstreamHandler;
-    type Error = Infallible;
-
-    fn make_via_ref(&self, _old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
-        let http_connector = match self.protocol {
-            Protocol::HTTP2 => PooledHttpConnector::build_tcp_http2_only(),
-            Protocol::HTTP11 => {
+macro_rules! create_connectors {
+    ($self:ident, $http_connector:ident, $https_connector:ident, $old_service:ident) => {
+        let mut $http_connector = match $self.version {
+            HttpVersion::Http2 => PooledHttpConnector::build_tcp_http2_only(),
+            HttpVersion::Http11 => {
                 // No support for upgrades to HTTP/2
                 PooledHttpConnector::build_tcp_http1_only()
             }
-            Protocol::Auto => {
+            HttpVersion::Auto => {
                 // Default to HTTP/1.1
                 PooledHttpConnector::default()
             }
         };
+        $http_connector.set_read_timeout($self.http_upstream_timeout.read_timeout);
 
         #[cfg(feature = "tls")]
-        let https_connector = match self.protocol {
-            Protocol::HTTP2 => {
+        let mut $https_connector = match $self.version {
+            HttpVersion::Http2 => {
                 // ALPN advertised with h2
                 PooledHttpsConnector::build_tls_http2_only()
             }
-            Protocol::HTTP11 => {
+            HttpVersion::Http11 => {
                 // ALPN advertised with http1.1
                 PooledHttpsConnector::build_tls_http1_only()
             }
-            Protocol::Auto => {
+            HttpVersion::Auto => {
                 // ALPN advertised with h2/http1.1
                 PooledHttpsConnector::default()
             }
         };
+        #[cfg(feature = "tls")]
+        $https_connector.set_read_timeout($self.http_upstream_timeout.read_timeout);
 
+        // If there is an old service, transfer the pool from the old service to the new one
+        // to avoid creating new connections.
+        if let Some($old_service) = $old_service {
+            // Pool transfer is only supported when the protocol and timeout settings are the same.
+            match PooledHttpConnector::transfer_pool(
+                &$old_service.http_connector,
+                &mut $http_connector,
+            ) {
+                Ok(_) => tracing::trace!("Transferred HTTP pool from old service to new service"),
+                Err(e) => {
+                    tracing::error!("Failed to transfer pool: {:?}", e);
+                }
+            }
+            #[cfg(feature = "tls")]
+            match PooledHttpsConnector::transfer_pool(
+                &$old_service.https_connector,
+                &mut $https_connector,
+            ) {
+                Ok(_) => tracing::trace!("Transferred HTTPS pool from old service to new service"),
+                Err(e) => {
+                    tracing::error!("Failed to transfer pool: {:?}", e);
+                }
+            }
+        }
+    };
+}
+// HttpCoreService is a Service and a MakeService.
+impl MakeService for UpstreamHandlerFactory {
+    type Service = UpstreamHandler;
+    type Error = Infallible;
+    fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
+        create_connectors!(self, http_connector, https_connector, old);
         Ok(UpstreamHandler {
             http_connector,
             #[cfg(feature = "tls")]
@@ -316,13 +352,13 @@ impl AsyncMakeService for UpstreamHandlerFactory {
 
     async fn make_via_ref(
         &self,
-        _old: Option<&Self::Service>,
+        old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
-        let http_connector = PooledHttpConnector::default();
+        create_connectors!(self, http_connector, https_connector, old);
         Ok(UpstreamHandler {
             http_connector,
             #[cfg(feature = "tls")]
-            https_connector: PooledHttpsConnector::default(),
+            https_connector,
             http_upstream_timeout: self.http_upstream_timeout,
         })
     }
@@ -333,10 +369,8 @@ pub struct HttpUpstreamTimeout {
     // Connect timeout
     // Link Nginx `proxy_connect_timeout`
     pub connect_timeout: Option<Duration>,
-    // Read full http header.
-    pub read_header_timeout: Option<Duration>,
-    // Receiving full body timeout.
-    pub read_body_timeout: Option<Duration>,
+    // Response read timeout
+    pub read_timeout: Option<Duration>,
 }
 
 fn add_xff_header<CX>(headers: &mut HeaderMap, ctx: &CX)

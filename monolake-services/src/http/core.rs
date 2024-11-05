@@ -16,7 +16,7 @@
 //!
 //! - Support for HTTP/1, HTTP/1.1, and HTTP/2 protocols
 //! - Composable design allowing a stack of `HttpHandler` implementations
-//! - Automatic protocol detection when combined with `HttpVersionDetect`
+//! - Automatic protocol detection when combined with `H2Detect`
 //! - Efficient handling of concurrent requests using asynchronous I/O
 //! - Configurable timeout settings for different stages of request processing
 //! - Integration with `service_async` for easy composition in service stacks
@@ -25,17 +25,17 @@
 //! # Usage
 //!
 //! `HttpCoreService` is typically used as part of a larger service stack, often in combination
-//! with `HttpVersionDetect` for automatic protocol detection. Here's a basic example:
+//! with `H2Detect` for automatic protocol detection. Here's a basic example:
 //!
 //! ```ignore
 //! use service_async::{layer::FactoryLayer, stack::FactoryStack};
 //!
-//! use crate::http::{HttpCoreService, HttpVersionDetect};
+//! use crate::http::{HttpCoreService, H2Detect};
 //!
 //! let config = Config { /* ... */ };
 //! let stack = FactoryStack::new(config)
 //!     .push(HttpCoreService::layer())
-//!     .push(HttpVersionDetect::layer())
+//!     .push(H2Detect::layer())
 //!     // ... other handlers implementing HttpHandler ...
 //!     ;
 //!
@@ -52,7 +52,7 @@
 //!
 //! # Automatic Protocol Detection
 //!
-//! When used in conjunction with `HttpVersionDetect`, `HttpCoreService` can automatically
+//! When used in conjunction with `H2Detect`, `HttpCoreService` can automatically
 //! detect whether an incoming connection is using HTTP/1, HTTP/1.1, or HTTP/2, and handle
 //! it appropriately. This allows for seamless support of multiple HTTP versions without
 //! the need for separate server configurations.

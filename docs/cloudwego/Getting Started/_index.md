@@ -112,3 +112,6 @@ To download and install Rust, and set `rustup` to nightly, you can follow these 
    $ curl --resolve gateway.monolake.rs:8081:127.0.0.1 --cacert examples/certs/rootCA.crt -vvv https://gateway.monolake.rs:8081/ 
   ```
  
+### Detail configuration
+
+Please check [Configuration](_config.md) for more details.

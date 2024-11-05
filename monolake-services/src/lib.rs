@@ -15,9 +15,9 @@
 //!
 //! - [`HttpCoreService`](http::core): The main service for handling HTTP/1.1 and HTTP/2
 //!   connections.
-//! - [`HttpVersionDetect`](http::detect): Automatic detection of HTTP protocol versions.
-//!   #[cfg_attr(feature = "hyper", doc = "- [`HyperCoreService`](hyper::HyperCoreService): A
-//!   high-performance HTTP service built on top of the Hyper library.")]
+//! - [`H2Detect`](http::detect): Automatic detection of HTTP protocol versions. #[cfg_attr(feature
+//!   = "hyper", doc = "- [`HyperCoreService`](hyper::HyperCoreService): A high-performance HTTP
+//!   service built on top of the Hyper library.")]
 //!
 //! #### Request Handlers
 //!
@@ -108,7 +108,7 @@
 //!
 //! ```ignore
 //! use monolake_services::{
-//!     HttpCoreService, HttpVersionDetect, ConnectionReuseHandler,
+//!     HttpCoreService, H2Detect, ConnectionReuseHandler,
 //!     ContentHandler, RewriteAndRouteHandler, UpstreamHandler, UnifiedTlsService,
 //!     ProxyProtocolService, HyperCoreService
 //! };
@@ -124,7 +124,7 @@
 //!     .push(ContentHandler::layer())
 //!     .push(ConnectionReuseHandler::layer())
 //!     .push(HyperCoreService::layer());
-//!     .push(HttpVersionDetect::layer())
+//!     .push(H2Detect::layer())
 //!     .push(UnifiedTlsService::layer())
 //!     .push(ContextService::layer());
 //!
