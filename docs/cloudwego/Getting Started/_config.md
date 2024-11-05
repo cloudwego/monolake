@@ -28,21 +28,23 @@ All server configuration section starts with [servers.xxxx]. Multiple servers ca
 
 #### Basic Server
 
-It is for http server. The type of listener is "socket" and the value contains ip and port of the proxy source. For example:
+It is for http server. It has a name and we can specify http version. The type of listener is "socket" and the value contains ip and port of the proxy source. The content_handler of http_opt_handlers indicates the content has a handler. For example:
 
 ```markup
 [servers.server_basic]
 name = "monolake.cloudwego.io"
+upstream_http_version = "http11"
+http_opt_handlers = { content_handler = true }
 listener = { type = "socket", value = "0.0.0.0:8080" }
 ```
 
 #### TLS Support
 
-TLS server configuration contains additional "tls" section which has "chain" and "key" fields which are TLS cert and key file names. With TLS, the server can support HTTPS. For example:
+TLS server configuration contains additional "tls" section which has "chain" and "key" fields which are TLS cert and key file names. Another supported field "stack" specifies TLS implementation method and can be "rustls" or "native_tls". With TLS, the server can support HTTPS. For example:
 
 ```markup
 [servers.server_tls]
-tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key" }
+tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key", stack = "rustls" }
 name = "tls.monolake.cloudwego.io"
 listener = { type = "socket", value = "0.0.0.0:8081" }
 ```
@@ -70,16 +72,15 @@ proxy_type = "thrift"
 listener = { type = "socket", value = "0.0.0.0:8081" }
 ```
 
-#### Timeout and Keepalive Support
+#### Timeout Support
 
-In server section, user can configure timeout and keepalive. For example:
+In server section, user can configure http timeout or thrift timeout. server_keepalive_timeout_sec is for server keepalive timeout. upstream_connect_timeout_sec is for connection timeout. upstream_read_timeout_sec and server_message_timeout_sec are for read/response timeout. server_read_header_timeout_sec is for http header read timeout. server_read_body_timeout_sec is for http body full read timeout. For example:
 
 ```markup
 [servers.proxy]
 name = "proxy"
-keepalive_config = { secs = 0, nanos = 100000 }
-timeout_config = { secs = 0, nanos = 100000 }
-http_timeout = { secs = 5 }
+http_timeout = { server_keepalive_timeout_sec = 60, upstream_connect_timeout_sec = 2, upstream_read_timeout_sec = 2 , server_read_header_timeout_sec = 2, server_read_body_timeout_sec = 5 }
+thrift_timeout = { server_keepalive_timeout_sec = 60, server_message_timeout_sec = 2 }
 listener = { type = "socket", value = "0.0.0.0:8081" }
 ```
 
@@ -107,28 +108,15 @@ That proxies "http://127.0.0.1:8080/*p" to "http://127.0.0.1:9080/*p" if previou
 
 #### Weight Configuration
 
-Naturally proxy support load balacing. User can define multiple upstreams in upstreams section and use "weight" field to distribute load for each upstreams. Weight field is optional. If it is not defined, the load will equally distributed to all upstreams. For example:
+Naturally proxy support load balacing. User can define multiple upstreams in upstreams section and use "weight" field to distribute load for each upstreams. Weight field is optional. A higher weight means the upstream is more likely to be chosen when distributing requests. If not specified, it defaults to 1. For example:
 
 ```markup
 [[servers.server_uds.routes]]
 upstreams = [
-    { endpoint = { type = "uri", value = "http://127.0.0.1:9080" } },
-    { endpoint = { type = "uri", value = "http://127.0.0.1:10080" } },
+    { weight = 10, endpoint = { type = "uri", value = "http://127.0.0.1:9080" } },
+    { weight = 20, endpoint = { type = "uri", value = "http://127.0.0.1:10080" } },
 ]
 path = '/*p'
-```
-
-#### HTTP Version Configuration
-
-User can define HTTP version sending from proxy to the server in upstreams. Alavailable versions are HTTP1_1 and HTTP2.
-
-```markup
-[servers.server_basic2]
-name = "monolake.cloudwego.io"
-listener = { type = "socket", value = "0.0.0.0:8402" }
-[[servers.server_basic2.routes]]
-path = '/'
-upstreams = [ { weight = 10, version = "HTTP1_1", endpoint = { type = "uri", value = "http://127.0.0.1:10082" } }]
 ```
 
 ### Parameter Values
