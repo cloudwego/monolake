@@ -1,105 +1,52 @@
+# Runtime configuration
 [runtime]
-runtime_type = "io_uring"
-worker_threads = 2
-entries = 1024
+runtime_type = "io_uring"  # Type of runtime to use (e.g., legacy, io_uring)
+worker_threads = 2       # Number of worker threads
+entries = 1024           # Number of entries for io_uring
 
-[servers.demo_basic]
-name = "gateway.monolake.rs"
-listener = { type = "socket", value = "0.0.0.0:8080" }
-upstream_http_version = "http11"
-http_opt_handlers = { content_handler = true }
-
-# front-end HTTP, back-end HTTP
-[[servers.demo_basic.routes]]
-path = '/'
-upstreams = [{ endpoint = { type = "uri", value = "http://ifconfig.me/" } }]
-
-# front-end HTTP, back-end HTTPS
-[[servers.demo_basic.routes]]
-path = '/example'
-upstreams = [{ endpoint = { type = "uri", value = "https://example.com/" } }]
-
-
-[servers.demo_tls]
-tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key" }
-name = "gateway.monolake.rs"
-listener = { type = "socket", value = "0.0.0.0:8081" }
-upstream_http_version = "http11"
+# Basic HTTP proxy configuration
+[servers.demo_http]
+name = "monolake.rs"  # Proxy name
+listener = { type = "socket", value = "0.0.0.0:8080" }  # Listener configuration
+upstream_http_version = "http11"  # HTTP version for upstream connections
+http_opt_handlers = { content_handler = true }  # Enable HTTP optional handlers
 http_timeout = { server_keepalive_timeout_sec = 60, upstream_connect_timeout_sec = 2, upstream_read_timeout_sec = 2 }
 
-[[servers.demo_tls.routes]]
-path = '/'
-upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:8080" } }]
+# Routes for the basic HTTP proxy
+[[servers.demo_http.routes]]
+path = '/'  # Route path
+upstreams = [{ endpoint = { type = "uri", value = "http://ifconfig.me/" } }]  # Upstream endpoint
 
-[[servers.demo_tls.routes]]
-path = '/{*p}'
-upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:8080" } }]
+[[servers.demo_http.routes]]
+path = '/tls_endpoint'  # Route path for HTTPS endpoint
+upstreams = [{ endpoint = { type = "uri", value = "https://example.com/" } }]  # Upstream endpoint
 
+# HTTPS proxy configuration
+[servers.demo_https]
+tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key" }
+name = "tls.monolake.rs"  # Proxy name
+listener = { type = "socket", value = "0.0.0.0:8081" }  # Listener configuration
+upstream_http_version = "http2"  # Upstream connector uses HTTP/2
+http_opt_handlers = { content_handler = false }  # HTTP optional handlers
 
+# Routes for the HTTPS server
+[[servers.demo_https.routes]]
+path = '/'  # Route path
+upstreams = [
+    { endpoint = { type = "uri", value = "https://httpbin.org/html" } },
+    { endpoint = { type = "uri", value = "https://httpbin.org/json" } }
+]
+
+[[servers.demo_https.routes]]
+path = '/{*p}'  # Wild card route path
+upstreams = [ { endpoint = { type = "uri", value = "https://httpbin.org/xml" } } ]
+
+# Unix Domain Socket (UDS) server configuration
 [servers.demo_uds]
-name = "gateway.monolake.rs"
-listener = { type = "unix", value = "/tmp/monolake.sock" }
+name = "uds.monolake.rs"  # Server name
+listener = { type = "unix", value = "/tmp/monolake.sock" }  # Listener configuration
 
+# Routes for the UDS server
 [[servers.demo_uds.routes]]
-upstreams = [
-    { endpoint = { type = "uri", value = "http://127.0.0.1:9080" } },
-    { endpoint = { type = "uri", value = "http://127.0.0.1:10080" } },
-]
-path = '/'
-
-[[servers.demo_uds.routes]]
-upstreams = [
-    { endpoint = { type = "uri", value = "http://127.0.0.1:9080" } },
-    { endpoint = { type = "uri", value = "http://127.0.0.1:10080" } },
-]
-path = '/{*p}'
-
-
-[servers.demo_rustls]
-tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key", stack = "rustls" }
-name = "gateway.monolake.rs"
-listener = { type = "socket", value = "0.0.0.0:8082" }
-
-# front-end HTTPS, back-end HTTP
-[[servers.demo_rustls.routes]]
-path = '/'
-upstreams = [
-    { endpoint = { type = "uri", value = "http://ifconfig.me" } },
-]
-
-# front-end HTTPS, back-end HTTPS
-[[servers.demo_rustls.routes]]
-path = '/example'
-upstreams = [
-    { endpoint = { type = "uri", value = "https://example.com" } },
-]
-
-
-[servers.demo_native_tls]
-tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key", stack = "native_tls" }
-name = "gateway.monolake.rs"
-listener = { type = "socket", value = "0.0.0.0:8083" }
-
-# front-end HTTPS, back-end HTTP
-[[servers.demo_native_tls.routes]]
-path = '/'
-upstreams = [
-    { endpoint = { type = "uri", value = "http://ifconfig.me" } },
-]
-
-# front-end HTTPS, back-end HTTPS
-[[servers.demo_native_tls.routes]]
-path = '/example'
-upstreams = [
-    { endpoint = { type = "uri", value = "https://example.com" } },
-]
-
-
-[servers.demo_timeout]
-name = "timeout.com"
-listener = { type = "socket", value = "0.0.0.0:8084" }
-http_timeout = { server_read_header_timeout_sec = 2 }
-
-[[servers.demo_timeout.routes]]
-path = '/ping'
-upstreams = [{ endpoint = { type = "uri", value = "http://127.0.0.1:9080" } }]
+path = '/'  # Route path
+upstreams = [{ endpoint = { type = "uri", value = "https://ifconfig.me" } }]  # Upstream endpoint
