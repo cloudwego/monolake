@@ -2,7 +2,7 @@
 
 [![WebSite](https://img.shields.io/website?up_message=cloudwego&url=https%3A%2F%2Fwww.cloudwego.io%2F)](https://www.cloudwego.io/)
 [![License](https://img.shields.io/github/license/cloudwego/monolake)](https://github.com/cloudwego/monolake/blob/main/LICENSE)
-[![OpenIssue](https://img.shields.io/github/issues/cloudwego/kitex)](https://github.com/cloudwego/monolake/issues)
+[![OpenIssue](https://img.shields.io/github/issues/cloudwego/monolake)](https://github.com/cloudwego/monolake/issues)
 [![ClosedIssue](https://img.shields.io/github/issues-closed/cloudwego/monolake)](https://github.com/cloudwego/monolake/issues?q=is%3Aissue+is%3Aclosed)
 ![Stars](https://img.shields.io/github/stars/cloudwego/monolake)
 ![Forks](https://img.shields.io/github/forks/cloudwego/monolake)
@@ -80,8 +80,7 @@ Monolake is licensed under the MIT license or Apache license.
 - Email: [conduct@cloudwego.io](conduct@cloudwego.io)
 - How to become a member: [COMMUNITY MEMBERSHIP](https://github.com/cloudwego/community/blob/main/COMMUNITY_MEMBERSHIP.md)
 - Issues: [Issues](https://github.com/cloudwego/monoalke/issues)
-
-TODO: Add more community information
+- Discord: Join community with [Discord Channel](https://discord.gg/jceZSE7DsW). 
 
 ## Landscapes
 
