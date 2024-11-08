@@ -395,38 +395,38 @@ Throughput and requests per second compare:
 
 | Case                            | Requests/sec | Transfer/sec  | Server Error | Timeout |
 | ------------------------------- | ------------ | ------------- | ------------ | ------- |
-| http-result-4c-monolake-tiny    | 154431.05    | 52659486.72   | 0            | 0       |
-| http-result-4c-monolake-small   | 145974.68    | 508580331.52  | 0            | 0       |
-| http-result-4c-monolake-medium  | 85856.89     | 987842478.08  | 0            | 0       |
-| http-result-4c-monolake-large   | 9185.21      | 1524713390.08 | 0            | 381     |
-| http-result-4c-nginx-tiny       | 183684.88    | 67045949.44   | 0            | 0       |
-| http-result-4c-nginx-small      | 176493.90    | 619142184.96  | 0            | 0       |
-| http-result-4c-nginx-medium     | 110590.35    | 1277752770.56 | 0            | 0       |
-| http-result-4c-nginx-large      | 9300.72      | 1546188226.56 | 0            | 24      |
-| http-result-4c-traefik-tiny     | 9984.86      | 3407872.00    | 0            | 0       |
-| http-result-4c-traefik-small    | 10992.20     | 38293995.52   | 0            | 0       |
-| http-result-4c-traefik-medium   | 11981.44     | 137604628.48  | 0            | 0       |
-| http-result-4c-traefik-large    | 9068.24      | 1503238553.60 | 0            | 7       |
-| http-result-4c-envoy-tiny       | 37543.33     | 13820231.68   | 0            | 0       |
-| http-result-4c-envoy-small      | 36367.61     | 127685099.52  | 0            | 0       |
-| http-result-4c-envoy-medium     | 31010.91     | 357008670.72  | 0            | 0       |
-| http-result-4c-envoy-large      | 9307.30      | 1546188226.56 | 0            | 0       |
-| https-result-4c-monolake-tiny   | 140520.84    | 47919923.20   | 0            | 0       |
-| https-result-4c-monolake-small  | 115614.24    | 402799984.64  | 0            | 0       |
-| https-result-4c-monolake-medium | 63085.81     | 724545044.48  | 0            | 0       |
-| https-result-4c-monolake-large  | 8051.51      | 1342177280.00 | 0            | 2       |
-| https-result-4c-nginx-tiny      | 126128.05    | 46032486.40   | 0            | 0       |
-| https-result-4c-nginx-small     | 115107.62    | 403796131.84  | 0            | 0       |
-| https-result-4c-nginx-medium    | 63612.32     | 732115763.20  | 0            | 0       |
-| https-result-4c-nginx-large     | 8020.73      | 1331439861.76 | 0            | 3       |
-| https-result-4c-traefik-tiny    | 9938.96      | 3386900.48    | 0            | 0       |
-| https-result-4c-traefik-small   | 11888.26     | 41418752.00   | 0            | 0       |
-| https-result-4c-traefik-medium  | 13911.54     | 159771525.12  | 0            | 0       |
-| https-result-4c-traefik-large   | 7960.72      | 1320702443.52 | 0            | 0       |
-| https-result-4c-envoy-tiny      | 34888.23     | 12845056.00   | 0            | 0       |
-| https-result-4c-envoy-small     | 33313.77     | 116968652.80  | 0            | 0       |
-| https-result-4c-envoy-medium    | 27510.93     | 316722380.80  | 0            | 0       |
-| https-result-4c-envoy-large     | 8453.53      | 1406601789.44 | 0            | 0       |
+| http-result-4c-monolake-tiny    |    161101.29 |   54934896.64 |            0 |       0 |
+| http-result-4c-monolake-small   |    151977.67 |  529488936.96 |            0 |       0 |
+| http-result-4c-monolake-medium  |     85893.56 |  987842478.08 |            0 |       0 |
+| http-result-4c-monolake-large   |      9186.06 | 1524713390.08 |            0 |     618 |
+| http-result-4c-nginx-tiny       |    187973.44 |   68608327.68 |            0 |       0 |
+| http-result-4c-nginx-small      |    176318.84 |  618523525.12 |            0 |       0 |
+| http-result-4c-nginx-medium     |    108853.56 | 1256277934.08 |            0 |       0 |
+| http-result-4c-nginx-large      |      9304.14 | 1546188226.56 |            0 |      22 |
+| http-result-4c-traefik-tiny     |      9991.09 |    3407872.00 |            0 |       0 |
+| http-result-4c-traefik-small    |     10989.34 |   38283509.76 |            0 |       0 |
+| http-result-4c-traefik-medium   |     11988.52 |  137688514.56 |            0 |       0 |
+| http-result-4c-traefik-large    |      8737.57 | 1449551462.40 |            0 |       0 |
+| http-result-4c-envoy-tiny       |     36951.75 |   13600030.72 |            0 |       0 |
+| http-result-4c-envoy-small      |     35367.03 |  124182855.68 |            0 |       0 |
+| http-result-4c-envoy-medium     |     29637.89 |  341206630.40 |            0 |       0 |
+| http-result-4c-envoy-large      |      9285.01 | 1546188226.56 |            0 |      46 |
+| https-result-4c-monolake-tiny   |    141883.70 |   48381296.64 |            0 |       0 |
+| https-result-4c-monolake-small  |    116831.85 |  407046717.44 |            0 |       0 |
+| https-result-4c-monolake-medium |     63390.91 |  728047288.32 |            0 |       0 |
+| https-result-4c-monolake-large  |      7946.21 | 1320702443.52 |            0 |       0 |
+| https-result-4c-nginx-tiny      |    127167.08 |   46420459.52 |            0 |       0 |
+| https-result-4c-nginx-small     |    114350.27 |  401143234.56 |            0 |       0 |
+| https-result-4c-nginx-medium    |     62450.58 |  718746419.20 |            0 |       0 |
+| https-result-4c-nginx-large     |      7881.00 | 1309965025.28 |            0 |      15 |
+| https-result-4c-traefik-tiny    |      9943.28 |    3386900.48 |            0 |       0 |
+| https-result-4c-traefik-small   |     11888.59 |   41418752.00 |            0 |       0 |
+| https-result-4c-traefik-medium  |     13914.15 |  159802982.40 |            0 |       0 |
+| https-result-4c-traefik-large   |      7698.61 | 1277752770.56 |            0 |       0 |
+| https-result-4c-envoy-tiny      |     34158.00 |   12582912.00 |            0 |       0 |
+| https-result-4c-envoy-small     |     33054.16 |  116066877.44 |            0 |       0 |
+| https-result-4c-envoy-medium    |     26968.24 |  310472867.84 |            0 |       0 |
+| https-result-4c-envoy-large     |      8349.09 | 1385126952.96 |            0 |       0 |
 
 ![proxies-performance](images/README/proxies-performance.png)
 
@@ -435,13 +435,13 @@ Throughput and requests per second compare by payload size:
 
 | Case                     | Tiny Requests/sec | Small Requests/sec | Medium Requests/sec | Large Requests/sec | Tiny Transfer/sec | Small Transfer/sec | Medium Transfer/sec | Large Transfer/sec |
 | ------------------------ | ----------------- | ------------------ | ------------------- | ------------------ | ----------------- | ------------------ | ------------------- | ------------------ |
-| http-result-4c-monolake  | 154431.05         | 145974.68          | 85856.89            | 9185.21            | 52659486.72       | 508580331.52       | 987842478.08        | 1524713390.08      |
-| http-result-4c-nginx     | 183684.88         | 176493.90          | 110590.35           | 9300.72            | 67045949.44       | 619142184.96       | 1277752770.56       | 1546188226.56      |
-| http-result-4c-traefik   | 9984.86           | 10992.20           | 11981.44            | 9068.24            | 3407872.00        | 38293995.52        | 137604628.48        | 1503238553.60      |
-| http-result-4c-envoy     | 37543.33          | 36367.61           | 31010.91            | 9307.30            | 13820231.68       | 127685099.52       | 357008670.72        | 1546188226.56      |
-| https-result-4c-monolake | 140520.84         | 115614.24          | 63085.81            | 8051.51            | 47919923.20       | 402799984.64       | 724545044.48        | 1342177280.00      |
-| https-result-4c-nginx    | 126128.05         | 115107.62          | 63612.32            | 8020.73            | 46032486.40       | 403796131.84       | 732115763.20        | 1331439861.76      |
-| https-result-4c-traefik  | 9938.96           | 11888.26           | 13911.54            | 7960.72            | 3386900.48        | 41418752.00        | 159771525.12        | 1320702443.52      |
-| https-result-4c-envoy    | 34888.23          | 33313.77           | 27510.93            | 8453.53            | 12845056.00       | 116968652.80       | 316722380.80        | 1406601789.44      |
+| http-result-4c-monolake  |         161101.29 |          151977.67 |            85893.56 |            9186.06 |       54934896.64 |       529488936.96 |        987842478.08 |      1524713390.08 |
+| http-result-4c-nginx     |         187973.44 |          176318.84 |           108853.56 |            9304.14 |       68608327.68 |       618523525.12 |       1256277934.08 |      1546188226.56 |
+| http-result-4c-traefik   |           9991.09 |           10989.34 |            11988.52 |            8737.57 |        3407872.00 |        38283509.76 |        137688514.56 |      1449551462.40 |
+| http-result-4c-envoy     |          36951.75 |           35367.03 |            29637.89 |            9285.01 |       13600030.72 |       124182855.68 |        341206630.40 |      1546188226.56 |
+| https-result-4c-monolake |         141883.70 |          116831.85 |            63390.91 |            7946.21 |       48381296.64 |       407046717.44 |        728047288.32 |      1320702443.52 |
+| https-result-4c-nginx    |         127167.08 |          114350.27 |            62450.58 |            7881.00 |       46420459.52 |       401143234.56 |        718746419.20 |      1309965025.28 |
+| https-result-4c-traefik  |           9943.28 |           11888.59 |            13914.15 |            7698.61 |        3386900.48 |        41418752.00 |        159802982.40 |      1277752770.56 |
+| https-result-4c-envoy    |          34158.00 |           33054.16 |            26968.24 |            8349.09 |       12582912.00 |       116066877.44 |        310472867.84 |      1385126952.96 |
 
 ![proxies-performance-rotated](images/README/proxies-performance-rotated.png)
