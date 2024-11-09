@@ -382,11 +382,47 @@ Proxy service/monolake system performance:
 
 ![performance-metrices-monolake](images/README/performance-metrices-monolake.png)
 
-Client/wrk2 http through proxy services latency:
+Client/wrk2 http proxy services latency:
+
+Client/wrk2 tiny payload http proxy services latency:
+
+![all-http-tiny-latency](images/README/all-http-tiny-latency.png)
+
+Client/wrk2 small payload http proxy services latency:
+
+![all-http-small-latency](images/README/all-http-small-latency.png)
+
+Client/wrk2 medium payload http proxy services latency:
+
+![all-http-medium-latency](images/README/all-http-medium-latency.png)
+
+Client/wrk2 large payload http proxy services latency:
+
+![all-http-large-latency](images/README/all-http-large-latency.png)
+
+Client/wrk2 overall http proxy services latency:
 
 ![all-http-latency](images/README/all-http-latency.png)
 
-Client/wrk2 https through proxy services latency:
+Client/wrk2 https proxy services latency:
+
+Client/wrk2 tiny payload https proxy services latency:
+
+![all-latency-https-tiny](images/README/all-latency-https-tiny.png)
+
+Client/wrk2 small payload https proxy services latency:
+
+![all-latency-https-small](images/README/all-latency-https-small.png)
+
+Client/wrk2 medium payload https proxy services latency:
+
+![all-latency-https-medium](images/README/all-latency-https-medium.png)
+
+Client/wrk2 large payload https proxy services latency:
+
+![all-latency-https-large](images/README/all-latency-https-large.png)
+
+Client/wrk2 overall https proxy services latency:
 
 ![all-latency-https](images/README/all-latency-https.png)
 
@@ -443,5 +479,39 @@ Throughput and requests per second compare by payload size:
 | https-result-4c-nginx    |         127167.08 |          114350.27 |            62450.58 |            7881.00 |       46420459.52 |       401143234.56 |        718746419.20 |      1309965025.28 |
 | https-result-4c-traefik  |           9943.28 |           11888.59 |            13914.15 |            7698.61 |        3386900.48 |        41418752.00 |        159802982.40 |      1277752770.56 |
 | https-result-4c-envoy    |          34158.00 |           33054.16 |            26968.24 |            8349.09 |       12582912.00 |       116066877.44 |        310472867.84 |      1385126952.96 |
+
+Tiny payload QPS(requests per second):
+
+![QPS of tiny payload](images/README/tiny-qps.png)
+
+Small payload QPS(requests per second):
+
+![QPS of small payload](images/README/small-qps.png)
+
+Medium payload QPS(requests per second):
+
+![QPS of medium payload](images/README/medium-qps.png)
+
+Large payload QPS(requests per second):
+
+![QPS of large payload](images/README/large-qps.png)
+
+Tiny payload throughput:
+
+![Throughput of tiny payload](images/README/tiny-throughput.png)
+
+Small payload throughput:
+
+![Throughput of small payload](images/README/small-throughput.png)
+
+Medium payload throughput:
+
+![Throughput of medium payload](images/README/medium-throughput.png)
+
+Large payload throughput:
+
+![Throughput of large payload](images/README/large-throughput.png)
+
+Overall throughput and requests per second:
 
 ![proxies-performance-rotated](images/README/proxies-performance-rotated.png)
