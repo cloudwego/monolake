@@ -7,6 +7,7 @@ mod erase;
 mod map;
 mod panic;
 mod timeout;
+mod route;
 
 pub use cancel::{linked_list, Canceller, CancellerDropper, Waiter};
 pub use context::ContextService;
