@@ -479,6 +479,7 @@ Throughput and requests per second compare by payload size:
 | https-result-4c-nginx    |         127167.08 |          114350.27 |            62450.58 |            7881.00 |       46420459.52 |       401143234.56 |        718746419.20 |      1309965025.28 |
 | https-result-4c-traefik  |           9943.28 |           11888.59 |            13914.15 |            7698.61 |        3386900.48 |        41418752.00 |        159802982.40 |      1277752770.56 |
 | https-result-4c-envoy    |          34158.00 |           33054.16 |            26968.24 |            8349.09 |       12582912.00 |       116066877.44 |        310472867.84 |      1385126952.96 |
+<<<<<<< HEAD
 
 Tiny payload QPS(requests per second):
 
