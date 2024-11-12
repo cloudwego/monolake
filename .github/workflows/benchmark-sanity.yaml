@@ -3,7 +3,7 @@ name: benchmark sanity check
 on:
   push:
     branches:
-      - git-action-test
+      - main
     paths-ignore:
       - '**.md'
       - '**.png'
