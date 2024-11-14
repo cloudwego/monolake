@@ -15,10 +15,10 @@ While the most widely used Rust async runtime is [Tokio](https://docs.rs/tokio/l
 
 By building Monolake on this novel runtime foundation, the team was able to incorporate new first-class support for io_uring throughout the ecosystem. This includes io_uring specific IO traits and a unique service architecture that differs from the popular Tower implementation. Monolake also includes io_uring optimized implementations for Thrift and HTTP.
 
-The Monolake team has used this framework to build a variety of high-performance network components, including:
-- HTTP and Thrift proxy
-- Application gateways (HTTP-to-Thrift)
-- gRPC proxy
+The Monolake framework has been used to build various high-performance proxies and gateways, and it is **actively deployed in production at [ByteDance](https://www.bytedance.com/)**. Its use cases are wide-ranging and include:
+
+- Application Gateways: For protocol conversion, such as HTTP to Thrift
+- Security Gateways: Providing pseudonymization for gRPC and Thrift RPCs
 
 ## Monolake Proxy
 
@@ -41,6 +41,14 @@ The Monolake team has used this framework to build a variety of high-performance
 - **Modular and Extensible Design**: The Monolake framework is designed to be modular and extensible, allowing developers to easily integrate custom components or adapt existing ones to their specific needs.
 
 ## Performance
+
+### Test environment
+
+- AWS instance: c6a.8xlarge
+- CPU: AMD EPYC 7R13 Processo, 16 cores, 32 threads
+- Memory: 64GB
+- OS: 6.1.94-99.176.amzn2023.x86_64, Amazon Linux 2023.5.20240805
+- Nginx: 1.24.0
 
 <p align="center">
   <img src="images/https_req_per_sec_vs_body_size.png" alt="Requests per Second vs Body Size (HTTPS)" width="45%" style="margin-right: 10px;">
