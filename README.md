@@ -51,13 +51,13 @@ The Monolake framework has been used to build various high-performance proxies a
 - Nginx: 1.24.0
 
 <p align="center">
-  <img src="images/https_req_per_sec_vs_body_size.png" alt="Requests per Second vs Body Size (HTTPS)" width="45%" style="margin-right: 10px;">
-  <img src="images/http_req_per_sec_vs_body_size.png" alt="HTTP Requests per Second vs Body Size (HTTP)" width="45%">
+  <img src=".github/images/https_req_per_sec_vs_body_size.png" alt="Requests per Second vs Body Size (HTTPS)" width="45%" style="margin-right: 10px;">
+  <img src=".github/images/http_req_per_sec_vs_body_size.png" alt="HTTP Requests per Second vs Body Size (HTTP)" width="45%">
 </p>
 
 <p align="center">
-  <img src="images/https_req_per_sec_vs_worker_threads.png" alt="HTTPS Requests per Second vs Worker Threads (HTTPS)" width="45%" style="margin-right: 10px;">
-  <img src="images/http_req_per_sec_vs_worker_threads.png" alt="HTTP Requests per Second vs Worker Threads (HTTP)" width="45%">
+  <img src=".github/images/https_req_per_sec_vs_worker_threads.png" alt="HTTPS Requests per Second vs Worker Threads (HTTPS)" width="45%" style="margin-right: 10px;">
+  <img src=".github/images/http_req_per_sec_vs_worker_threads.png" alt="HTTP Requests per Second vs Worker Threads (HTTP)" width="45%">
 </p>
 
 ## Documentation
