@@ -40,7 +40,23 @@ use crate::sealed::SealedT;
 ///
 /// Note: The service does not need to add the `Connection: close` header itself;
 /// this is handled by the HTTP core service based on this flag.
+// TODO: replace it with HttpError<B>.
 pub type ResponseWithContinue<B> = (Response<B>, bool);
+
+pub trait HttpError<B> {
+    /// If an error can be turned to an HTTP response, it means the error is
+    /// a recoverable error and the connection can be kept alive.
+    fn to_response(&self) -> Option<Response<B>>;
+}
+
+#[derive(Debug, Clone, Default, Copy, PartialEq, Eq)]
+pub struct UnrecoverableError<E>(pub E);
+impl<B, E> HttpError<B> for UnrecoverableError<E> {
+    #[inline]
+    fn to_response(&self) -> Option<Response<B>> {
+        None
+    }
+}
 
 /// A tuple representing an accepted HTTP connection with its context.
 ///

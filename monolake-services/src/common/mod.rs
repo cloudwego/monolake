@@ -1,13 +1,13 @@
 //! Generic services for panic catching, context management, and timeouts.
-mod cancel;
-mod context;
-mod delay;
-mod detect;
-mod erase;
-mod map;
-mod panic;
-mod timeout;
-mod route;
+pub mod cancel;
+pub mod context;
+pub mod delay;
+pub mod detect;
+pub mod erase;
+pub mod map;
+pub mod panic;
+pub mod route;
+pub mod timeout;
 
 pub use cancel::{linked_list, Canceller, CancellerDropper, Waiter};
 pub use context::ContextService;
