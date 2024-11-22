@@ -56,3 +56,5 @@
 //! of individual submodules and structs.
 pub mod handlers;
 pub mod ttheader;
+
+pub use handlers::proxy::{Endpoint, RouteConfig, Upstream};

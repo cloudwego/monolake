@@ -39,11 +39,11 @@ pub fn l7_factory(
     impl Service<Accept<AcceptedStream, AcceptedAddr>, Error = impl Debug>,
     impl Debug,
 > {
-    match config.proxy_type {
-        crate::config::ProxyType::Http => {
+    match &config.protocol {
+        crate::config::ServerProtocolConfig::Http { opt_handlers, .. } => {
             let version: HttpVersion = config.param();
             let http_upstream_timeout: HttpUpstreamTimeout = config.param();
-            let enable_content_handler = config.http_opt_handlers.content_handler;
+            let enable_content_handler = opt_handlers.content_handler;
             let stacks = FactoryStack::new(config.clone())
                 .replace(UpstreamHandler::factory(http_upstream_timeout, version))
                 .push(ContentHandler::opt_layer(enable_content_handler))
@@ -71,7 +71,7 @@ pub fn l7_factory(
                 .into_arc_factory()
                 .into_inner()
         }
-        crate::config::ProxyType::Thrift => {
+        crate::config::ServerProtocolConfig::Thrift { .. } => {
             let proxy_config = config.param();
             let stacks = FactoryStack::new(config)
                 .replace(TProxyHandler::factory(proxy_config))

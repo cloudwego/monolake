@@ -97,8 +97,6 @@
 //! - Support for more advanced routing patterns (e.g., regex-based routing).
 //! - Enhanced metrics and logging for better observability.
 //! - Integration with service discovery systems for dynamic upstream management.
-use std::convert::Infallible;
-
 use http::{uri::Scheme, HeaderValue, Request, Response, StatusCode};
 use monoio_http::common::body::FixedBody;
 use monolake_core::{
@@ -106,7 +104,6 @@ use monolake_core::{
     util::uri_serde,
     AnyError,
 };
-use rand::distributions::WeightedError;
 use serde::{Deserialize, Serialize};
 use service_async::{
     layer::{layer_fn, FactoryLayer},
@@ -115,8 +112,8 @@ use service_async::{
 
 use crate::{
     common::route::{
-        EmptyCollectionError, IdentitySelector, Mapping, RandomSelector, RoundRobinSelector,
-        Selector, SvcRoute, WeightedRandomSelector,
+        IntoWeightedEndpoint, LoadBalanceError, LoadBalanceStrategy, LoadBalancer, Mapping,
+        Selector, SvcRoute,
     },
     http::generate_response,
 };
@@ -174,91 +171,6 @@ where
         // however, return it requires the lifetime of the request,
         // which will breaks request ownership movement.
         r.value.select(path).map_err(RouterError::SelectError)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub enum LoadBalanceStrategy {
-    #[default]
-    Random,
-    WeightedRandom,
-    RoundRobin,
-    First,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum LoadBalanceError {
-    #[error("empty upstream")]
-    EmptyUpstream,
-    #[error("invalid weight")]
-    InvalidWeight(#[from] WeightedError),
-}
-
-impl From<EmptyCollectionError> for LoadBalanceError {
-    #[inline]
-    fn from(_: EmptyCollectionError) -> Self {
-        Self::EmptyUpstream
-    }
-}
-
-#[derive(Debug)]
-pub enum LoadBalancer<T> {
-    Random(RandomSelector<T>),
-    WeightedRandom(WeightedRandomSelector<T, u16>),
-    RoundRobin(RoundRobinSelector<T>),
-    Identity(IdentitySelector<T>),
-}
-
-impl LoadBalancer<Endpoint> {
-    pub fn try_from_upstreams(
-        lb: LoadBalanceStrategy,
-        upstreams: impl IntoIterator<Item = Upstream>,
-    ) -> Result<Self, LoadBalanceError> {
-        let mut it = upstreams.into_iter();
-        Ok(match lb {
-            LoadBalanceStrategy::Random => {
-                RandomSelector::new(it.map(|up| up.endpoint).collect()).map(LoadBalancer::Random)?
-            }
-            LoadBalanceStrategy::WeightedRandom => {
-                struct WeightedIter<I>(I);
-                impl<I: Iterator<Item = Upstream>> Iterator for WeightedIter<I> {
-                    type Item = (Endpoint, u16);
-                    fn next(&mut self) -> Option<Self::Item> {
-                        self.0.next().map(|up| (up.endpoint, up.weight))
-                    }
-                }
-                WeightedRandomSelector::new_from_iter(WeightedIter(it))
-                    .map(LoadBalancer::WeightedRandom)?
-            }
-            LoadBalanceStrategy::RoundRobin => {
-                RoundRobinSelector::new(it.map(|up| up.endpoint).collect())
-                    .map(LoadBalancer::RoundRobin)?
-            }
-            LoadBalanceStrategy::First => {
-                let Some(up) = it.next() else {
-                    return Err(LoadBalanceError::EmptyUpstream);
-                };
-                LoadBalancer::Identity(IdentitySelector(up.endpoint))
-            }
-        })
-    }
-}
-
-impl<T, A: ?Sized> Selector<A> for LoadBalancer<T> {
-    type Output<'a>
-        = &'a T
-    where
-        Self: 'a;
-    type Error = Infallible;
-
-    #[inline]
-    fn select(&self, key: &A) -> Result<Self::Output<'_>, Self::Error> {
-        match self {
-            LoadBalancer::Random(random_selector) => random_selector.select(key),
-            LoadBalancer::WeightedRandom(wr_selector) => wr_selector.select(key),
-            LoadBalancer::RoundRobin(round_robin_selector) => round_robin_selector.select(key),
-            LoadBalancer::Identity(identity_selector) => identity_selector.select(key),
-        }
     }
 }
 
@@ -442,6 +354,15 @@ pub struct Upstream {
     /// If not specified, it defaults to a value provided by the `default_weight` function.
     #[serde(default = "default_weight")]
     pub weight: u16,
+}
+
+impl IntoWeightedEndpoint for Upstream {
+    type Endpoint = Endpoint;
+
+    #[inline]
+    fn into_weighted_endpoint(self) -> (Self::Endpoint, u16) {
+        (self.endpoint, self.weight)
+    }
 }
 
 /// Represents different types of endpoints for upstream servers.

@@ -6,10 +6,10 @@ use monolake_core::{
 };
 use monolake_services::{
     http::{
-        handlers::{route::RouteConfig, upstream::HttpUpstreamTimeout},
+        handlers::{route::RouteConfig as HttpRouteConfig, upstream::HttpUpstreamTimeout},
         HttpServerTimeout, HttpVersion,
     },
-    thrift::ttheader::ThriftServerTimeout,
+    thrift::{ttheader::ThriftServerTimeout, RouteConfig as ThriftRouteConfig},
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -35,32 +35,60 @@ pub enum ProxyType {
 pub struct ServerConfig {
     #[allow(unused)]
     pub name: String,
-    pub proxy_type: ProxyType,
     #[cfg(feature = "tls")]
     pub tls: monolake_services::tls::TlsConfig,
-    pub routes: Vec<RouteConfig>,
-    pub http_server_timeout: HttpServerTimeout,
-    pub http_upstream_timeout: HttpUpstreamTimeout,
-    pub upstream_http_version: HttpVersion,
-    pub http_opt_handlers: HttpOptHandlers,
-    pub thrift_server_timeout: ThriftServerTimeout,
     #[cfg(feature = "openid")]
     pub auth_config: Option<AuthConfig>,
+    pub protocol: ServerProtocolConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerUserConfig {
     pub name: String,
-    #[serde(default)]
-    pub proxy_type: ProxyType,
     pub tls: Option<TlsUserConfig>,
-    pub routes: Vec<RouteConfig>,
-    pub http_timeout: Option<HttpTimeout>,
-    #[serde(default = "HttpVersion::default")]
+
+    #[serde(flatten)]
+    pub protocol_config: ServerProtocolUserConfig,
+}
+
+#[derive(Debug, Clone)]
+pub enum ServerProtocolConfig {
+    Http {
+        routes: Vec<HttpRouteConfig>,
+        server_timeout: HttpServerTimeout,
+        upstream_timeout: HttpUpstreamTimeout,
+        upstream_http_version: HttpVersion,
+        opt_handlers: HttpOptHandlers,
+    },
+    Thrift {
+        route: ThriftRouteConfig,
+        server_timeout: ThriftServerTimeout,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "proxy_type")]
+pub enum ServerProtocolUserConfig {
+    Http(ServerHttpUserConfig),
+    Thrift(ServerThriftUserConfig),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerHttpUserConfig {
+    pub routes: Vec<HttpRouteConfig>,
+    #[serde(default)]
+    pub timeout: HttpTimeout,
+    #[serde(default)]
     pub upstream_http_version: HttpVersion,
     #[serde(default)]
     pub http_opt_handlers: HttpOptHandlers,
-    pub thrift_timeout: Option<ThriftTimeout>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerThriftUserConfig {
+    pub route: ThriftRouteConfig,
+    #[serde(default)]
+    pub timeout: ThriftTimeout,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,6 +117,24 @@ pub struct HttpTimeout {
     upstream_read_timeout_sec: Option<u64>,
 }
 
+impl From<HttpTimeout> for HttpServerTimeout {
+    fn from(t: HttpTimeout) -> Self {
+        HttpServerTimeout {
+            keepalive_timeout: t.server_keepalive_timeout_sec.map(Duration::from_secs),
+            read_header_timeout: t.server_read_header_timeout_sec.map(Duration::from_secs),
+            read_body_timeout: t.server_read_body_timeout_sec.map(Duration::from_secs),
+        }
+    }
+}
+impl From<HttpTimeout> for HttpUpstreamTimeout {
+    fn from(t: HttpTimeout) -> Self {
+        HttpUpstreamTimeout {
+            connect_timeout: t.upstream_connect_timeout_sec.map(Duration::from_secs),
+            read_timeout: t.upstream_read_timeout_sec.map(Duration::from_secs),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct ThriftTimeout {
     // Connection keepalive timeout: If no byte comes when decoder want next request, close the
@@ -96,6 +142,15 @@ pub struct ThriftTimeout {
     server_keepalive_timeout_sec: Option<u64>,
     // Read full thrift message.
     server_message_timeout_sec: Option<u64>,
+}
+
+impl From<ThriftTimeout> for ThriftServerTimeout {
+    fn from(t: ThriftTimeout) -> Self {
+        ThriftServerTimeout {
+            keepalive_timeout: t.server_keepalive_timeout_sec.map(Duration::from_secs),
+            message_timeout: t.server_message_timeout_sec.map(Duration::from_secs),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -201,52 +256,40 @@ pub fn build_server_config(
             }
             None => monolake_services::tls::TlsConfig::None,
         };
-        let server_http_timeout = server.http_timeout.unwrap_or_default();
-        let server_thrift_timeout = server.thrift_timeout.unwrap_or_default();
-        servers_new.insert(
-            key,
-            ServiceConfig {
-                server: ServerConfig {
-                    name: server.name,
-                    proxy_type: server.proxy_type,
-                    #[cfg(feature = "tls")]
-                    tls,
-                    routes: server.routes,
-                    http_server_timeout: HttpServerTimeout {
-                        keepalive_timeout: server_http_timeout
-                            .server_keepalive_timeout_sec
-                            .map(Duration::from_secs),
-                        read_header_timeout: server_http_timeout
-                            .server_read_header_timeout_sec
-                            .map(Duration::from_secs),
-                        read_body_timeout: server_http_timeout
-                            .server_read_body_timeout_sec
-                            .map(Duration::from_secs),
-                    },
-                    http_upstream_timeout: HttpUpstreamTimeout {
-                        connect_timeout: server_http_timeout
-                            .upstream_connect_timeout_sec
-                            .map(Duration::from_secs),
-                        read_timeout: server_http_timeout
-                            .upstream_read_timeout_sec
-                            .map(Duration::from_secs),
-                    },
-                    thrift_server_timeout: ThriftServerTimeout {
-                        keepalive_timeout: server_thrift_timeout
-                            .server_keepalive_timeout_sec
-                            .map(Duration::from_secs),
-                        message_timeout: server_thrift_timeout
-                            .server_message_timeout_sec
-                            .map(Duration::from_secs),
-                    },
-                    upstream_http_version: server.upstream_http_version,
-                    #[cfg(feature = "openid")]
-                    auth_config: None,
-                    http_opt_handlers: server.http_opt_handlers,
-                },
-                listener,
+
+        let protocol = match server.protocol_config {
+            ServerProtocolUserConfig::Http(http) => {
+                let routes = http.routes;
+                let server_timeout = http.timeout.into();
+                let upstream_timeout = http.timeout.into();
+                let upstream_http_version = http.upstream_http_version;
+                let opt_handlers = http.http_opt_handlers;
+                ServerProtocolConfig::Http {
+                    routes,
+                    server_timeout,
+                    upstream_timeout,
+                    upstream_http_version,
+                    opt_handlers,
+                }
+            }
+            ServerProtocolUserConfig::Thrift(thrift) => ServerProtocolConfig::Thrift {
+                route: thrift.route,
+                server_timeout: thrift.timeout.into(),
             },
-        );
+        };
+
+        let svc_cfg = ServiceConfig {
+            listener,
+            server: ServerConfig {
+                name: server.name,
+                #[cfg(feature = "tls")]
+                tls,
+                #[cfg(feature = "openid")]
+                auth_config: None,
+                protocol,
+            },
+        };
+        servers_new.insert(key, svc_cfg);
     }
     Ok(servers_new)
 }

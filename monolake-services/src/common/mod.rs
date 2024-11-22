@@ -9,6 +9,7 @@ pub mod panic;
 pub mod route;
 pub mod timeout;
 
+// TODO: remove following re-exports
 pub use cancel::{linked_list, Canceller, CancellerDropper, Waiter};
 pub use context::ContextService;
 pub use delay::{Delay, DelayService};

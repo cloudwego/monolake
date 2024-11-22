@@ -6,6 +6,7 @@ use rand::{
     distributions::uniform::{SampleBorrow, SampleUniform},
     prelude::Distribution,
 };
+use serde::{Deserialize, Serialize};
 use service_async::Service;
 
 /// Generic synchronous selector.
@@ -209,6 +210,103 @@ impl<T, A: ?Sized> Selector<A> for IdentitySelector<T> {
 
     fn select(&self, _key: &A) -> Result<Self::Output<'_>, Self::Error> {
         Ok(&self.0)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum LoadBalanceStrategy {
+    #[default]
+    Random,
+    WeightedRandom,
+    RoundRobin,
+    First,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum LoadBalanceError {
+    #[error("empty upstream")]
+    EmptyUpstream,
+    #[error("invalid weight")]
+    InvalidWeight(#[from] WeightedError),
+}
+
+impl From<EmptyCollectionError> for LoadBalanceError {
+    #[inline]
+    fn from(_: EmptyCollectionError) -> Self {
+        Self::EmptyUpstream
+    }
+}
+
+#[derive(Debug)]
+pub enum LoadBalancer<T> {
+    Random(RandomSelector<T>),
+    WeightedRandom(WeightedRandomSelector<T, u16>),
+    RoundRobin(RoundRobinSelector<T>),
+    Identity(IdentitySelector<T>),
+}
+
+pub trait IntoWeightedEndpoint {
+    type Endpoint;
+    fn into_weighted_endpoint(self) -> (Self::Endpoint, u16);
+}
+
+impl<T> LoadBalancer<T> {
+    pub fn try_from_upstreams<U>(
+        lb: LoadBalanceStrategy,
+        upstreams: impl IntoIterator<Item = U>,
+    ) -> Result<Self, LoadBalanceError>
+    where
+        U: IntoWeightedEndpoint<Endpoint = T>,
+    {
+        let mut it = upstreams.into_iter();
+        Ok(match lb {
+            LoadBalanceStrategy::Random => {
+                RandomSelector::new(it.map(|up| up.into_weighted_endpoint().0).collect())
+                    .map(LoadBalancer::Random)?
+            }
+            LoadBalanceStrategy::WeightedRandom => {
+                struct WeightedIter<I>(I);
+                impl<I: Iterator, EP> Iterator for WeightedIter<I>
+                where
+                    I::Item: IntoWeightedEndpoint<Endpoint = EP>,
+                {
+                    type Item = (EP, u16);
+                    fn next(&mut self) -> Option<Self::Item> {
+                        self.0.next().map(|up| up.into_weighted_endpoint())
+                    }
+                }
+                WeightedRandomSelector::new_from_iter(WeightedIter(it))
+                    .map(LoadBalancer::WeightedRandom)?
+            }
+            LoadBalanceStrategy::RoundRobin => {
+                RoundRobinSelector::new(it.map(|up| up.into_weighted_endpoint().0).collect())
+                    .map(LoadBalancer::RoundRobin)?
+            }
+            LoadBalanceStrategy::First => {
+                let Some(up) = it.next() else {
+                    return Err(LoadBalanceError::EmptyUpstream);
+                };
+                LoadBalancer::Identity(IdentitySelector(up.into_weighted_endpoint().0))
+            }
+        })
+    }
+}
+
+impl<T, A: ?Sized> Selector<A> for LoadBalancer<T> {
+    type Output<'a>
+        = &'a T
+    where
+        Self: 'a;
+    type Error = Infallible;
+
+    #[inline]
+    fn select(&self, key: &A) -> Result<Self::Output<'_>, Self::Error> {
+        match self {
+            LoadBalancer::Random(random_selector) => random_selector.select(key),
+            LoadBalancer::WeightedRandom(wr_selector) => wr_selector.select(key),
+            LoadBalancer::RoundRobin(round_robin_selector) => round_robin_selector.select(key),
+            LoadBalancer::Identity(identity_selector) => identity_selector.select(key),
+        }
     }
 }
 
