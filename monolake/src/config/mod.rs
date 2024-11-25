@@ -67,7 +67,7 @@ pub enum ServerProtocolConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "proxy_type")]
+#[serde(tag = "proxy_type", rename_all = "snake_case")]
 pub enum ServerProtocolUserConfig {
     Http(ServerHttpUserConfig),
     Thrift(ServerThriftUserConfig),

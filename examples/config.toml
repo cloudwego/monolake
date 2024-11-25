@@ -1,52 +1,62 @@
 # Runtime configuration
 [runtime]
-runtime_type = "io_uring"  # Type of runtime to use (e.g., legacy, io_uring)
-worker_threads = 2       # Number of worker threads
-entries = 1024           # Number of entries for io_uring
+runtime_type = "io_uring" # Type of runtime to use (e.g., legacy, io_uring)
+worker_threads = 2        # Number of worker threads
+entries = 1024            # Number of entries for io_uring
 
 # Basic HTTP proxy configuration
 [servers.demo_http]
-name = "monolake.rs"  # Proxy name
-listener = { type = "socket", value = "0.0.0.0:8080" }  # Listener configuration
-upstream_http_version = "http11"  # HTTP version for upstream connections
-http_opt_handlers = { content_handler = true }  # Enable HTTP optional handlers
+name = "monolake.rs"                                                                                                  # Proxy name
+proxy_type = "http"
+listener = { type = "socket", value = "0.0.0.0:8080" }                                                                # Listener configuration
+upstream_http_version = "http11"                                                                                      # HTTP version for upstream connections
+http_opt_handlers = { content_handler = true }                                                                        # Enable HTTP optional handlers
 http_timeout = { server_keepalive_timeout_sec = 60, upstream_connect_timeout_sec = 2, upstream_read_timeout_sec = 2 }
 
 # Routes for the basic HTTP proxy
 [[servers.demo_http.routes]]
-path = '/'  # Route path
-upstreams = [{ endpoint = { type = "uri", value = "http://ifconfig.me/" } }]  # Upstream endpoint
+path = '/' # Route path
+upstreams = [
+    { endpoint = { type = "uri", value = "http://ifconfig.co" } },
+] # Upstream endpoint
 
 [[servers.demo_http.routes]]
-path = '/tls_endpoint'  # Route path for HTTPS endpoint
-upstreams = [{ endpoint = { type = "uri", value = "https://example.com/" } }]  # Upstream endpoint
+path = '/tls' # Route path for HTTPS endpoint
+upstreams = [
+    { endpoint = { type = "uri", value = "https://ifconfig.co/cdn-cgi/trace" } },
+] # Upstream endpoint
 
 # HTTPS proxy configuration
 [servers.demo_https]
 tls = { chain = "examples/certs/server.crt", key = "examples/certs/server.key" }
-name = "tls.monolake.rs"  # Proxy name
-listener = { type = "socket", value = "0.0.0.0:8081" }  # Listener configuration
-upstream_http_version = "http2"  # Upstream connector uses HTTP/2
-http_opt_handlers = { content_handler = false }  # HTTP optional handlers
+name = "tls.monolake.rs"                                                         # Proxy name
+proxy_type = "http"
+listener = { type = "socket", value = "0.0.0.0:8081" }                           # Listener configuration
+upstream_http_version = "http2"                                                  # Upstream connector uses HTTP/2
+http_opt_handlers = { content_handler = false }                                  # HTTP optional handlers
 
 # Routes for the HTTPS server
 [[servers.demo_https.routes]]
-path = '/'  # Route path
+path = '/' # Route path
+load_balancer = "round_robin" # Load balancer type(by default is random)
 upstreams = [
     { endpoint = { type = "uri", value = "https://httpbin.org/html" } },
-    { endpoint = { type = "uri", value = "https://httpbin.org/json" } }
+    { endpoint = { type = "uri", value = "https://httpbin.org/json" } },
 ]
 
 [[servers.demo_https.routes]]
-path = '/{*p}'  # Wild card route path
-upstreams = [ { endpoint = { type = "uri", value = "https://httpbin.org/xml" } } ]
+path = '/{*p}'                                                                   # Wild card route path
+upstreams = [{ endpoint = { type = "uri", value = "https://httpbin.org/xml" } }]
 
 # Unix Domain Socket (UDS) server configuration
 [servers.demo_uds]
-name = "uds.monolake.rs"  # Server name
-listener = { type = "unix", value = "/tmp/monolake.sock" }  # Listener configuration
+name = "uds.monolake.rs"                                   # Server name
+proxy_type = "http"
+listener = { type = "unix", value = "/tmp/monolake.sock" } # Listener configuration
 
 # Routes for the UDS server
 [[servers.demo_uds.routes]]
-path = '/'  # Route path
-upstreams = [{ endpoint = { type = "uri", value = "https://ifconfig.me" } }]  # Upstream endpoint
+path = '/' # Route path
+upstreams = [
+    { endpoint = { type = "uri", value = "https://ifconfig.me" } },
+] # Upstream endpoint

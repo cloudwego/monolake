@@ -7,18 +7,12 @@ entries = 1024
 name = "thrift_proxy"
 proxy_type = "thrift"
 listener = { type = "socket", value = "0.0.0.0:8081" }
-
-[[servers.thrift_proxy.routes]]
-path = '/'
-upstreams = [{ endpoint = { type = "socket", value = "127.0.0.1:9969" } }]
+route.upstreams = [{ endpoint = { type = "socket", value = "127.0.0.1:9969" } }]
 
 [servers.thrift_proxy_uds]
 name = "thrift_proxy"
 proxy_type = "thrift"
 listener = { type = "unix", value = "/tmp/thrift_proxy_monolake.sock" }
-
-[[servers.thrift_proxy_uds.routes]]
-path = '/'
-upstreams = [
+route.upstreams = [
     { endpoint = { type = "unix", value = "/tmp/thrift_server_monolake.sock" } },
 ]

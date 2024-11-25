@@ -214,6 +214,7 @@ impl<T, A: ?Sized> Selector<A> for IdentitySelector<T> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum LoadBalanceStrategy {
     #[default]
     Random,
