@@ -1,7 +1,9 @@
 use std::{future::Future, task::Poll};
 
-use http::{HeaderValue, Response, StatusCode};
+use http::{HeaderValue, Request, Response, StatusCode};
 use monoio_http::common::body::FixedBody;
+use monolake_core::http::{HttpError, HttpHandler, ResponseWithContinue};
+use service_async::Service;
 
 pin_project_lite::pin_project! {
     /// AccompanyPair for http decoder and processor.
@@ -95,4 +97,27 @@ pub(crate) fn generate_response<B: FixedBody>(status_code: StatusCode, close: bo
     }
     headers.insert(http::header::CONTENT_LENGTH, HeaderValue::from_static("0"));
     resp.body(B::fixed_body(None)).unwrap()
+}
+
+pub struct HttpErrorResponder<T>(pub T);
+impl<CX, T, B> Service<(Request<B>, CX)> for HttpErrorResponder<T>
+where
+    T: HttpHandler<CX, B>,
+    T::Error: HttpError<T::Body>,
+{
+    type Response = ResponseWithContinue<T::Body>;
+    type Error = T::Error;
+
+    async fn call(&self, (req, cx): (Request<B>, CX)) -> Result<Self::Response, Self::Error> {
+        match self.0.handle(req, cx).await {
+            Ok(resp) => Ok(resp),
+            Err(e) => {
+                if let Some(r) = e.to_response() {
+                    Ok((r, true))
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
 }

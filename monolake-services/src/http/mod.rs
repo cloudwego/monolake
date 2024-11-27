@@ -49,7 +49,7 @@ pub mod handlers;
 
 pub mod core;
 pub mod detect;
-mod util;
+pub mod util;
 
 pub(crate) const CLOSE: &str = "close";
 pub(crate) const KEEPALIVE: &str = "Keep-Alive";

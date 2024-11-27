@@ -62,8 +62,8 @@ use monolake_core::{
 use serde::{Deserialize, Serialize};
 use service_async::{AsyncMakeService, MakeService, ParamMaybeRef, ParamRef, Service};
 
-use crate::common::route::{
-    IntoWeightedEndpoint, LoadBalanceError, LoadBalanceStrategy, LoadBalancer, Selector,
+use crate::common::selector::{
+    IntoWeightedEndpoint, LoadBalanceError, LoadBalanceStrategy, LoadBalancer, Select,
 };
 
 pub type PoolThriftConnector = PooledConnector<

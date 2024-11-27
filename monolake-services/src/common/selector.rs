@@ -12,7 +12,7 @@ use service_async::Service;
 /// Generic synchronous selector.
 ///
 /// It abstracts the way to select a service or endpoint, including routing and load balancing.
-pub trait Selector<K: ?Sized> {
+pub trait Select<K: ?Sized> {
     /// Select output which can be a reference or a owned type.
     ///
     /// When the usage style is like select a Service and call it, the output can be a reference.
@@ -50,7 +50,7 @@ impl<T> RandomSelector<T> {
     }
 }
 
-impl<T, A: ?Sized> Selector<A> for RandomSelector<T> {
+impl<T, A: ?Sized> Select<A> for RandomSelector<T> {
     type Output<'a>
         = &'a T
     where
@@ -150,7 +150,7 @@ impl<T, X: SampleUniform + PartialOrd> WeightedRandomSelector<T, X> {
     }
 }
 
-impl<T, X: SampleUniform + PartialOrd, A: ?Sized> Selector<A> for WeightedRandomSelector<T, X> {
+impl<T, X: SampleUniform + PartialOrd, A: ?Sized> Select<A> for WeightedRandomSelector<T, X> {
     type Output<'a>
         = &'a T
     where
@@ -183,7 +183,7 @@ impl<T> RoundRobinSelector<T> {
     }
 }
 
-impl<T, A: ?Sized> Selector<A> for RoundRobinSelector<T> {
+impl<T, A: ?Sized> Select<A> for RoundRobinSelector<T> {
     type Output<'a>
         = &'a T
     where
@@ -201,7 +201,7 @@ impl<T, A: ?Sized> Selector<A> for RoundRobinSelector<T> {
 #[derive(Debug, Clone)]
 pub struct IdentitySelector<T>(pub T);
 
-impl<T, A: ?Sized> Selector<A> for IdentitySelector<T> {
+impl<T, A: ?Sized> Select<A> for IdentitySelector<T> {
     type Output<'a>
         = &'a T
     where
@@ -293,7 +293,7 @@ impl<T> LoadBalancer<T> {
     }
 }
 
-impl<T, A: ?Sized> Selector<A> for LoadBalancer<T> {
+impl<T, A: ?Sized> Select<A> for LoadBalancer<T> {
     type Output<'a>
         = &'a T
     where
@@ -334,11 +334,11 @@ impl<B, ESEL: HttpError<B>, ESVC: HttpError<B>> HttpError<B> for SelectError<ESE
 ///
 /// The selector's output is the target service.
 /// This is useful when you want to dispatch request to multiple pre-constructed services.
-pub struct SvcDispatch<S>(pub S);
+pub struct ServiceSelector<S>(pub S);
 
-impl<SEL, R, SR, SE, SELE> Service<R> for SvcDispatch<SEL>
+impl<SEL, R, SR, SE, SELE> Service<R> for ServiceSelector<SEL>
 where
-    SEL: Selector<R, Error = SELE>,
+    SEL: Select<R, Error = SELE>,
     for<'a> SEL::Output<'a>: Service<R, Response = SR, Error = SE>,
 {
     type Response = SR;
@@ -353,7 +353,7 @@ where
 /// Route service based on the selector.
 ///
 /// Get the selector output and call the service with (Req, Out).
-pub struct SvcRoute<SEL, SVC, F> {
+pub struct ServiceRouter<SEL, SVC, F> {
     pub selector: SEL,
     pub selector_mapper: F,
     pub svc: SVC,
@@ -364,10 +364,10 @@ pub trait Mapping<In> {
     fn map<'a>(&self, input: &'a In) -> &'a Self::Out;
 }
 
-impl<SVC, SEL, F, R, SVCR, SVCE, CX> Service<(R, CX)> for SvcRoute<SEL, SVC, F>
+impl<SVC, SEL, F, R, SVCR, SVCE, CX> Service<(R, CX)> for ServiceRouter<SEL, SVC, F>
 where
     F: Mapping<R>,
-    SEL: Selector<F::Out>,
+    SEL: Select<F::Out>,
     for<'a> SVC: Service<(R, SEL::Output<'a>, CX), Response = SVCR, Error = SVCE>,
 {
     type Response = SVCR;

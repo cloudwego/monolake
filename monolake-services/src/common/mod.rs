@@ -6,7 +6,7 @@ pub mod detect;
 pub mod erase;
 pub mod map;
 pub mod panic;
-pub mod route;
+pub mod selector;
 pub mod timeout;
 
 // TODO: remove following re-exports

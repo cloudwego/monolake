@@ -100,7 +100,7 @@
 use http::{uri::Scheme, HeaderValue, Request, Response, StatusCode};
 use monoio_http::common::body::FixedBody;
 use monolake_core::{
-    http::{HttpError, HttpHandler, ResponseWithContinue, UnrecoverableError},
+    http::{HttpError, HttpFatalError, HttpHandler, ResponseWithContinue},
     util::uri_serde,
     AnyError,
 };
@@ -111,11 +111,11 @@ use service_async::{
 };
 
 use crate::{
-    common::route::{
-        IntoWeightedEndpoint, LoadBalanceError, LoadBalanceStrategy, LoadBalancer, Mapping,
-        Selector, SvcRoute,
+    common::selector::{
+        IntoWeightedEndpoint, LoadBalanceError, LoadBalanceStrategy, LoadBalancer, Mapping, Select,
+        ServiceRouter,
     },
-    http::generate_response,
+    http::{generate_response, util::HttpErrorResponder},
 };
 
 #[derive(Debug)]
@@ -151,9 +151,9 @@ impl<B: FixedBody, E> HttpError<B> for RouterError<E> {
     }
 }
 
-impl<T> Selector<str> for Router<T>
+impl<T> Select<str> for Router<T>
 where
-    T: Selector<str>,
+    T: Select<str>,
 {
     type Output<'a>
         = T::Output<'a>
@@ -183,7 +183,7 @@ where
     H: HttpHandler<CX, B>,
 {
     type Response = ResponseWithContinue<H::Body>;
-    type Error = UnrecoverableError<H::Error>;
+    type Error = HttpFatalError<H::Error>;
 
     #[inline]
     async fn call(
@@ -191,11 +191,7 @@ where
         (mut request, ep, cx): (Request<B>, &'a Endpoint, CX),
     ) -> Result<Self::Response, Self::Error> {
         rewrite_request(&mut request, ep);
-        return self
-            .inner
-            .handle(request, cx)
-            .await
-            .map_err(UnrecoverableError);
+        return self.inner.handle(request, cx).await.map_err(HttpFatalError);
     }
 }
 
@@ -213,8 +209,9 @@ pub struct RewriteAndRouteHandlerFactory<F> {
     routes: Vec<RouteConfig>,
 }
 
-pub type RewriteAndRouteHandler<T> =
-    HttpErrorResponder<SvcRoute<Router<LoadBalancer<Endpoint>>, RewriteHandler<T>, PathExtractor>>;
+pub type RewriteAndRouteHandler<T> = HttpErrorResponder<
+    ServiceRouter<Router<LoadBalancer<Endpoint>>, RewriteHandler<T>, PathExtractor>,
+>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum RoutingFactoryError<E> {
@@ -232,7 +229,7 @@ impl<F: MakeService> MakeService for RewriteAndRouteHandlerFactory<F> {
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         let router = Router::new_from_iter(self.routes.clone())?;
-        Ok(HttpErrorResponder(SvcRoute {
+        Ok(HttpErrorResponder(ServiceRouter {
             svc: RewriteHandler {
                 inner: self
                     .inner
@@ -257,7 +254,7 @@ where
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         let router = Router::new_from_iter(self.routes.clone())?;
-        Ok(HttpErrorResponder(SvcRoute {
+        Ok(HttpErrorResponder(ServiceRouter {
             svc: RewriteHandler {
                 inner: self
                     .inner
@@ -268,29 +265,6 @@ where
             selector: router,
             selector_mapper: PathExtractor,
         }))
-    }
-}
-
-pub struct HttpErrorResponder<T>(pub T);
-impl<CX, T, B> Service<(Request<B>, CX)> for HttpErrorResponder<T>
-where
-    T: HttpHandler<CX, B>,
-    T::Error: HttpError<T::Body>,
-{
-    type Response = ResponseWithContinue<T::Body>;
-    type Error = T::Error;
-
-    async fn call(&self, (req, cx): (Request<B>, CX)) -> Result<Self::Response, Self::Error> {
-        match self.0.handle(req, cx).await {
-            Ok(resp) => Ok(resp),
-            Err(e) => {
-                if let Some(r) = e.to_response() {
-                    Ok((r, true))
-                } else {
-                    Err(e)
-                }
-            }
-        }
     }
 }
 

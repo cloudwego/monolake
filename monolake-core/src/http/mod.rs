@@ -50,8 +50,8 @@ pub trait HttpError<B> {
 }
 
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq)]
-pub struct UnrecoverableError<E>(pub E);
-impl<B, E> HttpError<B> for UnrecoverableError<E> {
+pub struct HttpFatalError<E>(pub E);
+impl<B, E> HttpError<B> for HttpFatalError<E> {
     #[inline]
     fn to_response(&self) -> Option<Response<B>> {
         None
