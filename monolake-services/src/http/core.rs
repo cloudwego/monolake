@@ -63,7 +63,7 @@
 //! - Implements connection keep-alive for HTTP/1.1 to reduce connection overhead
 //! - Supports HTTP/2 multiplexing for efficient handling of concurrent requests
 //! - Automatic protocol detection allows for optimized handling based on the client's capabilities
-use std::{convert::Infallible, fmt::Debug, pin::Pin, time::Duration};
+use std::{convert::Infallible, fmt::Debug, time::Duration};
 
 use bytes::Bytes;
 use certain_map::{Attach, Fork};
@@ -92,7 +92,7 @@ use service_async::{
 };
 use tracing::{error, info, warn};
 
-use super::{generate_response, util::AccompanyPair};
+use super::{generate_response, util::AccompanyPairBase};
 
 /// Core HTTP service handler supporting both HTTP/1.1 and HTTP/2 protocols.
 ///
@@ -172,51 +172,44 @@ impl<H> HttpCoreService<H> {
             // fork ctx
             let (mut store, state) = ctx.fork();
             let forked_ctx = unsafe { state.attach(&mut store) };
+            let mut fut_base = std::pin::pin!(AccompanyPairBase::new(decoder.fill_payload()));
 
             // handle request and reply response
             // 1. do these things simultaneously: read body and send + handle request
-            let mut acc_fut = AccompanyPair::new(
-                self.handler_chain.handle(req, forked_ctx),
-                decoder.fill_payload(),
-            );
-            let res = unsafe { Pin::new_unchecked(&mut acc_fut) }.await;
-            match res {
+            let s1 = fut_base
+                .as_mut()
+                .stage1(self.handler_chain.handle(req, forked_ctx));
+            match s1.await {
                 Ok((resp, should_cont)) => {
                     // 2. do these things simultaneously: read body and send + handle response
-                    let mut f = acc_fut.replace(encoder.send_and_flush(resp));
+                    let s2 = fut_base.as_mut().stage2(encoder.send_and_flush(resp));
                     match self.http_timeout.read_body_timeout {
                         None => {
-                            if let Err(e) = unsafe { Pin::new_unchecked(&mut f) }.await {
+                            if let Err(e) = s2.await {
                                 warn!("error when encode and write response: {e}");
                                 break;
                             }
                         }
-                        Some(body_timeout) => {
-                            match monoio::time::timeout(body_timeout, unsafe {
-                                Pin::new_unchecked(&mut f)
-                            })
-                            .await
-                            {
-                                Err(_) => {
-                                    info!(
-                                        "Connection {:?} write timed out",
-                                        ParamRef::<PeerAddr>::param_ref(&ctx),
-                                    );
-                                    break;
-                                }
-                                Ok(Err(e)) => {
-                                    warn!("error when encode and write response: {e}");
-                                    break;
-                                }
-                                _ => (),
+                        Some(body_timeout) => match monoio::time::timeout(body_timeout, s2).await {
+                            Err(_) => {
+                                info!(
+                                    "Connection {:?} write timed out",
+                                    ParamRef::<PeerAddr>::param_ref(&ctx),
+                                );
+                                break;
                             }
-                        }
+                            Ok(Err(e)) => {
+                                warn!("error when encode and write response: {e}");
+                                break;
+                            }
+                            _ => (),
+                        },
                     }
 
                     if !should_cont {
                         break;
                     }
-                    if let Err(e) = f.into_accompany().await {
+                    if let Err(e) = fut_base.as_mut().stage3().await {
                         warn!("error when decode request body: {e}");
                         break;
                     }
