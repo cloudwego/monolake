@@ -1,6 +1,6 @@
 # CloudWeGo-Monolake
 
-[English](README.md) | 简体中文
+English | [简体中文](README_zh.md)
 
 [![WebSite](https://img.shields.io/website?up_message=cloudwego&url=https%3A%2F%2Fwww.cloudwego.io%2F)](https://www.cloudwego.io/)
 [![License](https://img.shields.io/github/license/cloudwego/monolake)](https://github.com/cloudwego/monolake/blob/main/LICENSE)
