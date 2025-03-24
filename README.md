@@ -70,7 +70,7 @@ The Monolake framework has been used to build various high-performance proxies a
 
 - [**Developer guide**](https://www.cloudwego.io/docs/monolake/tutorial/)
 
-- [**Config guide**](https://www.cloudwego.io/docs/monolake/config-guid/)
+- [**Config guide**](https://www.cloudwego.io/docs/monolake/config-guide/)
 
 ## Related Crates
 
