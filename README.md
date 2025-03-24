@@ -96,7 +96,7 @@ Monolake is licensed under the MIT license or Apache license.
 - Email: [conduct@cloudwego.io](conduct@cloudwego.io)
 - How to become a member: [COMMUNITY MEMBERSHIP](https://github.com/cloudwego/community/blob/main/COMMUNITY_MEMBERSHIP.md)
 - Issues: [Issues](https://github.com/cloudwego/monolake/issues)
-- Discord: Join community with [Discord Channel](https://discord.gg/b2WgCBRu). 
+- Discord: Join community with [Discord Channel](https://discord.gg/NuYubnJ8fV). 
 
 ## Landscapes
 
