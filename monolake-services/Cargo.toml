@@ -1,7 +1,7 @@
 [package]
 name = "monolake-services"
 version = "0.3.2"
-edition = "2021"
+edition = "2024"
 
 [features]
 default = []
