@@ -122,7 +122,7 @@ where
                     }
                 }
                 (false, false) => {
-                    panic!("unexpected error: illegal key {}", key);
+                    panic!("unexpected error: illegal key {key}");
                 }
             };
             patches.push(patch);

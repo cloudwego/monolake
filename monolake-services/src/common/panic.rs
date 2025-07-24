@@ -59,8 +59,8 @@ use std::{fmt::Debug, panic::AssertUnwindSafe};
 
 use futures::FutureExt;
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 pub struct CatchPanicService<S> {
@@ -110,10 +110,7 @@ impl<F: MakeService> MakeService for CatchPanicService<F> {
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(CatchPanicService {
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .map_err(Into::into)?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
         })
     }
 }
@@ -127,11 +124,7 @@ impl<F: AsyncMakeService> AsyncMakeService for CatchPanicService<F> {
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         Ok(CatchPanicService {
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .await
-                .map_err(Into::into)?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
         })
     }
 }

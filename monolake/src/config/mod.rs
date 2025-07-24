@@ -23,14 +23,6 @@ pub struct Config {
     pub servers: HashMap<String, ServiceConfig<ListenerConfig, ServerConfig>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum ProxyType {
-    #[default]
-    Http,
-    Thrift,
-}
-
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
     #[allow(unused)]

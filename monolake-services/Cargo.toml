@@ -1,11 +1,11 @@
 [package]
 name = "monolake-services"
 version = "0.3.2"
+edition = "2024"
 description = "MonoLake Services Implementation"
 
 authors.workspace = true
 categories.workspace = true
-edition.workspace = true
 keywords.workspace = true
 license.workspace = true
 repository.workspace = true

@@ -41,8 +41,8 @@
 //! - Implements zero-copy techniques where possible to reduce memory overhead
 
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService,
+    layer::{FactoryLayer, layer_fn},
 };
 
 use crate::common::{DetectService, PrefixDetector};

@@ -1,6 +1,6 @@
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 #[derive(Debug)]
@@ -15,10 +15,7 @@ impl<T: MakeService> MakeService for EraseResp<T> {
     #[inline]
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(EraseResp {
-            svc: self
-                .svc
-                .make_via_ref(old.map(|o| &o.svc))
-                .map_err(Into::into)?,
+            svc: self.svc.make_via_ref(old.map(|o| &o.svc))?,
         })
     }
 }
@@ -33,11 +30,7 @@ impl<T: AsyncMakeService> AsyncMakeService for EraseResp<T> {
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         Ok(EraseResp {
-            svc: self
-                .svc
-                .make_via_ref(old.map(|o| &o.svc))
-                .await
-                .map_err(Into::into)?,
+            svc: self.svc.make_via_ref(old.map(|o| &o.svc)).await?,
         })
     }
 }

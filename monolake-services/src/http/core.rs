@@ -67,9 +67,9 @@ use std::{convert::Infallible, fmt::Debug, time::Duration};
 
 use bytes::Bytes;
 use certain_map::{Attach, Fork};
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::{StreamExt, stream::FuturesUnordered};
 use http::StatusCode;
-use monoio::io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent, Split, Splitable};
+use monoio::io::{AsyncReadRent, AsyncWriteRent, Split, Splitable, sink::SinkExt, stream::Stream};
 use monoio_http::{
     common::{
         body::{Body, HttpBody, StreamHint},
@@ -82,13 +82,13 @@ use monoio_http::{
     h2::server::SendResponse,
 };
 use monolake_core::{
+    AnyError,
     context::PeerAddr,
     http::{HttpAccept, HttpHandler},
-    AnyError,
 };
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Param, ParamRef, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 use tracing::{error, info, warn};
 
@@ -121,11 +121,11 @@ impl<H> HttpCoreService<H> {
         CXStore: 'static,
         for<'a> CXState: Attach<CXStore>,
         for<'a> H: HttpHandler<
-            <CXState as Attach<CXStore>>::Hdr<'a>,
-            HttpBody,
-            Body = HttpBody,
-            Error = Err,
-        >,
+                <CXState as Attach<CXStore>>::Hdr<'a>,
+                HttpBody,
+                Body = HttpBody,
+                Error = Err,
+            >,
         Err: Into<AnyError> + Debug,
         S: Split + AsyncReadRent + AsyncWriteRent,
     {
@@ -283,11 +283,11 @@ impl<H> HttpCoreService<H> {
         CXStore: 'static,
         for<'a> CXState: Attach<CXStore>,
         for<'a> H: HttpHandler<
-            <CXState as Attach<CXStore>>::Hdr<'a>,
-            HttpBody,
-            Body = HttpBody,
-            Error = Err,
-        >,
+                <CXState as Attach<CXStore>>::Hdr<'a>,
+                HttpBody,
+                Body = HttpBody,
+                Error = Err,
+            >,
         Err: Into<AnyError> + Debug,
         S: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
     {

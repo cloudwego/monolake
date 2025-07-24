@@ -31,8 +31,8 @@ use openidconnect::{
 use openidconnect::{HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Param, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 use thiserror::Error;
 use tracing::debug;

@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Param, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 #[derive(Clone)]
@@ -46,10 +46,7 @@ impl<F: MakeService> MakeService for DelayService<F> {
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(DelayService {
             delay: self.delay,
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .map_err(Into::into)?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
         })
     }
 }
@@ -64,11 +61,7 @@ impl<F: AsyncMakeService> AsyncMakeService for DelayService<F> {
     ) -> Result<Self::Service, Self::Error> {
         Ok(DelayService {
             delay: self.delay,
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .await
-                .map_err(Into::into)?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
         })
     }
 }

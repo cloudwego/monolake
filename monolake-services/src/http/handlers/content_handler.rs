@@ -24,16 +24,16 @@
 //! use monolake_services::{
 //!     common::ContextService,
 //!     http::{
+//!         HttpServerTimeout,
 //!         core::HttpCoreService,
 //!         detect::H2Detect,
 //!         handlers::{
-//!             route::RouteConfig, ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler,
-//!             UpstreamHandler,
+//!             ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler, UpstreamHandler,
+//!             route::RouteConfig,
 //!         },
-//!         HttpServerTimeout,
 //!     },
 //! };
-//! use service_async::{layer::FactoryLayer, stack::FactoryStack, Param};
+//! use service_async::{Param, layer::FactoryLayer, stack::FactoryStack};
 //!
 //! // Dummy struct to satisfy Param trait requirements
 //! struct DummyConfig;
@@ -82,8 +82,8 @@ use monoio_http::common::{
 };
 use monolake_core::http::{HttpHandler, ResponseWithContinue};
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 use crate::http::generate_response;
