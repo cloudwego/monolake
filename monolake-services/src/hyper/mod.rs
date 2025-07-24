@@ -1,3 +1,55 @@
+//! Hyper-based HTTP core service for handling client connections.
+//!
+//! This module provides a high-performance, asynchronous HTTP service built on top of
+//! the Hyper library. It's designed to work with monoio's asynchronous runtime and
+//! supports flexible handler composition through the `HttpHandler` trait.
+//!
+//! # Key Components
+//!
+//! - [`HyperCoreService`](HyperCoreService): The main service component responsible for handling
+//!   HTTP connections using Hyper. It can be composed of handlers implementing the `HttpHandler`
+//!   trait.
+//! - [`HyperCoreFactory`](HyperCoreFactory): Factory for creating `HyperCoreService` instances.
+//! - [`HyperCoreError`](HyperCoreError): Error type for `HyperCoreService` operations.
+//!
+//! # Features
+//!
+//! - Built on Hyper for robust HTTP protocol support
+//! - Integration with monoio's asynchronous runtime
+//! - Composable design allowing a stack of `HttpHandler` implementations
+//! - Configurable through Hyper's `Builder`
+//!
+//! # Usage
+//!
+//! `HyperCoreService` is typically used as part of a larger service stack. Here's a basic example:
+//!
+//! ```ignore
+//! use service_async::{layer::FactoryLayer, stack::FactoryStack};
+//!
+//! use crate::http::HyperCoreService;
+//!
+//! let config = Config { /* ... */ };
+//! let stack = FactoryStack::new(config)
+//!     .push(HyperCoreService::layer())
+//!     // ... other handlers implementing HttpHandler ...
+//!     ;
+//!
+//! let service = stack.make_async().await.unwrap();
+//! // Use the service to handle incoming HTTP connections
+//! ```
+//!
+//! # Handler Composition
+//!
+//! `HyperCoreService` can be composed of multiple handlers implementing the `HttpHandler` trait.
+//! This allows for a flexible and modular approach to request processing. Handlers can be
+//! chained together to form a processing pipeline, each handling a specific aspect of the
+//! HTTP request/response cycle.
+//!
+//! # Performance Considerations
+//!
+//! - Leverages Hyper's efficient HTTP implementation
+//! - Uses monoio's async I/O operations for improved performance
+//! - Supports connection keep-alive and pipelining through Hyper
 use std::{error::Error, future::Future, rc::Rc};
 
 use http::{Request, Response};
@@ -21,6 +73,10 @@ pub struct HyperCoreService<H> {
     builder: Builder<MonoioExecutor>,
 }
 
+/// Hyper-based HTTP core service supporting handler composition.
+///
+/// `HyperCoreService` is responsible for handling HTTP connections using Hyper,
+/// and can be composed of a chain of handlers implementing the `HttpHandler` trait.
 impl<H> HyperCoreService<H> {
     #[inline]
     pub fn new(handler_chain: H, builder: Builder<MonoioExecutor>) -> Self {
@@ -89,6 +145,7 @@ where
     }
 }
 
+/// Factory for creating `HyperCoreService` instances.
 pub struct HyperCoreFactory<F> {
     factory_chain: F,
     builder: Builder<MonoioExecutor>,

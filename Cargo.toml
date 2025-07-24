@@ -2,17 +2,31 @@
 members = ["monolake", "monolake-core", "monolake-services"]
 resolver = "2"
 
+[workspace.package]
+authors = [
+    "ihciah <chihai.hain@bytedance.com>",
+    "Rain Jiang <rain.jiang@bytedance.com>",
+    "Harsha <harsha.manivannan@bytedance.com>",
+    "Xiaosong Yang <xiaosong.yang@bytedance.com>",
+    "Kingtous <kingtous@qq.com>",
+]
+categories = ["asynchronous", "network-programming", "development-tools"]
+edition = "2021"
+keywords = ["proxy", "gateway", "async", "monoio", "http"]
+license = "MIT/Apache-2.0"
+repository = "https://github.com/cloudwego/monolake"
+
 [workspace.dependencies]
-monoio = "0.2.2"
+monoio = "0.2.4"
 monoio-codec = "0.3"
 monoio-http = "0.3.5"
 monoio-thrift = "0.1.1"
-monoio-transports = "0.4.2"
+monoio-transports = "0.5.3"
 monoio-native-tls = "0.3.0"
 monoio-rustls = "0.3.0"
 native-tls = "0.2"
 service-async = "0.2.3"
-certain-map = "0.2.4"
+certain-map = "0.3.1"
 local-sync = "0.1"
 http = "1.0"
 anyhow = "1"

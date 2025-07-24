@@ -1,7 +1,14 @@
 [package]
 name = "monolake-core"
 version = "0.3.0"
-edition = "2021"
+description = "MonoLake Core Abstraction and Utils"
+
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [features]
 openid = []

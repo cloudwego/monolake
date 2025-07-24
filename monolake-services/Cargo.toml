@@ -2,6 +2,13 @@
 name = "monolake-services"
 version = "0.3.2"
 edition = "2024"
+description = "MonoLake Services Implementation"
+
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [features]
 default = []
@@ -33,9 +40,8 @@ hyper = [
 
 [dependencies]
 monoio = { workspace = true, features = ['splice'] }
-monolake-core = { path = "../monolake-core" }
 monoio-codec = { workspace = true }
-monoio-http = { workspace = true }
+monoio-http = { workspace = true, features = ["encoding"] }
 monoio-thrift = { workspace = true }
 monoio-transports = { workspace = true, features = [
     "logging",
@@ -43,13 +49,23 @@ monoio-transports = { workspace = true, features = [
 ] }
 local-sync = { workspace = true }
 service-async = { workspace = true }
+certain-map = { workspace = true }
+
+monolake-core = { version = "0.3.0", path = "../monolake-core" }
+
+# common
+bytes = { workspace = true }
 http = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
+rand = "0.8"
+matchit = "0.8"
+pin-project-lite = "0.2"
+futures = "0.3"
 
-# tls
+# for tls
 monoio-rustls = { workspace = true, optional = true }
 monoio-native-tls = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
@@ -58,6 +74,7 @@ rustls = { version = "0.21", optional = true, default-features = false }
 rustls-pemfile = { version = "1", optional = true }
 webpki-roots = { version = "0.25.2", optional = true }
 
+# for hyper
 hyper = { version = "1.1", features = [
     "http1",
     "client",
@@ -69,14 +86,6 @@ hyper-util = { version = "0.1.3", features = [
     "server-auto",
 ], optional = true }
 monoio-compat = { version = "0.2.2", features = ["hyper"], optional = true }
-
-# common
-bytes = { workspace = true }
-# async-channel = "1"
-rand = "0.8"
-matchit = "0.8"
-pin-project-lite = "0.2"
-futures = "0.3"
 
 # for openid
 cookie = { version = "0.18", optional = true }

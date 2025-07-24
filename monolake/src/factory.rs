@@ -12,8 +12,12 @@ use monolake_services::{
     common::ContextService,
     http::{
         core::HttpCoreService,
-        detect::HttpVersionDetect,
-        handlers::{ConnReuseHandler, ContentHandler, ProxyHandler, RewriteHandler},
+        detect::H2Detect,
+        handlers::{
+            upstream::HttpUpstreamTimeout, ConnectionReuseHandler, ContentHandler,
+            RewriteAndRouteHandler, UpstreamHandler,
+        },
+        HttpVersion,
     },
     tcp::Accept,
     thrift::{handlers::ProxyHandler as TProxyHandler, ttheader::TtheaderCoreService},
@@ -22,7 +26,7 @@ use service_async::{stack::FactoryStack, ArcMakeService, Service};
 
 use crate::{
     config::ServerConfig,
-    context::{EmptyContext, FullContext},
+    context::{Context, FullContext},
 };
 
 /// Create a new factory for l7 proxy.
@@ -35,20 +39,23 @@ pub fn l7_factory(
     impl Service<Accept<AcceptedStream, AcceptedAddr>, Error = impl Debug>,
     impl Debug,
 > {
-    match config.proxy_type {
-        crate::config::ProxyType::Http => {
+    match &config.protocol {
+        crate::config::ServerProtocolConfig::Http { opt_handlers, .. } => {
+            let version: HttpVersion = config.param();
+            let http_upstream_timeout: HttpUpstreamTimeout = config.param();
+            let enable_content_handler = opt_handlers.content_handler;
             let stacks = FactoryStack::new(config.clone())
-                .replace(ProxyHandler::factory(Default::default()))
-                .push(ContentHandler::layer())
-                .push(RewriteHandler::layer());
+                .replace(UpstreamHandler::factory(http_upstream_timeout, version))
+                .push(ContentHandler::opt_layer(enable_content_handler))
+                .push(RewriteAndRouteHandler::layer());
 
             #[cfg(feature = "openid")]
             let stacks = stacks.push(OpenIdHandler::layer());
 
             let stacks = stacks
-                .push(ConnReuseHandler::layer())
+                .push(ConnectionReuseHandler::layer())
                 .push(HttpCoreService::layer())
-                .push(HttpVersionDetect::layer());
+                .push(H2Detect::layer());
 
             #[cfg(feature = "tls")]
             let stacks = stacks.push(monolake_services::tls::UnifiedTlsFactory::layer());
@@ -58,13 +65,13 @@ pub fn l7_factory(
 
             stacks
                 .check_make_svc::<(TcpStream, FullContext)>()
-                .push(ContextService::<EmptyContext, _>::layer())
+                .push(ContextService::<Context, _>::layer())
                 .check_make_svc::<(TcpStream, AcceptedAddr)>()
                 .into_boxed_service()
                 .into_arc_factory()
                 .into_inner()
         }
-        crate::config::ProxyType::Thrift => {
+        crate::config::ServerProtocolConfig::Thrift { .. } => {
             let proxy_config = config.param();
             let stacks = FactoryStack::new(config)
                 .replace(TProxyHandler::factory(proxy_config))
@@ -75,7 +82,7 @@ pub fn l7_factory(
 
             stacks
                 .check_make_svc::<(TcpStream, FullContext)>()
-                .push(ContextService::<EmptyContext, _>::layer())
+                .push(ContextService::<Context, _>::layer())
                 .check_make_svc::<(TcpStream, AcceptedAddr)>()
                 .into_boxed_service()
                 .into_arc_factory()

@@ -1,9 +1,14 @@
 [package]
 name = "monolake"
 version = "0.3.0"
-edition = "2021"
-keywords = ["monoio", "http", "async"]
 description = "High Performance Proxy base on Monoio"
+
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [features]
 default = ["tls"]
@@ -23,8 +28,8 @@ anyhow = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
 
-monolake-core = { path = "../monolake-core" }
-monolake-services = { path = "../monolake-services", features = ["hyper"]}
+monolake-core = { version = "0.3.0", path = "../monolake-core" }
+monolake-services = { version = "0.3.2", path = "../monolake-services", features = ["hyper"] }
 
 # tls: needed for native-tls init
 native-tls = { workspace = true, optional = true }
@@ -36,4 +41,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # parse
 clap = { version = "4", features = ['derive'] }
 serde_json = "1"
-toml = "0"
+toml = "0.8"

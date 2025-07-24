@@ -86,7 +86,7 @@ impl Waiter {
     pub fn cancelled(&self) -> bool {
         self.handler
             .upgrade()
-            .map_or(true, |handler| unsafe { &*handler.get() }.cancelled)
+            .is_none_or(|handler| unsafe { &*handler.get() }.cancelled)
     }
 }
 

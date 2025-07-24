@@ -1,6 +1,72 @@
-use std::{convert::Infallible, fmt::Debug, pin::Pin, time::Duration};
+//! Core HTTP service implementation for handling downstream client connections.
+//!
+//! This module provides a high-performance, asynchronous HTTP service that handles
+//! connections from downstream clients. It supports HTTP/1, HTTP/1.1, and HTTP/2 protocols,
+//! and is designed to work with monoio's asynchronous runtime, providing fine-grained
+//! control over various timeouts.
+//!
+//! # Key Components
+//!
+//! - [`HttpCoreService`]: The main service component responsible for handling HTTP connections from
+//!   downstream clients. It can be composed of a stack of handlers implementing the `HttpHandler`
+//!   trait.
+//! - [`HttpServerTimeout`]: Configuration for various timeout settings in the HTTP server.
+//!
+//! # Features
+//!
+//! - Support for HTTP/1, HTTP/1.1, and HTTP/2 protocols
+//! - Composable design allowing a stack of `HttpHandler` implementations
+//! - Automatic protocol detection when combined with `H2Detect`
+//! - Efficient handling of concurrent requests using asynchronous I/O
+//! - Configurable timeout settings for different stages of request processing
+//! - Integration with `service_async` for easy composition in service stacks
+//! - Automatic response encoding and error handling
+//!
+//! # Usage
+//!
+//! `HttpCoreService` is typically used as part of a larger service stack, often in combination
+//! with `H2Detect` for automatic protocol detection. Here's a basic example:
+//!
+//! ```ignore
+//! use service_async::{layer::FactoryLayer, stack::FactoryStack};
+//!
+//! use crate::http::{HttpCoreService, H2Detect};
+//!
+//! let config = Config { /* ... */ };
+//! let stack = FactoryStack::new(config)
+//!     .push(HttpCoreService::layer())
+//!     .push(H2Detect::layer())
+//!     // ... other handlers implementing HttpHandler ...
+//!     ;
+//!
+//! let service = stack.make_async().await.unwrap();
+//! // Use the service to handle incoming HTTP connections from downstream clients
+//! ```
+//!
+//! # Handler Composition
+//!
+//! `HttpCoreService` can be composed of multiple handlers implementing the `HttpHandler` trait.
+//! This allows for a flexible and modular approach to request processing. Handlers can be
+//! chained together to form a processing pipeline, each handling a specific aspect of the
+//! HTTP request/response cycle.
+//!
+//! # Automatic Protocol Detection
+//!
+//! When used in conjunction with `H2Detect`, `HttpCoreService` can automatically
+//! detect whether an incoming connection is using HTTP/1, HTTP/1.1, or HTTP/2, and handle
+//! it appropriately. This allows for seamless support of multiple HTTP versions without
+//! the need for separate server configurations.
+//!
+//! # Performance Considerations
+//!
+//! - Uses monoio's efficient async I/O operations for improved performance
+//! - Implements connection keep-alive for HTTP/1.1 to reduce connection overhead
+//! - Supports HTTP/2 multiplexing for efficient handling of concurrent requests
+//! - Automatic protocol detection allows for optimized handling based on the client's capabilities
+use std::{convert::Infallible, fmt::Debug, time::Duration};
 
 use bytes::Bytes;
+use certain_map::{Attach, Fork};
 use futures::{stream::FuturesUnordered, StreamExt};
 use http::StatusCode;
 use monoio::io::{sink::SinkExt, stream::Stream, AsyncReadRent, AsyncWriteRent, Split, Splitable};
@@ -26,8 +92,15 @@ use service_async::{
 };
 use tracing::{error, info, warn};
 
-use super::{generate_response, util::AccompanyPair};
+use super::{generate_response, util::AccompanyPairBase};
 
+/// Core HTTP service handler supporting both HTTP/1.1 and HTTP/2 protocols.
+///
+/// `HttpCoreService` is responsible for accepting HTTP connections, decoding requests,
+/// routing them through a handler chain, and encoding responses. It supports both
+/// HTTP/1.1 with keep-alive and HTTP/2 with multiplexing.
+/// For implementation details and example usage, see the
+/// [module level documentation](crate::http::core).
 #[derive(Clone)]
 pub struct HttpCoreService<H> {
     handler_chain: H,
@@ -42,12 +115,19 @@ impl<H> HttpCoreService<H> {
         }
     }
 
-    async fn h1_svc<S, CX>(&self, stream: S, ctx: CX)
+    async fn h1_svc<S, CXIn, CXStore, CXState, Err>(&self, stream: S, ctx: CXIn)
     where
+        CXIn: ParamRef<PeerAddr> + Fork<Store = CXStore, State = CXState>,
+        CXStore: 'static,
+        for<'a> CXState: Attach<CXStore>,
+        for<'a> H: HttpHandler<
+            <CXState as Attach<CXStore>>::Hdr<'a>,
+            HttpBody,
+            Body = HttpBody,
+            Error = Err,
+        >,
+        Err: Into<AnyError> + Debug,
         S: Split + AsyncReadRent + AsyncWriteRent,
-        H: HttpHandler<CX, HttpBody, Body = HttpBody>,
-        H::Error: Into<AnyError> + Debug,
-        CX: ParamRef<PeerAddr> + Clone,
     {
         let (reader, writer) = stream.into_split();
         let mut decoder = RequestDecoder::new(reader);
@@ -89,50 +169,47 @@ impl<H> HttpCoreService<H> {
                 }
             };
 
+            // fork ctx
+            let (mut store, state) = ctx.fork();
+            let forked_ctx = unsafe { state.attach(&mut store) };
+            let mut fut_base = std::pin::pin!(AccompanyPairBase::new(decoder.fill_payload()));
+
             // handle request and reply response
             // 1. do these things simultaneously: read body and send + handle request
-            let mut acc_fut = AccompanyPair::new(
-                self.handler_chain.handle(req, ctx.clone()),
-                decoder.fill_payload(),
-            );
-            let res = unsafe { Pin::new_unchecked(&mut acc_fut) }.await;
-            match res {
+            let s1 = fut_base
+                .as_mut()
+                .stage1(self.handler_chain.handle(req, forked_ctx));
+            match s1.await {
                 Ok((resp, should_cont)) => {
                     // 2. do these things simultaneously: read body and send + handle response
-                    let mut f = acc_fut.replace(encoder.send_and_flush(resp));
+                    let s2 = fut_base.as_mut().stage2(encoder.send_and_flush(resp));
                     match self.http_timeout.read_body_timeout {
                         None => {
-                            if let Err(e) = unsafe { Pin::new_unchecked(&mut f) }.await {
+                            if let Err(e) = s2.await {
                                 warn!("error when encode and write response: {e}");
                                 break;
                             }
                         }
-                        Some(body_timeout) => {
-                            match monoio::time::timeout(body_timeout, unsafe {
-                                Pin::new_unchecked(&mut f)
-                            })
-                            .await
-                            {
-                                Err(_) => {
-                                    info!(
-                                        "Connection {:?} write timed out",
-                                        ParamRef::<PeerAddr>::param_ref(&ctx),
-                                    );
-                                    break;
-                                }
-                                Ok(Err(e)) => {
-                                    warn!("error when encode and write response: {e}");
-                                    break;
-                                }
-                                _ => (),
+                        Some(body_timeout) => match monoio::time::timeout(body_timeout, s2).await {
+                            Err(_) => {
+                                info!(
+                                    "Connection {:?} write timed out",
+                                    ParamRef::<PeerAddr>::param_ref(&ctx),
+                                );
+                                break;
                             }
-                        }
+                            Ok(Err(e)) => {
+                                warn!("error when encode and write response: {e}");
+                                break;
+                            }
+                            _ => (),
+                        },
                     }
 
                     if !should_cont {
                         break;
                     }
-                    if let Err(e) = f.into_accompany().await {
+                    if let Err(e) = fut_base.as_mut().stage3().await {
                         warn!("error when decode request body: {e}");
                         break;
                     }
@@ -200,12 +277,19 @@ impl<H> HttpCoreService<H> {
         }
     }
 
-    async fn h2_svc<S, CX>(&self, stream: S, ctx: CX)
+    async fn h2_svc<S, CXIn, CXStore, CXState, Err>(&self, stream: S, ctx: CXIn)
     where
+        CXIn: ParamRef<PeerAddr> + Fork<Store = CXStore, State = CXState>,
+        CXStore: 'static,
+        for<'a> CXState: Attach<CXStore>,
+        for<'a> H: HttpHandler<
+            <CXState as Attach<CXStore>>::Hdr<'a>,
+            HttpBody,
+            Body = HttpBody,
+            Error = Err,
+        >,
+        Err: Into<AnyError> + Debug,
         S: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
-        H: HttpHandler<CX, HttpBody, Body = HttpBody>,
-        H::Error: Into<AnyError> + Debug,
-        CX: ParamRef<PeerAddr> + Clone,
     {
         let mut connection = match monoio_http::h2::server::Builder::new()
             .initial_window_size(1_000_000)
@@ -244,13 +328,15 @@ impl<H> HttpCoreService<H> {
         });
 
         loop {
-            let ctx = ctx.clone();
             monoio::select! {
                  Some(Ok((request, response_handle))) = rx.recv() => {
-                         let request = HttpBody::request(request);
-                         backend_resp_stream.push( async move {
-                             (self.handler_chain.handle(request, ctx).await, response_handle)
-                         });
+                        let request = HttpBody::request(request);
+                        // fork ctx
+                        let (mut store, state) = ctx.fork();
+                        backend_resp_stream.push(async move {
+                            let forked_ctx = unsafe { state.attach(&mut store) };
+                            (self.handler_chain.handle(request, forked_ctx).await, response_handle)
+                        });
                  }
                  Some(result) = backend_resp_stream.next() => {
                      match result {
@@ -282,19 +368,23 @@ impl<H> HttpCoreService<H> {
     }
 }
 
-impl<H, Stream, CX> Service<HttpAccept<Stream, CX>> for HttpCoreService<H>
+impl<H, Stream, CXIn, CXStore, CXState, Err> Service<HttpAccept<Stream, CXIn>>
+    for HttpCoreService<H>
 where
+    CXIn: ParamRef<PeerAddr> + Fork<Store = CXStore, State = CXState>,
+    CXStore: 'static,
+    for<'a> CXState: Attach<CXStore>,
+    for<'a> H:
+        HttpHandler<<CXState as Attach<CXStore>>::Hdr<'a>, HttpBody, Body = HttpBody, Error = Err>,
     Stream: Split + AsyncReadRent + AsyncWriteRent + Unpin + 'static,
-    H: HttpHandler<CX, HttpBody, Body = HttpBody>,
-    H::Error: Into<AnyError> + Debug,
-    CX: ParamRef<PeerAddr> + Clone,
+    Err: Into<AnyError> + Debug,
 {
     type Response = ();
     type Error = Infallible;
 
     async fn call(
         &self,
-        incoming_stream: HttpAccept<Stream, CX>,
+        incoming_stream: HttpAccept<Stream, CXIn>,
     ) -> Result<Self::Response, Self::Error> {
         let (use_h2, stream, ctx) = incoming_stream;
         if use_h2 {
@@ -338,17 +428,20 @@ impl<F: AsyncMakeService> AsyncMakeService for HttpCoreService<F> {
         })
     }
 }
-
+/// Represents the timeout settings for the HTTP server.
+///
+/// The `HttpServerTimeout` struct contains three optional fields:
+/// - `keepalive_timeout`: The timeout for keeping the connection alive. If no byte is received
+///   within this timeout, the connection will be closed.
+/// - `read_header_timeout`: The timeout for reading the full HTTP header.
+/// - `read_body_timeout`: The timeout for receiving the full request body.
+///
+/// By default, the `keepalive_timeout` is set to 75 seconds, while the other two timeouts are not
+/// set.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct HttpServerTimeout {
-    // Connection keepalive timeout: If no byte comes when decoder want next request, close the
-    // connection. Link Nginx `keepalive_timeout`
     pub keepalive_timeout: Option<Duration>,
-    // Read full http header.
-    // Like Nginx `client_header_timeout`
     pub read_header_timeout: Option<Duration>,
-    // Receiving full body timeout.
-    // Like Nginx `client_body_timeout`
     pub read_body_timeout: Option<Duration>,
 }
 

@@ -3,8 +3,7 @@ use monolake_core::context::{PeerAddr, RemoteAddr};
 // This struct should be a app-defined struct.
 // Framework should not bind it.
 certain_map::certain_map! {
-    #[derive(Debug, Clone)]
-    #[empty(EmptyContext)]
+    #[derive(Clone)]
     #[full(FullContext)]
     pub struct Context {
         // Set by ContextService
@@ -26,11 +25,12 @@ mod test {
 
     #[test]
     pub fn test_add_entries_to_context() {
-        let ctx = Context::new();
+        let mut ctx = Context::new();
+        let handler = ctx.handler();
         let addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
         let peer_addr = PeerAddr::from(AcceptedAddr::from(addr));
-        let ctx = ctx.param_set(peer_addr);
-        match ParamRef::<PeerAddr>::param_ref(&ctx).0 {
+        let handler = handler.param_set(peer_addr);
+        match ParamRef::<PeerAddr>::param_ref(&handler).0 {
             AcceptedAddr::Tcp(socket_addr) => assert_eq!(addr, socket_addr),
             _ => unreachable!(),
         }

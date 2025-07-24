@@ -1,3 +1,45 @@
+//! Unified TLS service module for supporting multiple TLS implementations.
+//!
+//! This module provides a unified interface for TLS services, supporting both Rustls
+//! and Native TLS implementations, as well as a non-TLS option. It is designed to work
+//! seamlessly with the service_async framework and provides flexibility in TLS configuration.
+//!
+//! # Key Components
+//!
+//! - [`UnifiedTlsService`]: The main service component that encapsulates different TLS
+//!   implementations.
+//! - [`UnifiedTlsFactory`]: Factory for creating `UnifiedTlsService` instances.
+//! - [`TlsConfig`]: Configuration enum for specifying TLS settings.
+//!
+//! # Features
+//!
+//! - Support for both Rustls and Native TLS implementations
+//! - Option for non-TLS (passthrough) connections
+//! - Integration with `service_async` for easy composition in service stacks
+//! - Unified error handling across different TLS implementations
+//! - ALPN support for protocol negotiation (e.g., HTTP/2)
+//!
+//! # Usage
+//!
+//! This service is typically used as part of a larger service stack. Here's a basic example:
+//!
+//! ```ignore
+//! use service_async::{layer::FactoryLayer, stack::FactoryStack};
+//!
+//! let tls_config = TlsConfig::Rustls(rustls_config);
+//! let stack = FactoryStack::new(config)
+//!     .push(UnifiedTlsFactory::layer())
+//!     // ... other layers ...
+//!     ;
+//!
+//! let service = stack.make_async().await.unwrap();
+//! // Use the service to handle incoming connections
+//! ```
+//!
+//! # Performance Considerations
+//!
+//! - The unified interface adds minimal overhead to the underlying TLS implementations
+//! - Choice between Rustls and Native TLS allows for optimizing based on specific requirements
 use std::io::Cursor;
 
 use monolake_core::AnyError;
@@ -16,8 +58,14 @@ mod rustls;
 
 pub const APLN_PROTOCOLS: [&[u8]; 2] = [b"h2", b"http/1.1"];
 
+/// Unified TLS service supporting multiple TLS implementations.
+///
+/// This enum encapsulates different TLS service implementations, allowing for
+/// a unified interface while supporting various TLS backends.
 pub enum UnifiedTlsService<T> {
+    /// Rustls-based TLS service.
     Rustls(RustlsService<T>),
+    /// Native TLS-based service.
     Native(NativeTlsService<T>),
     None(T),
 }
@@ -99,6 +147,10 @@ where
     }
 }
 
+/// Factory for creating UnifiedTlsService instances.
+///
+/// This enum provides a unified factory interface for creating TLS services
+/// with different backends.
 pub enum UnifiedTlsFactory<F> {
     Rustls(RustlsServiceFactory<F>),
     Native(NativeTlsServiceFactory<F>),
@@ -173,6 +225,10 @@ where
     }
 }
 
+/// Configuration enum for specifying TLS settings.
+///
+/// This enum allows for flexible configuration of TLS services,
+/// supporting both Rustls and Native TLS implementations, as well as a non-TLS option.
 #[derive(Clone)]
 pub enum TlsConfig<A = ::rustls::ServerConfig, B = ::native_tls::Identity> {
     Rustls(A),

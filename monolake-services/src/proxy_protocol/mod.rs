@@ -1,3 +1,35 @@
+//! Proxy Protocol service for handling PROXY protocol headers in incoming connections.
+//!
+//! This module provides functionality to parse and handle PROXY protocol headers
+//! (version 1 and 2) in incoming TCP connections. It's designed to work seamlessly
+//! with the `service_async` framework and can be easily integrated into a service stack.
+//!
+//! The PROXY protocol allows for the preservation of client IP address information
+//! when passing connections through proxies or load balancers.
+//!
+//! # Key Components
+//!
+//! - [`ProxyProtocolService`]: The main service component responsible for parsing PROXY protocol
+//!   headers and forwarding the connection to an inner service.
+//! - [`ProxyProtocolServiceFactory`]: Factory for creating `ProxyProtocolService` instances.
+//!
+//! # Features
+//!
+//! - Support for both PROXY protocol version 1 and 2
+//! - Efficient parsing of PROXY protocol headers
+//! - Preservation of original client IP information
+//! - Support for IPv4 and IPv6 addresses
+//!
+//! # Performance Considerations
+//!
+//! - Efficient parsing with minimal allocations
+//! - Uses a fixed-size buffer to limit memory usage
+//! - Handles both PROXY and non-PROXY protocol connections gracefully
+//!
+//! # References
+//!
+//! - [PROXY Protocol Specification](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt)
+
 use std::{fmt::Display, net::SocketAddr};
 
 use monoio::{
@@ -15,12 +47,20 @@ use crate::tcp::Accept;
 
 // Ref: https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 // V1 max length is 107-byte.
-const V1HEADER: &[u8; 6] = &[b'P', b'R', b'O', b'X', b'Y', b' '];
+const V1HEADER: &[u8; 6] = b"PROXY ";
 // V2 max length is 14+216 = 230 bytes.
 const V2HEADER: &[u8; 12] = &[
     0x0D, 0x0A, 0x0D, 0x0A, 0x00, 0x0D, 0x0A, 0x51, 0x55, 0x49, 0x54, 0x0A,
 ];
 
+/// Service that handles PROXY protocol headers in incoming connections.
+///
+/// `ProxyProtocolService` is responsible for:
+/// 1. Detecting and parsing PROXY protocol headers (v1 and v2) in incoming connections.
+/// 2. Extracting client IP information from the PROXY protocol header.
+/// 3. Forwarding the connection to an inner service with the extracted information.
+///
+/// If a connection does not use the PROXY protocol, it's passed through unchanged.
 pub struct ProxyProtocolService<T> {
     inner: T,
 }
