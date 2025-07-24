@@ -90,10 +90,7 @@ impl<F: AsyncMakeService, FN: Clone> AsyncMakeService for Map<F, FN> {
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         Ok(Map {
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .await?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }
@@ -108,10 +105,7 @@ impl<F: AsyncMakeService, FN: Clone> AsyncMakeService for MapErr<F, FN> {
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         Ok(MapErr {
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .await?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }
@@ -126,10 +120,7 @@ impl<F: AsyncMakeService, FN: Clone> AsyncMakeService for FnSvc<F, FN> {
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         Ok(FnSvc {
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .await?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }
@@ -141,9 +132,7 @@ impl<F: MakeService, FN: Clone> MakeService for Map<F, FN> {
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(Map {
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }
@@ -155,9 +144,7 @@ impl<F: MakeService, FN: Clone> MakeService for MapErr<F, FN> {
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(MapErr {
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }
@@ -169,9 +156,7 @@ impl<F: MakeService, FN: Clone> MakeService for FnSvc<F, FN> {
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(FnSvc {
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }

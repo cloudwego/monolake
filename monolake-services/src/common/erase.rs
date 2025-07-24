@@ -15,9 +15,7 @@ impl<T: MakeService> MakeService for EraseResp<T> {
     #[inline]
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(EraseResp {
-            svc: self
-                .svc
-                .make_via_ref(old.map(|o| &o.svc))?,
+            svc: self.svc.make_via_ref(old.map(|o| &o.svc))?,
         })
     }
 }
@@ -32,10 +30,7 @@ impl<T: AsyncMakeService> AsyncMakeService for EraseResp<T> {
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         Ok(EraseResp {
-            svc: self
-                .svc
-                .make_via_ref(old.map(|o| &o.svc))
-                .await?,
+            svc: self.svc.make_via_ref(old.map(|o| &o.svc)).await?,
         })
     }
 }

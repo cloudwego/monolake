@@ -1,3 +1,4 @@
+#![feature(cfg_version)]
 #![feature(let_chains)]
 #![feature(impl_trait_in_assoc_type)]
 //! # Monolake Services

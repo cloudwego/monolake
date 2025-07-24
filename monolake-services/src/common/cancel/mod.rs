@@ -47,8 +47,7 @@ impl Canceller {
         let handler = unsafe { &mut *self.handler.get() };
         if !handler.cancelled {
             handler.cancelled = true;
-            let waiters: LinkedList<Waker> =
-                std::mem::take(&mut handler.waiters);
+            let waiters: LinkedList<Waker> = std::mem::take(&mut handler.waiters);
             for waker in waiters.into_iter() {
                 waker.wake();
             }
@@ -122,11 +121,12 @@ impl Future for Waiter {
 impl Drop for Waiter {
     fn drop(&mut self) {
         if let Some(index) = unsafe { *self.index.get() }
-            && let Some(handler) = self.handler.upgrade() {
-                let handler = unsafe { &mut *handler.get() };
-                if !handler.cancelled {
-                    handler.waiters.remove(index);
-                }
+            && let Some(handler) = self.handler.upgrade()
+        {
+            let handler = unsafe { &mut *handler.get() };
+            if !handler.cancelled {
+                handler.waiters.remove(index);
             }
+        }
     }
 }

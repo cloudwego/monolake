@@ -110,9 +110,7 @@ impl<F: MakeService> MakeService for CatchPanicService<F> {
 
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(CatchPanicService {
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
         })
     }
 }
@@ -126,10 +124,7 @@ impl<F: AsyncMakeService> AsyncMakeService for CatchPanicService<F> {
         old: Option<&Self::Service>,
     ) -> Result<Self::Service, Self::Error> {
         Ok(CatchPanicService {
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .await?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
         })
     }
 }

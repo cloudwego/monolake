@@ -393,9 +393,10 @@ where
         }
         AcceptedAddr::Unix(addr) => {
             if let Some(path) = addr.as_pathname().and_then(|s| s.to_str())
-                && let Ok(value) = HeaderValue::from_str(path) {
-                    headers.insert(header::FORWARDED, value);
-                }
+                && let Ok(value) = HeaderValue::from_str(path)
+            {
+                headers.insert(header::FORWARDED, value);
+            }
         }
     }
 }

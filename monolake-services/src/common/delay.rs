@@ -46,9 +46,7 @@ impl<F: MakeService> MakeService for DelayService<F> {
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(DelayService {
             delay: self.delay,
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
         })
     }
 }
@@ -63,10 +61,7 @@ impl<F: AsyncMakeService> AsyncMakeService for DelayService<F> {
     ) -> Result<Self::Service, Self::Error> {
         Ok(DelayService {
             delay: self.delay,
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .await?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
         })
     }
 }

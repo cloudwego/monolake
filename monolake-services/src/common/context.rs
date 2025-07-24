@@ -113,9 +113,7 @@ impl<CXStore, F: MakeService> MakeService for ContextService<CXStore, F> {
     fn make_via_ref(&self, old: Option<&Self::Service>) -> Result<Self::Service, Self::Error> {
         Ok(ContextService {
             ctx: PhantomData,
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner))?,
         })
     }
 }
@@ -130,10 +128,7 @@ impl<CXStore, F: AsyncMakeService> AsyncMakeService for ContextService<CXStore, 
     ) -> Result<Self::Service, Self::Error> {
         Ok(ContextService {
             ctx: PhantomData,
-            inner: self
-                .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .await?,
+            inner: self.inner.make_via_ref(old.map(|o| &o.inner)).await?,
         })
     }
 }
