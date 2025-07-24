@@ -93,8 +93,7 @@ impl<F: AsyncMakeService, FN: Clone> AsyncMakeService for Map<F, FN> {
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
-                .await
-                .map_err(Into::into)?,
+                .await?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }
@@ -112,8 +111,7 @@ impl<F: AsyncMakeService, FN: Clone> AsyncMakeService for MapErr<F, FN> {
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
-                .await
-                .map_err(Into::into)?,
+                .await?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }
@@ -131,8 +129,7 @@ impl<F: AsyncMakeService, FN: Clone> AsyncMakeService for FnSvc<F, FN> {
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
-                .await
-                .map_err(Into::into)?,
+                .await?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }
@@ -146,8 +143,7 @@ impl<F: MakeService, FN: Clone> MakeService for Map<F, FN> {
         Ok(Map {
             inner: self
                 .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .map_err(Into::into)?,
+                .make_via_ref(old.map(|o| &o.inner))?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }
@@ -161,8 +157,7 @@ impl<F: MakeService, FN: Clone> MakeService for MapErr<F, FN> {
         Ok(MapErr {
             inner: self
                 .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .map_err(Into::into)?,
+                .make_via_ref(old.map(|o| &o.inner))?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }
@@ -176,8 +171,7 @@ impl<F: MakeService, FN: Clone> MakeService for FnSvc<F, FN> {
         Ok(FnSvc {
             inner: self
                 .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .map_err(Into::into)?,
+                .make_via_ref(old.map(|o| &o.inner))?,
             rewrite_f: self.rewrite_f.clone(),
         })
     }

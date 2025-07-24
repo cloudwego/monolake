@@ -40,7 +40,7 @@ impl<F1, F2, FACC, T> AccompanyPairBase<F1, F2, FACC, T> {
     pub(crate) fn stage1(
         mut self: Pin<&mut Self>,
         future1: F1,
-    ) -> AccompanyPairS1<F1, F2, FACC, T> {
+    ) -> AccompanyPairS1<'_, F1, F2, FACC, T> {
         unsafe {
             self.as_mut().get_unchecked_mut().main.assume_init_mut().a = ManuallyDrop::new(future1);
         }
@@ -50,14 +50,14 @@ impl<F1, F2, FACC, T> AccompanyPairBase<F1, F2, FACC, T> {
     pub(crate) fn stage2(
         mut self: Pin<&mut Self>,
         future2: F2,
-    ) -> AccompanyPairS2<F1, F2, FACC, T> {
+    ) -> AccompanyPairS2<'_, F1, F2, FACC, T> {
         unsafe {
             self.as_mut().get_unchecked_mut().main.assume_init_mut().b = ManuallyDrop::new(future2);
         }
         AccompanyPairS2(self)
     }
 
-    pub(crate) const fn stage3(self: Pin<&mut Self>) -> AccompanyPairS3<F1, F2, FACC, T> {
+    pub(crate) const fn stage3(self: Pin<&mut Self>) -> AccompanyPairS3<'_, F1, F2, FACC, T> {
         AccompanyPairS3(self)
     }
 }

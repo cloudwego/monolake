@@ -178,8 +178,7 @@ where
                 .map_err(Into::into),
             UnifiedTlsFactory::Native(inner) => inner
                 .make_via_ref(UnifiedTlsService::as_native(old))
-                .map(UnifiedTlsService::Native)
-                .map_err(Into::into),
+                .map(UnifiedTlsService::Native),
             UnifiedTlsFactory::None(inner) => inner
                 .make_via_ref(UnifiedTlsService::as_none(old))
                 .map(UnifiedTlsService::None)
@@ -214,8 +213,7 @@ where
             UnifiedTlsFactory::Native(inner) => inner
                 .make_via_ref(UnifiedTlsService::as_native(old))
                 .await
-                .map(UnifiedTlsService::Native)
-                .map_err(Into::into),
+                .map(UnifiedTlsService::Native),
             UnifiedTlsFactory::None(inner) => inner
                 .make_via_ref(UnifiedTlsService::as_none(old))
                 .await

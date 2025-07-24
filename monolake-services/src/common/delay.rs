@@ -48,8 +48,7 @@ impl<F: MakeService> MakeService for DelayService<F> {
             delay: self.delay,
             inner: self
                 .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .map_err(Into::into)?,
+                .make_via_ref(old.map(|o| &o.inner))?,
         })
     }
 }
@@ -67,8 +66,7 @@ impl<F: AsyncMakeService> AsyncMakeService for DelayService<F> {
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
-                .await
-                .map_err(Into::into)?,
+                .await?,
         })
     }
 }

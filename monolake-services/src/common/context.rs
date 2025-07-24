@@ -115,8 +115,7 @@ impl<CXStore, F: MakeService> MakeService for ContextService<CXStore, F> {
             ctx: PhantomData,
             inner: self
                 .inner
-                .make_via_ref(old.map(|o| &o.inner))
-                .map_err(Into::into)?,
+                .make_via_ref(old.map(|o| &o.inner))?,
         })
     }
 }
@@ -134,8 +133,7 @@ impl<CXStore, F: AsyncMakeService> AsyncMakeService for ContextService<CXStore, 
             inner: self
                 .inner
                 .make_via_ref(old.map(|o| &o.inner))
-                .await
-                .map_err(Into::into)?,
+                .await?,
         })
     }
 }
