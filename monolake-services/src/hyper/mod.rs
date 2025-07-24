@@ -56,14 +56,14 @@ use http::{Request, Response};
 use hyper::body::{Body, Incoming};
 use hyper_util::server::conn::auto::Builder;
 use monoio::io::{
-    poll_io::{AsyncRead, AsyncWrite},
     IntoPollIo,
+    poll_io::{AsyncRead, AsyncWrite},
 };
 pub use monoio_compat::hyper::{MonoioExecutor, MonoioIo};
 use monolake_core::http::HttpHandler;
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 use crate::tcp::Accept;

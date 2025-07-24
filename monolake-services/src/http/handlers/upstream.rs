@@ -53,7 +53,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use http::{header, HeaderMap, HeaderValue, Request, StatusCode};
+use http::{HeaderMap, HeaderValue, Request, StatusCode, header};
 use monoio::net::TcpStream;
 use monoio_http::common::{
     body::{Body, HttpBody},
@@ -73,7 +73,7 @@ use monolake_core::{
 use service_async::{AsyncMakeService, MakeService, ParamMaybeRef, ParamRef, Service};
 use tracing::{debug, info};
 
-use crate::http::{generate_response, HttpVersion};
+use crate::http::{HttpVersion, generate_response};
 
 type PooledHttpConnector = HttpConnector<TcpConnector, SocketAddr, TcpStream>;
 #[cfg(feature = "tls")]

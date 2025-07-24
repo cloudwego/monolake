@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Param, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 #[derive(Clone)]

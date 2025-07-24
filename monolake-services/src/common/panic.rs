@@ -59,8 +59,8 @@ use std::{fmt::Debug, panic::AssertUnwindSafe};
 
 use futures::FutureExt;
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 pub struct CatchPanicService<S> {

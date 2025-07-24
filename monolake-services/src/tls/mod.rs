@@ -45,8 +45,8 @@ use std::io::Cursor;
 use monolake_core::AnyError;
 use native_tls::Identity;
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Param, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 pub use self::{nativetls::NativeTlsService, rustls::RustlsService};

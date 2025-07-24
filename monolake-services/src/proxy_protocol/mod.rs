@@ -36,11 +36,11 @@ use monoio::{
     buf::IoBufMut,
     io::{AsyncReadRent, AsyncWriteRent, PrefixedReadIo},
 };
-use monolake_core::{context::RemoteAddr, listener::AcceptedAddr, AnyError};
-use proxy_protocol::{parse, version1, version2, ParseError, ProxyHeader};
+use monolake_core::{AnyError, context::RemoteAddr, listener::AcceptedAddr};
+use proxy_protocol::{ParseError, ProxyHeader, parse, version1, version2};
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, ParamSet, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 use crate::tcp::Accept;

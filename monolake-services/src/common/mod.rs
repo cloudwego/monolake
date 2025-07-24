@@ -10,7 +10,7 @@ pub mod selector;
 pub mod timeout;
 
 // TODO: remove following re-exports
-pub use cancel::{linked_list, Canceller, CancellerDropper, Waiter};
+pub use cancel::{Canceller, CancellerDropper, Waiter, linked_list};
 pub use context::ContextService;
 pub use delay::{Delay, DelayService};
 pub use detect::{Detect, DetectService, FixedLengthDetector, PrefixDetector};

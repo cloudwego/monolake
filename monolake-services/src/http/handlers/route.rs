@@ -31,16 +31,16 @@
 //! use monolake_services::{
 //!     common::ContextService,
 //!     http::{
+//!         HttpServerTimeout,
 //!         core::HttpCoreService,
 //!         detect::H2Detect,
 //!         handlers::{
-//!             route::RouteConfig, ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler,
-//!             UpstreamHandler,
+//!             ConnectionReuseHandler, ContentHandler, RewriteAndRouteHandler, UpstreamHandler,
+//!             route::RouteConfig,
 //!         },
-//!         HttpServerTimeout,
 //!     },
 //! };
-//! use service_async::{layer::FactoryLayer, stack::FactoryStack, Param};
+//! use service_async::{Param, layer::FactoryLayer, stack::FactoryStack};
 //!
 //! // Dummy struct to satisfy Param trait requirements
 //! struct DummyConfig;
@@ -97,17 +97,17 @@
 //! - Support for more advanced routing patterns (e.g., regex-based routing).
 //! - Enhanced metrics and logging for better observability.
 //! - Integration with service discovery systems for dynamic upstream management.
-use http::{uri::Scheme, HeaderValue, Request, Response, StatusCode};
+use http::{HeaderValue, Request, Response, StatusCode, uri::Scheme};
 use monoio_http::common::body::FixedBody;
 use monolake_core::{
+    AnyError,
     http::{HttpError, HttpFatalError, HttpHandler, ResponseWithContinue},
     util::uri_serde,
-    AnyError,
 };
 use serde::{Deserialize, Serialize};
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Param, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 use crate::{

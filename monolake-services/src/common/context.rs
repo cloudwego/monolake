@@ -43,8 +43,8 @@ use std::marker::PhantomData;
 use certain_map::Handler;
 use monolake_core::{context::PeerAddr, listener::AcceptedAddr};
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, ParamSet, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 /// A service to insert Context into the request processing pipeline, compatible with `certain_map`.
@@ -81,10 +81,10 @@ where
     // directly(here `Transformed` is not bound but `Response` and `Error` are).
     for<'a> CXStore::Hdr<'a>: ParamSet<PeerAddr>,
     for<'a> T: Service<
-        (R, <CXStore::Hdr<'a> as ParamSet<PeerAddr>>::Transformed),
-        Response = Resp,
-        Error = Err,
-    >,
+            (R, <CXStore::Hdr<'a> as ParamSet<PeerAddr>>::Transformed),
+            Response = Resp,
+            Error = Err,
+        >,
 {
     type Response = Resp;
     type Error = Err;

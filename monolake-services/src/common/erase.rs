@@ -1,6 +1,6 @@
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 #[derive(Debug)]

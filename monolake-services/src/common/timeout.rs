@@ -25,8 +25,8 @@ use std::time::Duration;
 
 use monoio::time::timeout;
 use service_async::{
-    layer::{layer_fn, FactoryLayer},
     AsyncMakeService, MakeService, Param, Service,
+    layer::{FactoryLayer, layer_fn},
 };
 
 /// Service that adds timeout functionality to an inner service.
