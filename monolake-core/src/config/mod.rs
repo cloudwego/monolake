@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 // Default iouring/epoll entries: 32k
 const DEFAULT_ENTRIES: u32 = 32768;
 
-pub const FALLBACK_PARALLELISM: NonZeroUsize = unsafe { NonZeroUsize::new_unchecked(1) };
+pub const FALLBACK_PARALLELISM: NonZeroUsize = NonZeroUsize::new(1).unwrap();
 
 /// Configuration structure for a service, combining listener and server configs.
 ///
