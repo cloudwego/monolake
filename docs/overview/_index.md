@@ -36,12 +36,12 @@ The Monolake framework has been used to build various high-performance proxies a
 #### Request Per Second (RPS) vs. Body Size 
 |                         HTTPS                      |                        HTTP                        |
 | :------------------------------------------------- | :-------------------------------------------------: |
-| ![image](/img/docs/https_req_per_sec_vs_body_size.png) | ![image](/img/docs/http_req_per_sec_vs_body_size.png) |
+| ![image](https_req_per_sec_vs_body_size.png) | ![image](http_req_per_sec_vs_body_size.png) |
 
 ### Concurrency performance
 |                        HTTPS                        |                        HTTP                        |
 | :------------------------------------------------- | :-------------------------------------------------: |
-| ![image](/img/docs/https_req_per_sec_vs_worker_threads.png) | ![image](/img/docs/http_req_per_sec_vs_worker_threads.png) |
+| ![image](https_req_per_sec_vs_worker_threads.png) | ![image](http_req_per_sec_vs_worker_threads.png) |
 
 ## Related Projects
 
@@ -49,7 +49,7 @@ The Monolake framework has been used to build various high-performance proxies a
 
 ## Related Crates
 
-<img src="/img/docs/monolake_crates.png" width="500" height="300">
+<img src="monolake_crates.png" width="500" height="300">
 
 | Crate | Description |
 |-------|-------------|

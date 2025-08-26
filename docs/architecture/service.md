@@ -7,13 +7,7 @@ description: "Overview of Monolake's service architecture, factory patterns, and
 
 ## Services
 
-<style>
-.figure-caption {
-    text-align: center;
-}
-</style>
-
-{{< figure src="/img/docs/monolake_service.jpeg" width="1000" height="600" caption="Service Architecture" class="figure-caption" >}}
+![image](monolake_service.jpeg)
 
 The Service pattern is a fundamental abstraction in network programming, popularized by the Tower library in the Rust ecosystem. At its core, a Service represents an asynchronous function that processes requests and returns responses. This pattern is particularly powerful for building networking applications as it enables:
 
@@ -23,10 +17,10 @@ The Service pattern is a fundamental abstraction in network programming, popular
 - **Testability**: Services can be easily mocked and tested in isolation
 
 ## Improved Service Trait
-<div class="code-compare">
-  <div class="code-block">
-    <h4>Tower's Service Trait</h4>
-{{< highlight rust >}}
+
+Tower's Service Trait
+
+```rust
 pub trait Service<Request> {
     type Response;
     type Error;
@@ -39,11 +33,10 @@ pub trait Service<Request> {
     ) -> Poll<Result<(), Self::Error>>;
     fn call(&mut self, req: Request) -> Self::Future;
 }
-{{< /highlight >}}
-  </div>
-  <div class="code-block">
-    <h4>Monolake Service Trait</h4>
-{{< highlight rust >}}
+```
+Monolake Service Trait
+
+```rust
 pub trait Service<Request> {
     /// Responses given by the service.
     type Response;
@@ -52,34 +45,13 @@ pub trait Service<Request> {
     /// Process the request and return the response asynchronously.
     fn call(&self, req: Request) -> impl Future<Output = Result<Self::Response, Self::Error>>;
 }
-{{< /highlight >}}
-  </div>
-</div>
-
-<style>
-.code-compare {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.code-block {
-  min-width: 0;
-}
-
-.code-block h4 {
-  margin-top: 0;
-  margin-bottom: 0.5rem;
-}
-</style>
-
+```
 
 ## New Service Trait
 
-<div class="code-compare">
-  <div class="code-block">
-    <h4>Async Service trait</h4>
-{{< highlight rust >}}
+Async Service trait
+
+```rust
 impl<S, Req> tower::Service<Req> for SomeStruct<S>
 where
     // ...
@@ -100,11 +72,11 @@ where
         })
     }
 }
-{{< /highlight >}}
-  </div>
-  <div class="code-block">
-    <h4>Trait implementation</h4>
-{{< highlight rust >}}
+```
+
+Trait implementation
+
+```rust
 impl<R, T> Service<R> for DelayService<T>
 where
     T: Service<R>,
@@ -117,26 +89,7 @@ where
         self.inner.call(req).await
     }
 }
-{{< /highlight >}}
-  </div>
-</div>
-
-<style>
-.code-compare {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.code-block {
-  min-width: 0;
-}
-
-.code-block h4 {
-  margin-top: 0;
-  margin-bottom: 0.5rem;
-}
-</style>
+```
 
 Tower framework's [Service trait](https://docs.rs/tower/latest/tower/trait.Service.html), while powerful, presents some challenges:
 
@@ -180,7 +133,7 @@ This approach allows for efficient updates to service chains, preserving valuabl
 
 ## FactoryLayer & FactoryStack
 
-{{< figure src="/img/docs/monolake_factory_stack.png" width="1000" height="600" caption="Service Architecture" >}}
+![image](monolake_factory_stack.png)
 
 To enable more complex service compositions, we introduce the FactoryLayer trait, which defines how to wrap one factory with another, creating a new composite factory. Factories can define a layer function that creates a factory wrapper, similar to the Tower framework's Layer but with a key distinction, our layer creates a Factory that wraps an inner Factory, which can then be used to construct the entire Service chain.
 
