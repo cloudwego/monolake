@@ -1,8 +1,14 @@
-# CloudWeGo-Monolake
+# Project Archival Notice
+This project is no longer recommended for use and has been officially archived. The decision to archive is driven by the following key factors:
+- Insufficient engineering resource investment: We currently lack the dedicated engineering manpower required to support ongoing development, bug fixes, and feature enhancements.
+- Challenges in sustaining open-source maintenance and growth: Due to the above constraints, it has become impractical to continue maintaining the project at a standard that meets open-source community expectations, nor to drive its long-term development.
+
+We sincerely appreciate the interest and any contributions this project has received from the community. For users seeking similar functionality, we recommend exploring alternative open-source solutions that are actively maintained and aligned with current technical standards.
+
+## CloudWeGo-Monolake
 
 English | [简体中文](README_zh.md)
 
-[![WebSite](https://img.shields.io/website?up_message=cloudwego&url=https%3A%2F%2Fwww.cloudwego.io%2F)](https://www.cloudwego.io/)
 [![License](https://img.shields.io/github/license/cloudwego/monolake)](https://github.com/cloudwego/monolake/blob/main/LICENSE)
 [![OpenIssue](https://img.shields.io/github/issues/cloudwego/monolake)](https://github.com/cloudwego/monolake/issues)
 [![ClosedIssue](https://img.shields.io/github/issues-closed/cloudwego/monolake)](https://github.com/cloudwego/monolake/issues?q=is%3Aissue+is%3Aclosed)
@@ -64,13 +70,13 @@ The Monolake framework has been used to build various high-performance proxies a
 
 ## Documentation
 
-- [**Getting Started**](https://www.cloudwego.io/docs/monolake/getting-started/)
+- [**Getting Started**](./docs/getting-started/)
 
-- [**Architecture**](https://www.cloudwego.io/docs/monolake/architecture/)
+- [**Architecture**](./docs/architecture/)
 
-- [**Developer guide**](https://www.cloudwego.io/docs/monolake/tutorial/)
+- [**Developer guide**](./docs/tutorial/)
 
-- [**Config guide**](https://www.cloudwego.io/docs/monolake/config-guide/)
+- [**Config guide**](./docs/config-guide/)
 
 ## Related Crates
 

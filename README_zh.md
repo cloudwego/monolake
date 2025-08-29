@@ -2,7 +2,6 @@
 
 简体中文 | [English](README.md)
 
-[![网站状态](https://img.shields.io/website?up_message=cloudwego&url=https%3A%2F%2Fwww.cloudwego.io%2F)](https://www.cloudwego.io/)
 [![许可证](https://img.shields.io/github/license/cloudwego/monolake)](https://github.com/cloudwego/monolake/blob/main/LICENSE)
 [![开放议题](https://img.shields.io/github/issues/cloudwego/monolake)](https://github.com/cloudwego/monolake/issues)
 [![已关闭议题](https://img.shields.io/github/issues-closed/cloudwego/monolake)](https://github.com/cloudwego/monolake/issues?q=is%3Aissue+is%3Aclosed)
@@ -64,10 +63,10 @@ Monolake 框架已用于构建多种高性能代理和网关，**并积极部署
 
 ## 文档
 
-- [**快速开始**](https://www.cloudwego.io/zh/docs/monolake/getting-started/)
-- [**架构设计**](https://www.cloudwego.io/zh/docs/monolake/architecture/)
-- [**开发指南**](https://www.cloudwego.io/zh/docs/monolake/tutorial/)
-- [**配置指南**](https://www.cloudwego.io/zh/docs/monolake/config-guid/)
+- [**快速开始**](./docs/getting-started/)
+- [**架构设计**](./docs/architecture/)
+- [**开发指南**](./docs/tutorial/)
+- [**配置指南**](./docs/config-guide/)
 
 ## 相关组件
 
